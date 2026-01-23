@@ -56,7 +56,7 @@ export default async function DocPage({ params }: DocPageProps) {
     // If no MDX content found, show placeholder
     if (!doc) {
         return (
-            <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
                 <PlaceholderContent distro={distroConfig.name} slug={slugPath} />
             </div>
         );
@@ -71,7 +71,7 @@ export default async function DocPage({ params }: DocPageProps) {
     });
 
     return (
-        <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+        <article className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
             {/* Breadcrumb */}
             <nav className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
                 <Link href="/" className="hover:text-foreground">

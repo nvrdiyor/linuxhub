@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, Search, X, Command } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,7 +29,8 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 glass border-b border-border/50">
-            <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+            {/* Use full width container for docs pages */}
+            <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8 max-w-screen-2xl">
                 {/* Left: Logo & Navigation */}
                 <div className="flex items-center gap-4">
                     {/* Mobile menu button */}
@@ -69,10 +71,14 @@ export function Header() {
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-3 group" onClick={handleLogoClick}>
                         <div className="relative">
-                            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-purple-500 blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
-                            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-purple-500 text-white font-bold text-lg shadow-lg">
-                                L
-                            </div>
+                            <div className="absolute inset-0 rounded-xl bg-linear-to-br from-primary to-purple-500 blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
+                            <Image
+                                src="/linuhublogo.png"
+                                alt="LinuxHub Logo"
+                                width={40}
+                                height={40}
+                                className="relative rounded-xl shadow-lg"
+                            />
                         </div>
                         <span className="text-xl font-bold tracking-tight hidden sm:block">
                             {siteConfig.name}

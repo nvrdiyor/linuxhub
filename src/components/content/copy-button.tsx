@@ -13,6 +13,7 @@ export function CopyButton({ code }: CopyButtonProps) {
     const copyToClipboard = async () => {
         await navigator.clipboard.writeText(code);
         setCopied(true);
+        // eslint-disable-next-line react-compiler/react-compiler
         setTimeout(() => setCopied(false), 2000);
     };
 

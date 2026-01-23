@@ -1,28 +1,42 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Terminal, BookOpen, Users, Zap, Sparkles, ArrowRight } from "lucide-react";
+import { Terminal, BookOpen, Users, Zap, Sparkles, ArrowRight, LucideIcon } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+// Dynamically import Three.js component to avoid SSR issues
+const ThreeBackground = dynamic(
+    () => import("@/components/three/three-background").then(mod => mod.ThreeBackground),
+    { ssr: false }
+);
 
 export function Hero() {
     return (
         <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+            {/* Three.js 3D Background */}
+            <ThreeBackground />
+
             {/* Animated Background */}
             <div className="absolute inset-0 -z-10">
                 {/* Gradient orbs */}
-                <div className="absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 blur-3xl animate-float" />
-                <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur-3xl animate-float" style={{ animationDelay: "-1.5s" }} />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-gradient-to-r from-primary/10 to-purple-500/10 blur-3xl" />
+                <div className="absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-linear-to-r from-indigo-500/20 to-purple-500/20 blur-3xl animate-float" />
+                <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-linear-to-r from-cyan-500/20 to-blue-500/20 blur-3xl animate-float" style={{ animationDelay: "-1.5s" }} />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-linear-to-r from-primary/10 to-purple-500/10 blur-3xl" />
 
                 {/* Grid pattern */}
                 <div className="absolute inset-0 bg-dot-pattern opacity-30" />
 
                 {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background" />
+                <div className="absolute inset-0 bg-linear-to-b from-background via-transparent to-background" />
             </div>
 
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full">
-                <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 w-full">
+                <div className="grid lg:grid-cols-2 gap-12 items-center relative">
+                    {/* Gradient orb behind text (left side) */}
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-linear-to-r from-primary/40 via-purple-500/30 to-transparent blur-3xl -z-10 hidden lg:block" />
+                    {/* Gradient orb behind terminal (right side) */}
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-linear-to-l from-cyan-500/40 via-blue-500/30 to-transparent blur-3xl -z-10 hidden lg:block" />
                     {/* Left Content */}
                     <motion.div
                         initial={{ opacity: 0, x: -30 }}
@@ -140,7 +154,7 @@ export function Hero() {
                             <motion.div
                                 animate={{ y: [0, -8, 0] }}
                                 transition={{ duration: 3, repeat: Infinity }}
-                                className="absolute -top-4 -right-4 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-sm font-medium shadow-lg"
+                                className="absolute -top-4 -right-4 px-4 py-2 rounded-xl bg-linear-to-r from-indigo-500 to-purple-500 text-white text-sm font-medium shadow-lg"
                             >
                                 🚀 Yangi!
                             </motion.div>
@@ -148,7 +162,7 @@ export function Hero() {
                             <motion.div
                                 animate={{ y: [0, 8, 0] }}
                                 transition={{ duration: 3.5, repeat: Infinity }}
-                                className="absolute -bottom-4 -left-4 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-medium shadow-lg"
+                                className="absolute -bottom-4 -left-4 px-4 py-2 rounded-xl bg-linear-to-r from-green-500 to-emerald-500 text-white text-sm font-medium shadow-lg"
                             >
                                 ✓ O'zbek tilida
                             </motion.div>
@@ -161,7 +175,7 @@ export function Hero() {
 }
 
 interface StatItemProps {
-    icon: React.ElementType;
+    icon: LucideIcon;
     value: string;
     label: string;
 }

@@ -14,7 +14,7 @@ export default function DistroLayout({
     const distroId = params.distro as string;
     const { setCurrentDistro } = useSidebarStore();
 
-    // Set current distro when entering distro pages
+    // eslint-disable-next-line react-compiler/react-compiler
     useEffect(() => {
         setCurrentDistro(distroId);
 

@@ -29,8 +29,8 @@ export function DistroCard({ distro, index }: DistroCardProps) {
             <Link
                 href={isComingSoon ? "#" : `/${distro.id}/introduction`}
                 className={`relative flex h-full flex-col overflow-hidden rounded-2xl border bg-card p-6 transition-all duration-500 ${isComingSoon
-                        ? "cursor-not-allowed opacity-60 border-border"
-                        : "border-border hover:border-transparent hover:shadow-2xl"
+                    ? "cursor-not-allowed opacity-60 border-border"
+                    : "border-border hover:border-transparent hover:shadow-2xl"
                     }`}
                 onClick={(e) => isComingSoon && e.preventDefault()}
             >
@@ -56,7 +56,7 @@ export function DistroCard({ distro, index }: DistroCardProps) {
 
                 {/* Coming Soon Badge */}
                 {isComingSoon && (
-                    <span className="absolute right-4 top-4 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 px-3 py-1.5 text-xs font-semibold text-yellow-600 dark:text-yellow-400 border border-yellow-500/30">
+                    <span className="absolute right-4 top-4 rounded-full bg-linear-to-r from-yellow-500/20 to-orange-500/20 px-3 py-1.5 text-xs font-semibold text-yellow-600 dark:text-yellow-400 border border-yellow-500/30">
                         Tez kunda
                     </span>
                 )}
@@ -87,7 +87,7 @@ export function DistroCard({ distro, index }: DistroCardProps) {
                 {/* Content */}
                 <h3 className="mb-2 text-xl font-bold transition-colors duration-300">
                     <span
-                        className="group-hover:bg-gradient-to-r group-hover:from-current group-hover:to-current group-hover:bg-clip-text"
+                        className="group-hover:bg-linear-to-r group-hover:from-current group-hover:to-current group-hover:bg-clip-text"
                         style={{
                             '--tw-gradient-from': distro.color,
                             '--tw-gradient-to': distro.color,

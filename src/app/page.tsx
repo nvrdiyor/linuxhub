@@ -14,10 +14,10 @@ export default function HomePage() {
       <section id="distros" className="py-20 relative">
         {/* Background */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/30 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-b from-transparent via-muted/30 to-transparent" />
         </div>
 
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-4">
               <BookOpen className="h-4 w-4" />
@@ -43,10 +43,10 @@ export default function HomePage() {
       {/* Features Section */}
       <section className="py-20 relative overflow-hidden">
         {/* Background decorations */}
-        <div className="absolute top-1/2 left-0 w-96 h-96 bg-gradient-to-r from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2" />
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-gradient-to-l from-purple-500/10 to-transparent rounded-full blur-3xl -translate-y-1/2" />
+        <div className="absolute top-1/2 left-0 w-96 h-96 bg-linear-to-r from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2" />
+        <div className="absolute top-1/2 right-0 w-96 h-96 bg-linear-to-l from-purple-500/10 to-transparent rounded-full blur-3xl -translate-y-1/2" />
 
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-16">
             <span className="inline-flex items-center gap-2 rounded-full bg-green-500/10 px-4 py-1.5 text-sm font-medium text-green-600 dark:text-green-400 mb-4">
               <Zap className="h-4 w-4" />
@@ -82,10 +82,10 @@ export default function HomePage() {
 
       {/* CTA Section */}
       <section className="py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
           <div className="relative rounded-3xl overflow-hidden">
             {/* Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary via-purple-600 to-pink-600" />
+            <div className="absolute inset-0 bg-linear-to-br from-primary via-purple-600 to-pink-600" />
             <div className="absolute inset-0 bg-grid-pattern opacity-10" />
 
             {/* Decorative orbs */}
@@ -127,7 +127,7 @@ function FeatureCard({ title, description, icon, gradient }: FeatureCardProps) {
   return (
     <div className="group relative">
       {/* Glow effect */}
-      <div className={`absolute -inset-0.5 rounded-2xl bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`} />
+      <div className={`absolute -inset-0.5 rounded-2xl bg-linear-to-r ${gradient} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`} />
 
       <div className="relative rounded-2xl border border-border bg-card p-8 text-center transition-all duration-300 hover:shadow-xl hover:border-primary/30 h-full flex flex-col">
         <div className="mb-5 flex justify-center items-center h-16">{icon}</div>

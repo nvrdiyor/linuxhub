@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { AlertCircle, AlertTriangle, Info, Lightbulb, CheckCircle2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Info, Lightbulb, CheckCircle2, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type CalloutType = "info" | "warning" | "danger" | "tip" | "success";
@@ -10,7 +10,7 @@ interface CalloutProps {
     children: ReactNode;
 }
 
-const calloutConfig: Record<CalloutType, { icon: React.ElementType; className: string }> = {
+const calloutConfig: Record<CalloutType, { icon: LucideIcon; className: string }> = {
     info: {
         icon: Info,
         className: "border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-400",
