@@ -29,7 +29,7 @@ export default function DistroLayout({
             <Sidebar />
 
             {/* Main content */}
-            <div className="flex-1 lg:pl-0">
+            <div className="flex-1 w-full min-w-0">
                 {children}
             </div>
         </div>
