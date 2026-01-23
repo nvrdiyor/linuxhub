@@ -1,65 +1,96 @@
-import Image from "next/image";
+import { Hero } from "@/components/home/hero";
+import { DistroCard } from "@/components/home/distro-card";
+import { distros } from "@/config/distros";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      {/* Hero Section */}
+      <Hero />
+
+      {/* Distros Section */}
+      <section className="py-16">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-12 text-center">
+            <h2 className="mb-4 text-3xl font-bold">Distributivni tanlang</h2>
+            <p className="mx-auto max-w-2xl text-muted-foreground">
+              O'zingizga mos Linux distributivini tanlang va o'zbek tilida o'rganishni boshlang.
+              Har bir distributiv uchun batafsil qo'llanmalar mavjud.
+            </p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {distros.map((distro, index) => (
+              <DistroCard key={distro.id} distro={distro} index={index} />
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </section>
+
+      {/* Features Section */}
+      <section className="border-t border-border bg-muted/30 py-16">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-12 text-center">
+            <h2 className="mb-4 text-3xl font-bold">Nima uchun LinuxHub?</h2>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            <FeatureCard
+              title="O'zbek tilida"
+              description="Barcha qo'llanmalar o'zbek tilida yozilgan. Murakkab texnik atamalar tushunarli tarzda tushuntirilgan."
+              icon="🇺🇿"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <FeatureCard
+              title="Amaliy misollar"
+              description="Har bir mavzu amaliy misollar bilan tasvirlangan. Kodni nusxalash va sinab ko'rish oson."
+              icon="💻"
+            />
+            <FeatureCard
+              title="Hamjamiyat"
+              description="Telegram guruhimizda savol bering va tajribali foydalanuvchilardan yordam oling."
+              icon="👥"
+            />
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 p-8 text-center sm:p-12">
+            <h2 className="mb-4 text-3xl font-bold">Tayyor bo'lsangiz, boshlang!</h2>
+            <p className="mx-auto mb-8 max-w-2xl text-muted-foreground">
+              Linux dunyosiga birinchi qadamingizni qo'ying.
+              NixOS bilan boshlashni tavsiya qilamiz — u eng zamonaviy va xavfsiz distributivlardan biri.
+            </p>
+            <a
+              href="/nixos/introduction"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              NixOS bilan boshlash
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+interface FeatureCardProps {
+  title: string;
+  description: string;
+  icon: string;
+}
+
+function FeatureCard({ title, description, icon }: FeatureCardProps) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 text-center">
+      <div className="mb-4 text-4xl">{icon}</div>
+      <h3 className="mb-2 text-xl font-semibold">{title}</h3>
+      <p className="text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }

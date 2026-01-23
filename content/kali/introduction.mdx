@@ -1,0 +1,75 @@
+---
+title: "Kali Linux ga kirish"
+description: "Kali Linux haqida umumiy ma'lumot va uning xavfsizlik asboblari"
+order: 1
+category: "getting-started"
+lastUpdated: "2024-01-15"
+author: "LinuxHub jamoasi"
+tags: ["kali", "security", "pentesting"]
+---
+
+# Kali Linux ga xush kelibsiz! 🔐
+
+**Kali Linux** — bu xavfsizlik mutaxassislari va etik hakerlar uchun maxsus yaratilgan Linux distributivi. U 600 dan ortiq xavfsizlik asboblarini o'z ichiga oladi.
+
+## Kali Linux nima?
+
+Kali Linux — bu Debian asosida qurilgan va **penetratsion test** (pentesting) hamda **xavfsizlik auditi** uchun mo'ljallangan distributiv. Uni Offensive Security kompaniyasi ishlab chiqadi.
+
+<Callout type="warning" title="Muhim ogohlantirish">
+  Kali Linux faqat **qonuniy maqsadlarda** ishlatilishi kerak. O'zingizga tegishli bo'lmagan tizimlarga ruxsatsiz kirish qonunga ziddir!
+</Callout>
+
+## Asosiy xususiyatlar
+
+### 1. Keng asboblar to'plami
+
+Kali Linux quyidagi sohalarda asboblar taqdim etadi:
+
+| Soha | Misollar |
+|------|----------|
+| Tarmoq skanerlash | Nmap, Masscan |
+| Zaiflik tahlili | Nikto, OpenVAS |
+| Veb-ilova testi | Burp Suite, OWASP ZAP |
+| Parol buzish | John the Ripper, Hashcat |
+| Wireless hujumlar | Aircrack-ng, Wifite |
+
+### 2. Live boot imkoniyati
+
+Kali ni o'rnatmasdan USB dan ishga tushirish mumkin:
+
+```bash
+# ISO faylni yuklab oling
+wget https://kali.download/base-images/kali-2024.1/kali-linux-2024.1-live-amd64.iso
+
+# USB ga yozing (Linux da)
+sudo dd if=kali-linux-2024.1-live-amd64.iso of=/dev/sdX bs=4M status=progress
+```
+
+<Callout type="danger" title="Diqqat!">
+  `dd` buyrug'ini ishlatayotganda to'g'ri qurilmani tanlang! Noto'g'ri qurilma tanlash ma'lumotlar yo'qotilishiga olib keladi.
+</Callout>
+
+## Kimlar uchun?
+
+<Steps>
+  <Step title="Xavfsizlik mutaxassislari">
+    Professional penetratsion test va xavfsizlik auditi uchun
+  </Step>
+  <Step title="Etik hakerlar">
+    Bug bounty va xavfsizlik tadqiqotlari uchun
+  </Step>
+  <Step title="Talabalar">
+    Kiberxavfsizlik sohasini o'rganuvchilar uchun
+  </Step>
+</Steps>
+
+## Keyingi qadamlar
+
+1. Kali Linux ni virtual mashinaga o'rnating
+2. Asosiy asboblar bilan tanishing
+3. Amaliy mashqlarni bajaring
+
+---
+
+Keyingi sahifada Kali Linux ni o'rnatish jarayonini ko'rib chiqamiz.

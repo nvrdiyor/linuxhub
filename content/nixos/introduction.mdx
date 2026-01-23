@@ -1,0 +1,107 @@
+---
+title: "NixOS ga kirish"
+description: "NixOS operatsion tizimi haqida umumiy ma'lumot va uning asosiy xususiyatlari"
+order: 1
+category: "getting-started"
+lastUpdated: "2024-01-15"
+author: "LinuxHub jamoasi"
+tags: ["nixos", "introduction", "linux"]
+---
+
+# NixOS ga xush kelibsiz! 🎉
+
+**NixOS** — bu **Nix** paket menejeri asosida qurilgan noyob Linux distributivi. U boshqa distributivlardan tubdan farq qiladi, chunki butun tizim konfiguratsiyasi bitta faylda saqlanadi va har doim qayta tiklanishi mumkin.
+
+## NixOS nima?
+
+NixOS — bu **deklarativ** konfiguratsiyaga ega Linux distributivi. Bu shuni anglatadiki, siz tizimingizni qanday ko'rishni xohlayotganingizni tasvirlab berasiz, va NixOS uni avtomatik ravishda shu holatga keltiradi.
+
+<Callout type="info" title="Deklarativ yondashuv">
+  Deklarativ yondashuvda siz "nima bo'lishi kerak" deb aytasiz, "qanday qilish kerak" emas. Bu tizimni boshqarishni ancha osonlashtiradi.
+</Callout>
+
+## Asosiy xususiyatlar
+
+### 1. Qayta tiklanadigan tizim (Reproducibility)
+
+NixOS ning eng katta afzalligi — bu **100% qayta tiklanadigan** tizim yaratish imkoniyati. Sizning `configuration.nix` faylingiz butun tizimni to'liq tasvirlaydi.
+
+```nix
+# /etc/nixos/configuration.nix
+{ config, pkgs, ... }:
+
+{
+  # Tizim sozlamalari
+  networking.hostName = "mening-kompyuterim";
+  
+  # O'rnatilgan paketlar
+  environment.systemPackages = with pkgs; [
+    vim
+    git
+    firefox
+  ];
+  
+  # Xizmatlar
+  services.openssh.enable = true;
+}
+```
+
+### 2. Atomic yangilanishlar
+
+Yangilanishlar **atomic** tarzda amalga oshiriladi. Bu shuni anglatadiki, agar yangilanish muvaffaqiyatsiz bo'lsa, tizim avvalgi holatiga qaytadi.
+
+<Callout type="tip" title="Rollback imkoniyati">
+  Har qanday vaqtda oldingi tizim konfiguratsiyasiga qaytishingiz mumkin. GRUB menyusida eski generatsiyalarni ko'rishingiz mumkin.
+</Callout>
+
+### 3. Izolyatsiyalangan paketlar
+
+Har bir paket o'zining **izolyatsiyalangan** joyida saqlanadi. Bu shuni anglatadiki:
+
+- Turli versiyalarni bir vaqtda o'rnatish mumkin
+- Paketlar bir-biriga ta'sir qilmaydi
+- "Dependency hell" muammosi yo'q
+
+## NixOS kimlar uchun?
+
+NixOS quyidagilar uchun juda mos:
+
+| Foydalanuvchi turi | Sabab |
+|-------------------|-------|
+| **Dasturchilar** | Qayta tiklanadigan muhit yaratish oson |
+| **DevOps mutaxassislari** | Infrastruktura-kod sifatida boshqarish |
+| **Tizim administratorlari** | Xavfsiz yangilanishlar va rollback |
+| **Tajribakor foydalanuvchilar** | To'liq nazorat va moslashuvchanlik |
+
+<Callout type="warning" title="Boshlang'ichlar uchun">
+  NixOS o'rganish egri chizig'i biroz tik. Agar siz Linuxda yangi bo'lsangiz, avval boshqa distributivlarni (masalan, Ubuntu yoki Fedora) sinab ko'rishni tavsiya qilamiz.
+</Callout>
+
+## Keyingi qadamlar
+
+NixOS ni o'rganishni davom ettirish uchun:
+
+<Steps>
+  <Step title="Asosiy tushunchalar">
+    Nix tili va paket menejeri haqida o'rganing
+  </Step>
+  <Step title="O'rnatish">
+    NixOS ni kompyuteringizga yoki virtual mashinaga o'rnating
+  </Step>
+  <Step title="Konfiguratsiya">
+    `configuration.nix` faylini o'zgartirishni o'rganing
+  </Step>
+  <Step title="Flakes">
+    Zamonaviy Nix flakes tizimini o'rganing
+  </Step>
+</Steps>
+
+## Foydali havolalar
+
+- [NixOS rasmiy sayti](https://nixos.org)
+- [Nix paketlar qidirish](https://search.nixos.org/packages)
+- [NixOS Wiki](https://nixos.wiki)
+
+---
+
+Keyingi sahifada NixOS ning asosiy tushunchalari haqida batafsil o'rganamiz.

@@ -1,0 +1,84 @@
+---
+title: "Manjaro ga kirish"
+description: "Manjaro Linux haqida umumiy ma'lumot - Arch asosidagi foydalanuvchilarga qulay distributiv"
+order: 1
+category: "getting-started"
+lastUpdated: "2024-01-15"
+author: "LinuxHub jamoasi"
+tags: ["manjaro", "arch", "desktop"]
+---
+
+# Manjaro ga xush kelibsiz! 🥭
+
+**Manjaro** — bu Arch Linux asosida qurilgan, lekin foydalanuvchilarga qulay va oson o'rnatiladigan distributiv.
+
+## Manjaro nima?
+
+Manjaro Arch Linux ning kuchli tomonlarini (rolling release, AUR) oladi va ularni oddiy foydalanuvchilar uchun qulay qiladi.
+
+<Callout type="info">
+  Manjaro = Arch Linux ning kuchi + Ubuntu ning qulayligi
+</Callout>
+
+## Arch va Manjaro farqi
+
+| Xususiyat | Arch Linux | Manjaro |
+|-----------|------------|---------|
+| O'rnatish | Qo'lda, terminal orqali | GUI o'rnatuvchi |
+| Repository | Eng yangi paketlar | 2 hafta kechiktirilgan, sinovdan o'tgan |
+| Hardware support | Qo'lda sozlash kerak | Avtomatik driver o'rnatish |
+| Target | Tajribakorlar | Barcha darajadagi foydalanuvchilar |
+
+## Desktop muhitlari
+
+Manjaro bir necha desktop muhitlarni taklif qiladi:
+
+<Steps>
+  <Step title="KDE Plasma">
+    Eng to'liq va moslashtiradigan muhit
+  </Step>
+  <Step title="GNOME">
+    Zamonaviy va minimalist dizayn
+  </Step>
+  <Step title="XFCE">
+    Yengil va tezkor, eski kompyuterlar uchun ideal
+  </Step>
+</Steps>
+
+## Pacman bilan ishlash
+
+```bash
+# Tizimni yangilash
+sudo pacman -Syu
+
+# Paket o'rnatish
+sudo pacman -S firefox
+
+# Paket qidirish
+pacman -Ss vim
+
+# Paket o'chirish
+sudo pacman -R paket-nomi
+```
+
+<Callout type="tip" title="AUR haqida">
+  AUR (Arch User Repository) da 80,000+ paket mavjud. `yay` yoki `pamac` yordamida o'rnatish mumkin.
+</Callout>
+
+## AUR dan o'rnatish
+
+```bash
+# yay o'rnatish (bir marotaba)
+sudo pacman -S yay
+
+# AUR dan paket o'rnatish
+yay -S visual-studio-code-bin
+```
+
+<Callout type="warning">
+  AUR paketlarini o'rnatishdan oldin PKGBUILD faylini tekshiring. AUR paketlari rasmiy emas.
+</Callout>
+
+---
+
+Keyingi sahifada Manjaro o'rnatish jarayonini batafsil ko'rib chiqamiz.
