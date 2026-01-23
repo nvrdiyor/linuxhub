@@ -1,100 +1,181 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Terminal, BookOpen, Users, Zap } from "lucide-react";
+import { Terminal, BookOpen, Users, Zap, Sparkles, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export function Hero() {
     return (
-        <section className="relative overflow-hidden py-20 sm:py-28">
-            {/* Background gradient */}
+        <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+            {/* Animated Background */}
             <div className="absolute inset-0 -z-10">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-                <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+                {/* Gradient orbs */}
+                <div className="absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 blur-3xl animate-float" />
+                <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur-3xl animate-float" style={{ animationDelay: "-1.5s" }} />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-gradient-to-r from-primary/10 to-purple-500/10 blur-3xl" />
+
+                {/* Grid pattern */}
+                <div className="absolute inset-0 bg-dot-pattern opacity-30" />
+
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background" />
             </div>
 
-            <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="text-center"
-                >
-                    {/* Badge */}
+            <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 w-full">
+                <div className="grid lg:grid-cols-2 gap-12 items-center">
+                    {/* Left Content */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.4, delay: 0.1 }}
-                        className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary"
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6 }}
                     >
-                        <Terminal className="h-4 w-4" />
-                        O'zbek tilidagi Linux qo'llanmalar
+                        {/* Badge */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, delay: 0.1 }}
+                            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary mb-6 backdrop-blur-sm"
+                        >
+                            <Sparkles className="h-4 w-4" />
+                            <span>O'zbek tilidagi Linux qo'llanmalar</span>
+                            <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                        </motion.div>
+
+                        {/* Heading */}
+                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
+                            <span className="block text-foreground">Linux dunyosiga</span>
+                            <span className="block mt-2 gradient-text">
+                                Xush kelibsiz!
+                            </span>
+                        </h1>
+
+                        {/* Description */}
+                        <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-xl leading-relaxed">
+                            NixOS, Kali Linux, Parrot OS va Manjaro distributivlarini o'zbek tilida o'rganing.
+                            <span className="text-foreground font-medium"> Boshlang'ichdan ilg'or darajagacha</span> — biz bilan birga o'rganing.
+                        </p>
+
+                        {/* CTA Buttons */}
+                        <div className="flex flex-wrap gap-4 mb-12">
+                            <Link
+                                href="/nixos/introduction"
+                                className="group inline-flex items-center gap-2 btn-primary"
+                            >
+                                Boshlash
+                                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                            </Link>
+                            <Link
+                                href="#distros"
+                                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-border bg-background/50 backdrop-blur-sm font-medium transition-all hover:bg-muted hover:border-primary/30"
+                            >
+                                <Terminal className="h-4 w-4" />
+                                Distributivlar
+                            </Link>
+                        </div>
+
+                        {/* Stats */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.4 }}
+                            className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+                        >
+                            <StatItem icon={BookOpen} value="4" label="Distributiv" />
+                            <StatItem icon={Terminal} value="50+" label="Maqolalar" />
+                            <StatItem icon={Users} value="100%" label="Bepul" />
+                            <StatItem icon={Zap} value="24/7" label="Ochiq" />
+                        </motion.div>
                     </motion.div>
 
-                    {/* Heading */}
-                    <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-                        <span className="block">Linux dunyosiga</span>
-                        <span className="block mt-2 bg-gradient-to-r from-primary via-blue-400 to-primary bg-clip-text text-transparent">
-                            Xush kelibsiz!
-                        </span>
-                    </h1>
-
-                    {/* Description */}
-                    <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-                        NixOS, Kali Linux, Parrot OS va Manjaro distributivlarini o'zbek tilida o'rganing.
-                        Boshlang'ichdan ilg'or darajagacha — biz bilan birga o'rganing.
-                    </p>
-
-                    {/* Stats */}
+                    {/* Right Visual */}
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                        className="mx-auto grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-4"
+                        initial={{ opacity: 0, x: 30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                        className="hidden lg:flex justify-center items-center"
                     >
-                        <StatCard
-                            icon={BookOpen}
-                            value="4"
-                            label="Distributiv"
-                            color="text-blue-500"
-                        />
-                        <StatCard
-                            icon={Terminal}
-                            value="50+"
-                            label="Maqolalar"
-                            color="text-green-500"
-                        />
-                        <StatCard
-                            icon={Users}
-                            value="100%"
-                            label="Bepul"
-                            color="text-purple-500"
-                        />
-                        <StatCard
-                            icon={Zap}
-                            value="24/7"
-                            label="Ochiq"
-                            color="text-orange-500"
-                        />
+                        <div className="relative">
+                            {/* Terminal mockup */}
+                            <div className="relative w-[480px] rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+                                {/* Terminal header */}
+                                <div className="flex items-center gap-2 px-4 py-3 bg-muted/50 border-b border-border">
+                                    <div className="flex gap-1.5">
+                                        <div className="h-3 w-3 rounded-full bg-red-500" />
+                                        <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                                        <div className="h-3 w-3 rounded-full bg-green-500" />
+                                    </div>
+                                    <span className="text-xs text-muted-foreground ml-2 font-mono">linuxhub ~ terminal</span>
+                                </div>
+
+                                {/* Terminal content */}
+                                <div className="p-6 font-mono text-sm space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-green-500">➜</span>
+                                        <span className="text-cyan-500">~</span>
+                                        <span className="text-foreground">neofetch</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                        <span className="text-primary">OS:</span>
+                                        <span className="text-muted-foreground">NixOS 24.05</span>
+                                        <span className="text-primary">Kernel:</span>
+                                        <span className="text-muted-foreground">6.6.32-linux</span>
+                                        <span className="text-primary">Shell:</span>
+                                        <span className="text-muted-foreground">zsh 5.9</span>
+                                        <span className="text-primary">DE:</span>
+                                        <span className="text-muted-foreground">GNOME 46</span>
+                                        <span className="text-primary">Terminal:</span>
+                                        <span className="text-muted-foreground">kitty</span>
+                                        <span className="text-primary">Packages:</span>
+                                        <span className="text-muted-foreground">1847 (nix)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-2">
+                                        <span className="text-green-500">➜</span>
+                                        <span className="text-cyan-500">~</span>
+                                        <span className="text-foreground animate-pulse">_</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Floating badges */}
+                            <motion.div
+                                animate={{ y: [0, -8, 0] }}
+                                transition={{ duration: 3, repeat: Infinity }}
+                                className="absolute -top-4 -right-4 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-sm font-medium shadow-lg"
+                            >
+                                🚀 Yangi!
+                            </motion.div>
+
+                            <motion.div
+                                animate={{ y: [0, 8, 0] }}
+                                transition={{ duration: 3.5, repeat: Infinity }}
+                                className="absolute -bottom-4 -left-4 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-medium shadow-lg"
+                            >
+                                ✓ O'zbek tilida
+                            </motion.div>
+                        </div>
                     </motion.div>
-                </motion.div>
+                </div>
             </div>
         </section>
     );
 }
 
-interface StatCardProps {
+interface StatItemProps {
     icon: React.ElementType;
     value: string;
     label: string;
-    color: string;
 }
 
-function StatCard({ icon: Icon, value, label, color }: StatCardProps) {
+function StatItem({ icon: Icon, value, label }: StatItemProps) {
     return (
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-            <Icon className={`mx-auto mb-2 h-5 w-5 ${color}`} />
-            <div className="text-2xl font-bold">{value}</div>
-            <div className="text-sm text-muted-foreground">{label}</div>
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-card/50 backdrop-blur-sm border border-border">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Icon className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+                <div className="text-xl font-bold">{value}</div>
+                <div className="text-xs text-muted-foreground">{label}</div>
+            </div>
         </div>
     );
 }

@@ -1,6 +1,8 @@
 import { Hero } from "@/components/home/hero";
 import { DistroCard } from "@/components/home/distro-card";
 import { distros } from "@/config/distros";
+import { BookOpen, Zap, Users, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export default function HomePage() {
   return (
@@ -9,13 +11,24 @@ export default function HomePage() {
       <Hero />
 
       {/* Distros Section */}
-      <section className="py-16">
+      <section id="distros" className="py-20 relative">
+        {/* Background */}
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/30 to-transparent" />
+        </div>
+
         <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold">Distributivni tanlang</h2>
-            <p className="mx-auto max-w-2xl text-muted-foreground">
-              O'zingizga mos Linux distributivini tanlang va o'zbek tilida o'rganishni boshlang.
-              Har bir distributiv uchun batafsil qo'llanmalar mavjud.
+          <div className="text-center mb-16">
+            <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-4">
+              <BookOpen className="h-4 w-4" />
+              Distributivlar
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              O&apos;zingizga mos <span className="gradient-text">distributivni</span> tanlang
+            </h2>
+            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+              Har bir distributiv uchun batafsil qo&apos;llanmalar mavjud.
+              O&apos;zbek tilida yozilgan va doimiy yangilanib turadi.
             </p>
           </div>
 
@@ -28,10 +41,20 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="border-t border-border bg-muted/30 py-16">
-        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold">Nima uchun LinuxHub?</h2>
+      <section className="py-20 relative overflow-hidden">
+        {/* Background decorations */}
+        <div className="absolute top-1/2 left-0 w-96 h-96 bg-gradient-to-r from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2" />
+        <div className="absolute top-1/2 right-0 w-96 h-96 bg-gradient-to-l from-purple-500/10 to-transparent rounded-full blur-3xl -translate-y-1/2" />
+
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 relative">
+          <div className="text-center mb-16">
+            <span className="inline-flex items-center gap-2 rounded-full bg-green-500/10 px-4 py-1.5 text-sm font-medium text-green-600 dark:text-green-400 mb-4">
+              <Zap className="h-4 w-4" />
+              Afzalliklar
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Nima uchun <span className="gradient-text-blue">LinuxHub?</span>
+            </h2>
           </div>
 
           <div className="grid gap-8 md:grid-cols-3">
@@ -39,39 +62,53 @@ export default function HomePage() {
               title="O'zbek tilida"
               description="Barcha qo'llanmalar o'zbek tilida yozilgan. Murakkab texnik atamalar tushunarli tarzda tushuntirilgan."
               icon="🇺🇿"
+              gradient="from-blue-500 to-cyan-500"
             />
             <FeatureCard
               title="Amaliy misollar"
               description="Har bir mavzu amaliy misollar bilan tasvirlangan. Kodni nusxalash va sinab ko'rish oson."
               icon="💻"
+              gradient="from-purple-500 to-pink-500"
             />
             <FeatureCard
               title="Hamjamiyat"
               description="Telegram guruhimizda savol bering va tajribali foydalanuvchilardan yordam oling."
               icon="👥"
+              gradient="from-orange-500 to-red-500"
             />
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-16">
+      <section className="py-20">
         <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 p-8 text-center sm:p-12">
-            <h2 className="mb-4 text-3xl font-bold">Tayyor bo'lsangiz, boshlang!</h2>
-            <p className="mx-auto mb-8 max-w-2xl text-muted-foreground">
-              Linux dunyosiga birinchi qadamingizni qo'ying.
-              NixOS bilan boshlashni tavsiya qilamiz — u eng zamonaviy va xavfsiz distributivlardan biri.
-            </p>
-            <a
-              href="/nixos/introduction"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              NixOS bilan boshlash
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </a>
+          <div className="relative rounded-3xl overflow-hidden">
+            {/* Background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary via-purple-600 to-pink-600" />
+            <div className="absolute inset-0 bg-grid-pattern opacity-10" />
+
+            {/* Decorative orbs */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+
+            {/* Content */}
+            <div className="relative px-8 py-16 sm:px-16 sm:py-20 text-center text-white">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+                Tayyor bo&apos;lsangiz, boshlang!
+              </h2>
+              <p className="mx-auto mb-8 max-w-2xl text-lg text-white/80">
+                Linux dunyosiga birinchi qadamingizni qo&apos;ying.
+                NixOS bilan boshlashni tavsiya qilamiz — u eng zamonaviy va xavfsiz distributivlardan biri.
+              </p>
+              <Link
+                href="/nixos/introduction"
+                className="group inline-flex items-center gap-3 rounded-xl bg-white px-8 py-4 font-semibold text-primary transition-all hover:scale-105 hover:shadow-xl"
+              >
+                NixOS bilan boshlash
+                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -83,14 +120,20 @@ interface FeatureCardProps {
   title: string;
   description: string;
   icon: string;
+  gradient: string;
 }
 
-function FeatureCard({ title, description, icon }: FeatureCardProps) {
+function FeatureCard({ title, description, icon, gradient }: FeatureCardProps) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 text-center">
-      <div className="mb-4 text-4xl">{icon}</div>
-      <h3 className="mb-2 text-xl font-semibold">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
+    <div className="group relative">
+      {/* Glow effect */}
+      <div className={`absolute -inset-0.5 rounded-2xl bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`} />
+
+      <div className="relative rounded-2xl border border-border bg-card p-8 text-center transition-all duration-300 hover:shadow-xl hover:border-primary/30">
+        <div className="mb-5 text-5xl">{icon}</div>
+        <h3 className="mb-3 text-xl font-bold">{title}</h3>
+        <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+      </div>
     </div>
   );
 }
