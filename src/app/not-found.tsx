@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Home, ArrowLeft } from "lucide-react";
 
@@ -9,7 +11,7 @@ export default function NotFound() {
             <h1 className="mb-4 text-3xl font-bold">Sahifa topilmadi</h1>
 
             <p className="mb-8 max-w-md text-muted-foreground">
-                Kechirasiz, siz izlayotgan sahifa mavjud emas yoki ko'chirilgan bo'lishi mumkin.
+                Kechirasiz, siz izlayotgan sahifa mavjud emas yoki ko&apos;chirilgan bo&apos;lishi mumkin.
             </p>
 
             <div className="flex flex-wrap justify-center gap-4">

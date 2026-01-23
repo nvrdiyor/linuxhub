@@ -2,44 +2,22 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Clock, Calendar, ArrowLeft, ArrowRight } from "lucide-react";
-import { MDXRemote } from "next-mdx-remote/rsc";
+import { serialize } from "next-mdx-remote/serialize";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
-import { getDocBySlug, getAllDocSlugs } from "@/lib/content";
-import { getDistroById, getAllDistroSlugs } from "@/config/distros";
+import { getDocBySlug } from "@/lib/content";
+import { getDistroById } from "@/config/distros";
 import { siteConfig } from "@/config/site";
 import { formatDate } from "@/lib/utils";
-import { CodeBlock, Callout, Steps, Step, Tabs, TabList, TabTrigger, TabContent } from "@/components/content";
-
-// MDX components
-const mdxComponents = {
-    pre: ({ children, ...props }: any) => <CodeBlock {...props}>{children}</CodeBlock>,
-    Callout,
-    Steps,
-    Step,
-    Tabs,
-    TabList,
-    TabTrigger,
-    TabContent,
-};
+import { MDXContent } from "@/components/content";
 
 interface DocPageProps {
     params: Promise<{ distro: string; slug: string[] }>;
 }
 
-export async function generateStaticParams() {
-    const contentSlugs = getAllDocSlugs();
-    const configSlugs = getAllDistroSlugs();
-
-    // Combine both sources
-    const allSlugs = [...contentSlugs, ...configSlugs];
-
-    return allSlugs.map(({ distro, slug }) => ({
-        distro,
-        slug,
-    }));
-}
+// Force dynamic rendering to avoid serialization issues with MDX components
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: DocPageProps): Promise<Metadata> {
     const { distro, slug } = await params;
@@ -84,6 +62,14 @@ export default async function DocPage({ params }: DocPageProps) {
         );
     }
 
+    // Serialize MDX content on the server
+    const mdxSource = await serialize(doc.content, {
+        mdxOptions: {
+            remarkPlugins: [remarkGfm],
+            rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings],
+        },
+    });
+
     return (
         <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
             {/* Breadcrumb */}
@@ -112,7 +98,7 @@ export default async function DocPage({ params }: DocPageProps) {
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
-                        {doc.readingTime} daqiqa o'qish
+                        {doc.readingTime} daqiqa o&apos;qish
                     </span>
                     <span className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
@@ -145,16 +131,7 @@ export default async function DocPage({ params }: DocPageProps) {
 
             {/* Content */}
             <div className="prose">
-                <MDXRemote
-                    source={doc.content}
-                    components={mdxComponents}
-                    options={{
-                        mdxOptions: {
-                            remarkPlugins: [remarkGfm],
-                            rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings],
-                        },
-                    }}
-                />
+                <MDXContent mdxSource={mdxSource} />
             </div>
 
             {/* Navigation */}
@@ -188,7 +165,7 @@ function PlaceholderContent({ distro, slug }: { distro: string; slug: string }) 
             </div>
             <h1 className="mb-4 text-3xl font-bold">Kontent tayyorlanmoqda</h1>
             <p className="mb-8 text-lg text-muted-foreground">
-                {distro} uchun "{slug.replace(/-/g, " ")}" mavzusi bo'yicha kontent tez orada qo'shiladi.
+                {distro} uchun &quot;{slug.replace(/-/g, " ")}&quot; mavzusi bo&apos;yicha kontent tez orada qo&apos;shiladi.
             </p>
             <Link
                 href="/"
