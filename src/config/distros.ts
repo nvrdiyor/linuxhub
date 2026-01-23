@@ -44,46 +44,151 @@ export const distros: DistroConfig[] = [
         docsUrl: "https://nixos.org/manual/nixos/stable/",
         status: "active",
         navigation: [
+            // O'rnatish
             {
-                id: "getting-started",
-                title: "Boshlash",
-                iconName: "book-open",
-                items: [
-                    { title: "Kirish", slug: "introduction" },
-                    { title: "NixOS nima?", slug: "what-is-nixos" },
-                    { title: "Asosiy tushunchalar", slug: "core-concepts" },
-                ],
-            },
-            {
-                id: "installation",
-                title: "O'rnatish",
+                id: "install",
+                title: "Nix o'rnatish",
                 iconName: "download",
                 items: [
-                    { title: "Talablar", slug: "installation/requirements" },
-                    { title: "ISO yuklab olish", slug: "installation/download" },
-                    { title: "O'rnatish jarayoni", slug: "installation/guide" },
-                    { title: "Dual boot", slug: "installation/dual-boot" },
+                    { title: "O'rnatish", slug: "install" },
                 ],
             },
+            // Darsliklar (Tutorials)
             {
-                id: "configuration",
-                title: "Konfiguratsiya",
-                iconName: "settings",
+                id: "tutorials",
+                title: "Darsliklar",
+                iconName: "book-open",
                 items: [
-                    { title: "configuration.nix", slug: "configuration/basics" },
-                    { title: "Paketlar boshqaruvi", slug: "configuration/packages" },
-                    { title: "Xizmatlar", slug: "configuration/services" },
-                    { title: "Foydalanuvchilar", slug: "configuration/users" },
+                    { title: "Birinchi qadamlar", slug: "tutorials/first-steps" },
+                    { title: "Ad hoc shell muhitlari", slug: "tutorials/ad-hoc-shell" },
+                    { title: "Takrorlanadigan skriptlar", slug: "tutorials/reproducible-scripts" },
+                    { title: "Deklarativ shell muhitlari", slug: "tutorials/declarative-shell" },
+                    { title: "Nixpkgs ni mahkamlash", slug: "tutorials/pinning-nixpkgs" },
                 ],
             },
             {
                 id: "nix-language",
-                title: "Nix tili",
+                title: "Nix tili asoslari",
                 iconName: "code",
                 items: [
-                    { title: "Asoslar", slug: "nix-language/basics" },
+                    { title: "Umumiy ko'rinish", slug: "nix-language/overview" },
+                    { title: "Nomlar va qiymatlar", slug: "nix-language/names-values" },
                     { title: "Funksiyalar", slug: "nix-language/functions" },
+                    { title: "Funksiya kutubxonalari", slug: "nix-language/function-libraries" },
+                    { title: "Nopokliklar", slug: "nix-language/impurities" },
                     { title: "Derivatsiyalar", slug: "nix-language/derivations" },
+                    { title: "Amaliy misollar", slug: "nix-language/worked-examples" },
+                ],
+            },
+            {
+                id: "packaging",
+                title: "Paketlash",
+                iconName: "layers",
+                items: [
+                    { title: "Mavjud dasturni paketlash", slug: "packaging/existing-software" },
+                    { title: "Birinchi paketingiz", slug: "packaging/first-package" },
+                    { title: "Bog'liqliklar bilan paket", slug: "packaging/dependencies" },
+                    { title: "Paketlarni topish", slug: "packaging/finding-packages" },
+                    { title: "Build xatolarini tuzatish", slug: "packaging/fixing-build-failures" },
+                ],
+            },
+            {
+                id: "callpackage",
+                title: "callPackage bilan ishlash",
+                iconName: "settings",
+                items: [
+                    { title: "Umumiy ko'rinish", slug: "callpackage/overview" },
+                    { title: "Avtomatik funksiya chaqirish", slug: "callpackage/automatic-calls" },
+                    { title: "Parametrlangan buildlar", slug: "callpackage/parameterised-builds" },
+                    { title: "Overridelar", slug: "callpackage/overrides" },
+                ],
+            },
+            {
+                id: "local-files",
+                title: "Lokal fayllar bilan ishlash",
+                iconName: "terminal",
+                items: [
+                    { title: "Fayl to'plamlari", slug: "local-files/file-sets" },
+                    { title: "Misol loyiha", slug: "local-files/example-project" },
+                    { title: "Nix store ga qo'shish", slug: "local-files/adding-to-store" },
+                    { title: "Filtrlash", slug: "local-files/filtering" },
+                ],
+            },
+            {
+                id: "cross-compilation",
+                title: "Kross-kompilyatsiya",
+                iconName: "cpu",
+                items: [
+                    { title: "Nimalar kerak?", slug: "cross-compilation/requirements" },
+                    { title: "Platformalar", slug: "cross-compilation/platforms" },
+                    { title: "Amaliyot", slug: "cross-compilation/practice" },
+                ],
+            },
+            {
+                id: "module-system",
+                title: "Modul tizimi",
+                iconName: "layers",
+                items: [
+                    { title: "Kirish", slug: "module-system/introduction" },
+                    { title: "Modullar yozish", slug: "module-system/writing-modules" },
+                    { title: "Modul opsiyalari", slug: "module-system/options" },
+                ],
+            },
+            {
+                id: "nixos-tutorials",
+                title: "NixOS",
+                iconName: "settings",
+                items: [
+                    { title: "Virtual mashinada ishga tushirish", slug: "nixos/virtual-machine" },
+                    { title: "Konfiguratsiya asoslari", slug: "nixos/configuration-basics" },
+                    { title: "Xizmatlarni boshqarish", slug: "nixos/services" },
+                ],
+            },
+            // Qo'llanmalar (Guides)
+            {
+                id: "guides",
+                title: "Qo'llanmalar",
+                iconName: "book-open",
+                items: [
+                    { title: "Retseptlar", slug: "guides/recipes" },
+                    { title: "Eng yaxshi amaliyotlar", slug: "guides/best-practices" },
+                    { title: "Muammolarni hal qilish", slug: "guides/troubleshooting" },
+                    { title: "Ko'p so'raladigan savollar", slug: "guides/faq" },
+                ],
+            },
+            // Ma'lumotnoma (Reference)
+            {
+                id: "reference",
+                title: "Ma'lumotnoma",
+                iconName: "book-open",
+                items: [
+                    { title: "Lug'at", slug: "reference/glossary" },
+                    { title: "Nix qo'llanmasi", slug: "reference/nix-manual" },
+                    { title: "Nixpkgs qo'llanmasi", slug: "reference/nixpkgs-manual" },
+                    { title: "NixOS qo'llanmasi", slug: "reference/nixos-manual" },
+                    { title: "Qo'shimcha o'qish", slug: "reference/further-reading" },
+                    { title: "Nixpkgs ni mahkamlash", slug: "reference/pinning-nixpkgs" },
+                ],
+            },
+            // Tushunchalar (Concepts)
+            {
+                id: "concepts",
+                title: "Tushunchalar",
+                iconName: "code",
+                items: [
+                    { title: "Flakes", slug: "concepts/flakes" },
+                    { title: "Ko'p so'raladigan savollar", slug: "concepts/faq" },
+                ],
+            },
+            // Hissa qo'shish (Contributing)
+            {
+                id: "contributing",
+                title: "Hissa qo'shish",
+                iconName: "terminal",
+                items: [
+                    { title: "Qanday hissa qo'shish", slug: "contributing/how-to-contribute" },
+                    { title: "Yordam olish", slug: "contributing/how-to-get-help" },
+                    { title: "Hujjatlashtirish", slug: "contributing/documentation" },
                 ],
             },
         ],

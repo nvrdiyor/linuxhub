@@ -49,6 +49,18 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  icons: {
+    icon: "/linuhublogo.png",
+    shortcut: "/linuhublogo.png",
+    apple: "/linuhublogo.png",
+  },
+  manifest: "/manifest.json",
+  alternates: {
+    canonical: "https://linuxhub.uz",
+    languages: {
+      "uz-UZ": "https://linuxhub.uz",
+    },
+  },
 };
 
 export default function RootLayout({

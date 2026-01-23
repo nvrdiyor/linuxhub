@@ -1,0 +1,120 @@
+---
+title: "Nix o'rnatish"
+description: "Nix paket menejerini Linux, macOS, Windows (WSL2) va Docker da o'rnatish bo'yicha to'liq qo'llanma"
+---
+
+# Nix o'rnatish
+
+Bu qo'llanmada Nix paket menejerini turli operatsion tizimlarga o'rnatishni o'rganasiz.
+
+## Talablar
+
+<Callout type="info">
+O'rnatishdan oldin, Nix binary tarball (`.tar.xz`) ni ochish uchun `xz-utils` yoki shunga o'xshash paket o'rnatilgan bo'lishi kerak.
+</Callout>
+
+## Linux da o'rnatish
+
+Ko'p foydalanuvchili o'rnatish (recommended) orqali Nix ni o'rnating:
+
+```bash
+$ curl -L https://nixos.org/nix/install | sh -s -- --daemon
+```
+
+Bu buyruq quyidagilarni amalga oshiradi:
+- Nix store (`/nix/store`) katalogini yaratadi
+- Nix daemon xizmatini o'rnatadi
+- Shell konfiguratsiyasini yangilaydi
+
+## macOS da o'rnatish
+
+macOS uchun ham ko'p foydalanuvchili o'rnatish tavsiya etiladi:
+
+```bash
+$ curl -L https://nixos.org/nix/install | sh -s -- --daemon
+```
+
+<Callout type="warning">
+macOS Catalina (10.15) va undan keyingi versiyalarda root fayl tizimi faqat o'qish uchun ("read-only") bo'lgani uchun, o'rnatuvchi `/nix` ni synthetic firmlink sifatida yaratadi.
+</Callout>
+
+## Windows (WSL2) da o'rnatish
+
+Windows 10/11 da WSL2 (Windows Subsystem for Linux 2) orqali Nix ni ishlatishingiz mumkin.
+
+### 1-qadam: WSL2 ni yoqish
+
+PowerShell ni administrator sifatida oching va quyidagini bajaring:
+
+```powershell
+wsl --install
+```
+
+### 2-qadam: Ubuntu ni o'rnatish
+
+Windows Store dan Ubuntu ni o'rnating yoki:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+### 3-qadam: Nix ni WSL ichida o'rnatish
+
+Ubuntu terminalni oching va Nix ni o'rnating:
+
+```bash
+$ curl -L https://nixos.org/nix/install | sh -s -- --daemon
+```
+
+## Docker da o'rnatish
+
+Docker container ichida Nix dan foydalanish:
+
+```dockerfile
+FROM nixos/nix:latest
+
+RUN nix-channel --update
+```
+
+Yoki tayyor image bilan:
+
+```bash
+$ docker run -it nixos/nix
+```
+
+## Arch Linux da o'rnatish
+
+Arch Linux da Nix ni `pacman` orqali ham o'rnatish mumkin:
+
+```bash
+$ sudo pacman -S nix
+```
+
+Keyin daemon ni yoqing:
+
+```bash
+$ sudo systemctl enable --now nix-daemon.service
+```
+
+## O'rnatishni tekshirish
+
+O'rnatishdan so'ng, yangi terminal oching va quyidagi buyruqni kiriting:
+
+```bash
+$ nix --version
+nix (Nix) 2.18.0
+```
+
+Agar versiya raqami chiqsa, Nix muvaffaqiyatli o'rnatilgan!
+
+## Keyingi qadamlar
+
+Nix o'rnatilgandan so'ng, quyidagilarni o'rganishingiz mumkin:
+
+1. **Ad hoc shell muhitlari** - vaqtinchalik muhitlar yaratish
+2. **Nix tili asoslari** - Nix dasturlash tilini o'rganish
+3. **Paketlash** - o'z paketlaringizni yaratish
+
+<Callout type="tip">
+Muammolarga duch kelsangiz, [Nix rasmiy hujjatlari](https://nixos.org/manual/nix/stable/) yoki [NixOS Discourse](https://discourse.nixos.org/) forumiga murojaat qiling.
+</Callout>

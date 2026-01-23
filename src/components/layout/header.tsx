@@ -29,8 +29,8 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 glass border-b border-border/50">
-            {/* Use full width container for docs pages */}
-            <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8 max-w-screen-2xl">
+            {/* Use full width container for docs pages, constrained for others */}
+            <div className={`flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8 ${isDocsPage ? 'w-full' : 'mx-auto max-w-screen-2xl'}`}>
                 {/* Left: Logo & Navigation */}
                 <div className="flex items-center gap-4">
                     {/* Mobile menu button */}
