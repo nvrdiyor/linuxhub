@@ -1,7 +1,7 @@
 import { Hero } from "@/components/home/hero";
 import { DistroCard } from "@/components/home/distro-card";
 import { distros } from "@/config/distros";
-import { BookOpen, Zap, Users, ArrowRight } from "lucide-react";
+import { BookOpen, Zap, Code, Users, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -17,7 +17,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/30 to-transparent" />
         </div>
 
-        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-4">
               <BookOpen className="h-4 w-4" />
@@ -46,7 +46,7 @@ export default function HomePage() {
         <div className="absolute top-1/2 left-0 w-96 h-96 bg-gradient-to-r from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2" />
         <div className="absolute top-1/2 right-0 w-96 h-96 bg-gradient-to-l from-purple-500/10 to-transparent rounded-full blur-3xl -translate-y-1/2" />
 
-        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 relative">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-16">
             <span className="inline-flex items-center gap-2 rounded-full bg-green-500/10 px-4 py-1.5 text-sm font-medium text-green-600 dark:text-green-400 mb-4">
               <Zap className="h-4 w-4" />
@@ -61,19 +61,19 @@ export default function HomePage() {
             <FeatureCard
               title="O'zbek tilida"
               description="Barcha qo'llanmalar o'zbek tilida yozilgan. Murakkab texnik atamalar tushunarli tarzda tushuntirilgan."
-              icon="🇺🇿"
+              icon={<span className="text-3xl">🇺🇿</span>}
               gradient="from-blue-500 to-cyan-500"
             />
             <FeatureCard
               title="Amaliy misollar"
               description="Har bir mavzu amaliy misollar bilan tasvirlangan. Kodni nusxalash va sinab ko'rish oson."
-              icon="💻"
+              icon={<Code className="h-8 w-8 text-purple-500" />}
               gradient="from-purple-500 to-pink-500"
             />
             <FeatureCard
               title="Hamjamiyat"
               description="Telegram guruhimizda savol bering va tajribali foydalanuvchilardan yordam oling."
-              icon="👥"
+              icon={<Users className="h-8 w-8 text-orange-500" />}
               gradient="from-orange-500 to-red-500"
             />
           </div>
@@ -82,7 +82,7 @@ export default function HomePage() {
 
       {/* CTA Section */}
       <section className="py-20">
-        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="relative rounded-3xl overflow-hidden">
             {/* Background */}
             <div className="absolute inset-0 bg-gradient-to-br from-primary via-purple-600 to-pink-600" />
@@ -119,7 +119,7 @@ export default function HomePage() {
 interface FeatureCardProps {
   title: string;
   description: string;
-  icon: string;
+  icon: React.ReactNode;
   gradient: string;
 }
 
@@ -129,10 +129,10 @@ function FeatureCard({ title, description, icon, gradient }: FeatureCardProps) {
       {/* Glow effect */}
       <div className={`absolute -inset-0.5 rounded-2xl bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`} />
 
-      <div className="relative rounded-2xl border border-border bg-card p-8 text-center transition-all duration-300 hover:shadow-xl hover:border-primary/30">
-        <div className="mb-5 text-5xl">{icon}</div>
+      <div className="relative rounded-2xl border border-border bg-card p-8 text-center transition-all duration-300 hover:shadow-xl hover:border-primary/30 h-full flex flex-col">
+        <div className="mb-5 flex justify-center items-center h-16">{icon}</div>
         <h3 className="mb-3 text-xl font-bold">{title}</h3>
-        <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+        <p className="text-sm text-muted-foreground leading-relaxed flex-1">{description}</p>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ export function Hero() {
                 <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background" />
             </div>
 
-            <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 w-full">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full">
                 <div className="grid lg:grid-cols-2 gap-12 items-center">
                     {/* Left Content */}
                     <motion.div

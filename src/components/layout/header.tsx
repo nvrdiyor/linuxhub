@@ -11,7 +11,7 @@ import { getDistroById } from "@/config/distros";
 
 export function Header() {
     const pathname = usePathname();
-    const { mobileMenuOpen, setMobileMenuOpen, setSearchOpen, currentDistro } = useSidebarStore();
+    const { mobileMenuOpen, setMobileMenuOpen, setSearchOpen, currentDistro, setCurrentDistro } = useSidebarStore();
 
     // Check if we're in a docs page
     const isDocsPage = pathname.startsWith("/nixos") ||
@@ -19,11 +19,16 @@ export function Header() {
         pathname.startsWith("/parrot") ||
         pathname.startsWith("/manjaro");
 
-    const distro = currentDistro ? getDistroById(currentDistro) : null;
+    // Only show distro badge when actually on a docs page
+    const distro = isDocsPage && currentDistro ? getDistroById(currentDistro) : null;
+
+    const handleLogoClick = () => {
+        setCurrentDistro(null);
+    };
 
     return (
         <header className="sticky top-0 z-50 glass border-b border-border/50">
-            <div className="mx-auto flex h-16 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
                 {/* Left: Logo & Navigation */}
                 <div className="flex items-center gap-4">
                     {/* Mobile menu button */}
@@ -62,7 +67,7 @@ export function Header() {
                     )}
 
                     {/* Logo */}
-                    <Link href="/" className="flex items-center gap-3 group">
+                    <Link href="/" className="flex items-center gap-3 group" onClick={handleLogoClick}>
                         <div className="relative">
                             <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-purple-500 blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
                             <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-purple-500 text-white font-bold text-lg shadow-lg">
@@ -74,7 +79,7 @@ export function Header() {
                         </span>
                     </Link>
 
-                    {/* Distro Badge */}
+                    {/* Distro Badge - only shows on docs pages */}
                     {distro && (
                         <div className="hidden items-center gap-2 sm:flex">
                             <span className="text-muted-foreground/50">/</span>
