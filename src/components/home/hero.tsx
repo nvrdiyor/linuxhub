@@ -126,7 +126,7 @@ export function Hero() {
                                     <div className="flex items-center gap-2">
                                         <span className="text-green-500">➜</span>
                                         <span className="text-cyan-500">~</span>
-                                        <span className="text-foreground">neofetch</span>
+                                        <span className="text-foreground">fastfetch</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                                         <span className="text-primary">OS:</span>
@@ -136,11 +136,11 @@ export function Hero() {
                                         <span className="text-primary">Shell:</span>
                                         <span className="text-muted-foreground">zsh 5.9</span>
                                         <span className="text-primary">DE:</span>
-                                        <span className="text-muted-foreground">GNOME 46</span>
+                                        <span className="text-muted-foreground">Hyprland</span>
                                         <span className="text-primary">Terminal:</span>
                                         <span className="text-muted-foreground">kitty</span>
                                         <span className="text-primary">Packages:</span>
-                                        <span className="text-muted-foreground">1847 (nix)</span>
+                                        <span className="text-muted-foreground">2847 (nix)</span>
                                     </div>
                                     <div className="flex items-center gap-2 pt-2">
                                         <span className="text-green-500">➜</span>
