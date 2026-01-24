@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Parrot OS Logo -->
+  <circle cx="128" cy="128" r="120" fill="#2E3436"/>
+  <g fill="#00D4AA">
+    <!-- Parrot bird silhouette -->
+    <ellipse cx="128" cy="100" rx="45" ry="55"/>
+    <!-- Head -->
+    <circle cx="128" cy="60" r="35"/>
+    <!-- Beak -->
+    <path d="M150 55 Q175 65 170 85 Q165 95 150 90 Q140 85 145 70 Z" fill="#FF6B35"/>
+    <!-- Eye -->
+    <circle cx="135" cy="55" r="8" fill="white"/>
+    <circle cx="137" cy="54" r="4" fill="#2E3436"/>
+    <!-- Wing -->
+    <ellipse cx="110" cy="110" rx="25" ry="40" fill="#00B894"/>
+    <!-- Tail feathers -->
+    <path d="M100 150 Q80 200 90 220 L110 210 Q100 190 115 150 Z" fill="#00D4AA"/>
+    <path d="M130 150 Q140 200 135 220 L115 215 Q125 195 120 150 Z" fill="#00B894"/>
+    <path d="M150 145 Q175 190 165 215 L145 210 Q155 185 145 145 Z" fill="#00D4AA"/>
+  </g>
+</svg>

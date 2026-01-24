@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- NixOS Snowflake Logo -->
+  <g fill="#5277C3">
+    <!-- Center hexagon -->
+    <polygon points="128,80 168,104 168,152 128,176 88,152 88,104"/>
+    <!-- Top arm -->
+    <rect x="118" y="20" width="20" height="60" rx="4"/>
+    <!-- Top-right arm -->
+    <rect x="118" y="20" width="20" height="60" rx="4" transform="rotate(60 128 128)"/>
+    <!-- Bottom-right arm -->
+    <rect x="118" y="20" width="20" height="60" rx="4" transform="rotate(120 128 128)"/>
+    <!-- Bottom arm -->
+    <rect x="118" y="176" width="20" height="60" rx="4"/>
+    <!-- Bottom-left arm -->
+    <rect x="118" y="176" width="20" height="60" rx="4" transform="rotate(60 128 128)"/>
+    <!-- Top-left arm -->
+    <rect x="118" y="176" width="20" height="60" rx="4" transform="rotate(120 128 128)"/>
+  </g>
+  <!-- Lambda symbol in center -->
+  <text x="128" y="140" font-family="Arial" font-size="48" font-weight="bold" fill="white" text-anchor="middle">λ</text>
+</svg>

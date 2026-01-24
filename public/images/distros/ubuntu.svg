@@ -1,10 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <circle cx="128" cy="128" r="128" fill="#E95420"/>
-  <circle cx="128" cy="128" r="90" fill="none" stroke="white" stroke-width="8"/>
-  <circle cx="128" cy="38" r="18" fill="white"/>
-  <circle cx="50" cy="173" r="18" fill="white"/>
-  <circle cx="206" cy="173" r="18" fill="white"/>
-  <circle cx="128" cy="38" r="8" fill="#E95420"/>
-  <circle cx="50" cy="173" r="8" fill="#E95420"/>
-  <circle cx="206" cy="173" r="8" fill="#E95420"/>
+  <!-- Ubuntu Circle of Friends Logo -->
+  <circle cx="128" cy="128" r="120" fill="#E95420"/>
+  
+  <!-- Inner white circle (ring) -->
+  <circle cx="128" cy="128" r="65" fill="none" stroke="white" stroke-width="18"/>
+  
+  <!-- Three friends (circles with heads) positioned at 12, 4, and 8 o'clock -->
+  <!-- Top friend -->
+  <circle cx="128" cy="45" r="22" fill="white"/>
+  <circle cx="128" cy="45" r="10" fill="#E95420"/>
+  
+  <!-- Bottom-right friend -->
+  <circle cx="200" cy="170" r="22" fill="white"/>
+  <circle cx="200" cy="170" r="10" fill="#E95420"/>
+  
+  <!-- Bottom-left friend -->
+  <circle cx="56" cy="170" r="22" fill="white"/>
+  <circle cx="56" cy="170" r="10" fill="#E95420"/>
 </svg>

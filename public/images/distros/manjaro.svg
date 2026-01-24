@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Manjaro Logo -->
+  <rect width="256" height="256" fill="#35BF5C" rx="20"/>
+  <!-- M shape made of blocks -->
+  <g fill="white">
+    <!-- Left column -->
+    <rect x="40" y="50" width="50" height="156"/>
+    <!-- Middle column -->
+    <rect x="103" y="90" width="50" height="116"/>
+    <!-- Right column -->
+    <rect x="166" y="50" width="50" height="156"/>
+  </g>
+</svg>
