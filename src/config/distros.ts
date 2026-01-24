@@ -332,6 +332,26 @@ export const distros: DistroConfig[] = [
             },
         ],
     },
+    {
+        id: "ubuntu",
+        name: "Ubuntu",
+        description: "Dunyodagi eng mashhur Linux distributivi - Debian asosida",
+        logo: "/images/distros/ubuntu.svg",
+        color: "#E95420",
+        colorClass: "ubuntu",
+        docsUrl: "https://ubuntu.com/tutorials",
+        status: "coming-soon",
+        navigation: [
+            {
+                id: "getting-started",
+                title: "Boshlash",
+                iconName: "book-open",
+                items: [
+                    { title: "Kirish", slug: "introduction" },
+                ],
+            },
+        ],
+    },
 ];
 
 export function getDistroById(id: string): DistroConfig | undefined {
