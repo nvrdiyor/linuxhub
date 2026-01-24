@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { type DistroConfig } from "@/config/distros";
@@ -68,19 +69,19 @@ export function DistroCard({ distro, index }: DistroCardProps) {
                         style={{ backgroundColor: distro.color }}
                     />
                     <div
-                        className="relative flex h-16 w-16 items-center justify-center rounded-2xl transition-transform duration-500 group-hover:scale-110"
+                        className="relative flex h-16 w-16 items-center justify-center rounded-2xl transition-transform duration-500 group-hover:scale-110 overflow-hidden"
                         style={{
                             background: `linear-gradient(135deg, ${distro.color}20 0%, ${distro.color}10 100%)`,
                             border: `1px solid ${distro.color}30`
                         }}
                     >
-                        <svg
-                            className="h-9 w-9 transition-transform duration-500 group-hover:scale-110"
-                            viewBox="0 0 100 100"
-                            style={{ fill: distro.color }}
-                        >
-                            <DistroLogo distroId={distro.id} />
-                        </svg>
+                        <Image
+                            src={distro.logo}
+                            alt={`${distro.name} logo`}
+                            width={40}
+                            height={40}
+                            className="transition-transform duration-500 group-hover:scale-110"
+                        />
                     </div>
                 </div>
 
@@ -137,38 +138,3 @@ export function DistroCard({ distro, index }: DistroCardProps) {
     );
 }
 
-function DistroLogo({ distroId }: { distroId: string }) {
-    switch (distroId) {
-        case "nixos":
-            return (
-                <g>
-                    <path d="M50 15L85 75H15L50 15Z" opacity="0.8" />
-                    <path d="M50 35L67 62H33L50 35Z" fill="currentColor" />
-                </g>
-            );
-        case "kali":
-            return (
-                <g>
-                    <path d="M50 10C28 10 12 28 12 50C12 62 18 73 28 80L50 55L72 80C82 73 88 62 88 50C88 28 72 10 50 10Z" />
-                    <path d="M50 90L35 78H65L50 90Z" opacity="0.7" />
-                </g>
-            );
-        case "parrot":
-            return (
-                <g>
-                    <ellipse cx="50" cy="45" rx="35" ry="32" opacity="0.8" />
-                    <path d="M30 35Q30 20 50 20Q70 20 70 40Q80 45 80 55Q75 70 55 75L50 88L45 75Q25 70 20 55Q20 45 30 40Z" />
-                </g>
-            );
-        case "manjaro":
-            return (
-                <g>
-                    <rect x="15" y="15" width="22" height="70" rx="3" />
-                    <rect x="42" y="35" width="22" height="50" rx="3" opacity="0.8" />
-                    <rect x="69" y="15" width="16" height="70" rx="3" opacity="0.6" />
-                </g>
-            );
-        default:
-            return <circle cx="50" cy="50" r="35" />;
-    }
-}
