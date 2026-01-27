@@ -1,0 +1,130 @@
+---
+title: "Fayl Tizimi"
+description: "Linux fayl tizimi tuzilishi - root, home va boshqa muhim papkalar"
+order: 3
+lastUpdated: "2026-01-27"
+---
+
+# Linux Fayl Tizimi
+
+Linux fayl tizimi Windows'dan tubdan farq qiladi. Windows'da disklar `C:`, `D:` kabi harflar bilan belgilanadi. Linux'da esa hamma narsa **bitta ildiz** (`/`) dan boshlanadi.
+
+## Asosiy tuzilish
+
+```
+/                   ← Ildiz (root) - hamma narsa shu yerdan boshlanadi
+├── home/           ← Foydalanuvchilar papkalari
+│   ├── ali/        ← Ali ning shaxsiy fayllari
+│   └── vali/       ← Vali ning shaxsiy fayllari
+├── etc/            ← Tizim sozlamalari
+├── var/            ← O'zgaruvchan ma'lumotlar (loglar)
+├── usr/            ← Foydalanuvchi dasturlari
+├── bin/            ← Asosiy buyruqlar
+├── tmp/            ← Vaqtinchalik fayllar
+└── root/           ← Administrator (root) ning papkasi
+```
+
+## Muhim papkalar tushuntirilishi
+
+### `/` — Ildiz (Root)
+
+Bu hamma narsaning boshlanishi. Windows'dagi `C:\` ga o'xshash, lekin Linux'da faqat bitta ildiz bo'ladi.
+
+### `/home` — Uy papkasi
+
+Har bir foydalanuvchining shaxsiy fayllari shu yerda saqlanadi:
+- `/home/ali` — Ali ning barcha hujjatlari, rasmlari, sozlamalari
+- Terminalda `~` belgisi shu papkani bildiradi
+
+```bash
+# Uy papkasiga o'tish
+cd ~
+
+# yoki
+cd /home/foydalanuvchi_nomi
+
+# Joriy papkani ko'rish
+pwd
+```
+
+### `/etc` — Sozlamalar
+
+Tizim sozlamalari shu yerda saqlanadi:
+- `/etc/passwd` — Foydalanuvchilar ro'yxati
+- `/etc/hosts` — Lokal DNS
+- `/etc/fstab` — Disk ulash sozlamalari
+
+> ⚠️ Bu papkadagi fayllarni o'zgartirish tizimga ta'sir qiladi. Ehtiyot bo'ling!
+
+### `/var` — O'zgaruvchan ma'lumotlar
+
+- `/var/log` — Tizim loglari
+- `/var/www` — Veb-server fayllari
+- `/var/cache` — Kesh ma'lumotlari
+
+### `/usr` — Foydalanuvchi dasturlari
+
+O'rnatilgan dasturlarning aksariyati shu yerda:
+- `/usr/bin` — Dasturlar
+- `/usr/lib` — Kutubxonalar
+- `/usr/share` — Umumiy fayllar
+
+### `/tmp` — Vaqtinchalik
+
+Tizim qayta ishga tushganda bu papka tozalanadi. Vaqtinchalik fayllar uchun ishlatiladi.
+
+## Fayl yo'llarini tushunish
+
+### Mutlaq yo'l (Absolute path)
+Ildizdan boshlanadi:
+```bash
+/home/ali/Documents/hisobot.pdf
+```
+
+### Nisbiy yo'l (Relative path)
+Joriy papkadan boshlanadi:
+```bash
+# Agar hozir /home/ali da bo'lsak:
+Documents/hisobot.pdf
+
+# Bir qadam orqaga
+../
+```
+
+## Amaliy buyruqlar
+
+```bash
+# Fayl va papkalarni ko'rish
+ls -la
+
+# Papkaga o'tish
+cd /etc
+
+# Yangi papka yaratish
+mkdir yangi_papka
+
+# Faylni nusxalash
+cp fayl.txt /home/ali/
+
+# Faylni ko'chirish
+mv fayl.txt /tmp/
+
+# Faylni o'chirish (ehtiyot bo'ling!)
+rm fayl.txt
+```
+
+## Windows bilan solishtirish
+
+| Windows | Linux | Vazifasi |
+|---------|-------|----------|
+| `C:\` | `/` | Asosiy disk |
+| `C:\Users\Ali` | `/home/ali` | Foydalanuvchi papkasi |
+| `C:\Windows` | `/` (taqsimlangan) | Tizim fayllari |
+| `C:\Program Files` | `/usr` | O'rnatilgan dasturlar |
+| `C:\Windows\Temp` | `/tmp` | Vaqtinchalik |
+
+## Keyingi qadam
+
+Fayl tizimini bilganingizdan so'ng, terminal bilan ishlashni o'rganamiz:
+
+👉 [Terminal asoslari](/fundamentals/terminal)

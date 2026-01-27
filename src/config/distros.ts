@@ -34,6 +34,38 @@ export interface DistroConfig {
 }
 
 export const distros: DistroConfig[] = [
+    // Linux Fundamentals - Entry point for beginners
+    {
+        id: "fundamentals",
+        name: "Linux Asoslari",
+        description: "Linux dunyosiga kirish - boshlang'ich qo'llanma",
+        logo: "/images/distros/linux.svg",
+        color: "#818cf8",
+        colorClass: "fundamentals",
+        docsUrl: "https://linuxhub.uz/fundamentals",
+        status: "active",
+        navigation: [
+            {
+                id: "getting-started",
+                title: "Kirish",
+                iconName: "book-open",
+                items: [
+                    { title: "Linux nima?", slug: "intro" },
+                    { title: "Distributivlar Shajarasi", slug: "family-tree" },
+                ],
+            },
+            {
+                id: "core-concepts",
+                title: "Asosiy Tushunchalar",
+                iconName: "layers",
+                items: [
+                    { title: "Fayl Tizimi", slug: "file-system" },
+                    { title: "Terminal asoslari", slug: "terminal" },
+                    { title: "Paket menejerlari", slug: "package-managers" },
+                ],
+            },
+        ],
+    },
     {
         id: "nixos",
         name: "NixOS",

@@ -99,13 +99,13 @@ export default function HomePage() {
               </h2>
               <p className="mx-auto mb-8 max-w-2xl text-lg text-white/80">
                 Linux dunyosiga birinchi qadamingizni qo&apos;ying.
-                NixOS bilan boshlashni tavsiya qilamiz — u eng zamonaviy va xavfsiz distributivlardan biri.
+                Asoslardan boshlang va o&apos;zingizga mos distributivni toping.
               </p>
               <Link
-                href="/nixos/introduction"
+                href="/fundamentals/intro"
                 className="group inline-flex items-center gap-3 rounded-xl bg-white px-8 py-4 font-semibold text-primary transition-all hover:scale-105 hover:shadow-xl"
               >
-                NixOS bilan boshlash
+                Linux asoslaridan boshlash
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>

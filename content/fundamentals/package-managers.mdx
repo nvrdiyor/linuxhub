@@ -1,0 +1,173 @@
+---
+title: "Paket menejerlari"
+description: "Linux'da dasturlarni o'rnatish - apt, pacman, dnf va boshqalar"
+order: 5
+lastUpdated: "2026-01-27"
+---
+
+# Paket menejerlari
+
+Windows'da dastur o'rnatish uchun `.exe` faylni yuklab, "Next, Next, Finish" bosasiz. Linux'da esa **paket menejerlari** orqali bir buyruq bilan minglab dasturlarni o'rnatish mumkin!
+
+## Paket menejeri nima?
+
+Paket menejeri — bu:
+- 📦 Dasturlarni yuklab olish
+- 🔧 To'g'ri joylarga o'rnatish
+- 🔄 Yangilashlarni boshqarish
+- 🗑️ Kerak bo'lmaganda o'chirish
+
+Bularni hammasi **bitta buyruq** bilan!
+
+## Asosiy paket menejerlari
+
+### 🔵 APT (Debian/Ubuntu oilasi)
+
+Eng mashhur va qulay paket menejeri:
+
+```bash
+# Paketlar ro'yxatini yangilash
+sudo apt update
+
+# Barcha dasturlarni yangilash
+sudo apt upgrade
+
+# Dastur o'rnatish
+sudo apt install firefox
+
+# Dastur o'chirish
+sudo apt remove firefox
+
+# Dasturni qidirish
+apt search video-player
+```
+
+### 🟢 Pacman (Arch oilasi)
+
+Tez va sodda paket menejeri:
+
+```bash
+# Tizimni yangilash
+sudo pacman -Syu
+
+# Dastur o'rnatish
+sudo pacman -S firefox
+
+# Dastur o'chirish
+sudo pacman -R firefox
+
+# Qidirish
+pacman -Ss video
+```
+
+**AUR yordamchilari** (rasmiy bo'lmagan paketlar uchun):
+```bash
+# yay orqali AUR dan o'rnatish
+yay -S spotify
+```
+
+### 🔴 DNF (Fedora/RHEL oilasi)
+
+```bash
+# Tizimni yangilash
+sudo dnf upgrade
+
+# Dastur o'rnatish
+sudo dnf install firefox
+
+# Dastur o'chirish
+sudo dnf remove firefox
+
+# Qidirish
+dnf search video
+```
+
+## Buyruqlar solishtirmasi
+
+| Vazifa | APT (Debian) | Pacman (Arch) | DNF (Fedora) |
+|--------|--------------|---------------|--------------|
+| Yangilash | `apt update` | `pacman -Sy` | `dnf check-update` |
+| Upgrade | `apt upgrade` | `pacman -Syu` | `dnf upgrade` |
+| O'rnatish | `apt install X` | `pacman -S X` | `dnf install X` |
+| O'chirish | `apt remove X` | `pacman -R X` | `dnf remove X` |
+| Qidirish | `apt search X` | `pacman -Ss X` | `dnf search X` |
+
+## "sudo" nima?
+
+`sudo` — "superuser do" degan ma'noni anglatadi. Tizim darajasidagi o'zgarishlar uchun administrator huquqlari kerak:
+
+```bash
+# Xato — ruxsat berilmaydi
+apt install firefox
+
+# To'g'ri — administrator sifatida
+sudo apt install firefox
+```
+
+> 💡 `sudo` sizdan parolni so'raydi. Parolni yozayotganingizda ekranda hech narsa ko'rinmaydi — bu normal!
+
+## Universal paket formatlar
+
+Ba'zi dasturlar barcha distributivlarda ishlaydi:
+
+### Flatpak
+```bash
+# Flatpak o'rnatish
+sudo apt install flatpak
+
+# Dastur o'rnatish
+flatpak install spotify
+```
+
+### Snap (Ubuntu)
+```bash
+# Snap orqali o'rnatish
+sudo snap install spotify
+```
+
+### AppImage
+- Yuklab oling
+- Bajariladigan qiling: `chmod +x dastur.AppImage`
+- Ishga tushiring: `./dastur.AppImage`
+
+## Amaliy misol
+
+Keling, VLC media player o'rnatamiz:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install vlc
+```
+
+**Manjaro/Arch:**
+```bash
+sudo pacman -S vlc
+```
+
+**Fedora:**
+```bash
+sudo dnf install vlc
+```
+
+## Xavfsizlik haqida
+
+⚠️ **Ehtiyot bo'ling:**
+- Faqat rasmiy repozitoriylardan o'rnating
+- Internetdan `.deb` yoki `.rpm` yuklamasdan avval tekshiring
+- `sudo` ni har doim sinchiklab ishlating
+
+## Tabriklaymiz! 🎉
+
+Siz Linux asoslarini o'rgandingiz:
+- ✅ Linux nima ekanligini bilib oldingiz
+- ✅ Distributivlar oilalarini tanidingiz
+- ✅ Fayl tizimini tushundingiz
+- ✅ Terminal bilan do'st bo'ldingiz
+- ✅ Dasturlar o'rnatishni o'rgandingiz
+
+## Keyingi qadamlar
+
+<NextStepsCard />
+
+Endi biror distributivni tanlang va chuqurroq o'rganishni boshlang!

@@ -72,7 +72,7 @@ export function Hero() {
                         {/* CTA Buttons */}
                         <div className="flex flex-wrap gap-4 mb-12">
                             <Link
-                                href="/nixos/introduction"
+                                href="/fundamentals/intro"
                                 className="group inline-flex items-center gap-2 btn-primary"
                             >
                                 Boshlash

@@ -1,0 +1,179 @@
+---
+title: "Terminal asoslari"
+description: "Linux terminalidan qo'rqmaslik - CLI va GUI farqi, asosiy buyruqlar"
+order: 4
+lastUpdated: "2026-01-27"
+---
+
+# Terminal qo'rquvini yengish
+
+Ko'pchilik yangi foydalanuvchilar terminaldan qo'rqadi — qora ekran, yashil harflar, hech qanday tugma yo'q. Lekin aslida terminal sizning eng yaxshi do'stingiz bo'lishi mumkin!
+
+## GUI va CLI farqi
+
+### GUI (Graphical User Interface)
+- Sichqoncha bilan ishlaydigan grafik interfeys
+- Oynalar, tugmalar, menyular
+- Ko'rgazmali va tushunarli
+- Ba'zan sekinroq
+
+### CLI (Command Line Interface)
+- Matn buyruqlari bilan ishlash
+- Tezroq va kuchli
+- Avtomatlashtirishga qulay
+- Bir oz o'rganish talab qiladi
+
+> 💡 Professional dasturchilar va tizim administratorlari ko'pincha CLI dan foydalanadi — chunki u tezroq va kuchliroq!
+
+## Terminalni ochish
+
+| Distributiv | Qisqa tugmalar |
+|-------------|----------------|
+| Ubuntu/Mint | `Ctrl + Alt + T` |
+| Manjaro/Arch | `Ctrl + Alt + T` |
+| macOS | `Cmd + Space` → "Terminal" |
+
+## Birinchi buyruqlar
+
+Terminal ochilganda, siz **prompt** ni ko'rasiz:
+
+```bash
+ali@kompyuter:~$
+```
+
+Bu qator sizga quyidagilarni aytadi:
+- `ali` — Foydalanuvchi nomi
+- `kompyuter` — Kompyuter nomi
+- `~` — Joriy papka (uy papkasi)
+- `$` — Oddiy foydalanuvchi (`#` bo'lsa root)
+
+### Eng asosiy buyruqlar
+
+```bash
+# Joriy papkani ko'rish
+pwd
+# Natija: /home/ali
+
+# Papka ichidagilarni ko'rish
+ls
+# Natija: Documents  Downloads  Pictures
+
+# Batafsil ma'lumot bilan
+ls -la
+
+# Papkaga o'tish
+cd Documents
+
+# Orqaga qaytish
+cd ..
+
+# Uy papkasiga qaytish
+cd ~
+```
+
+## Buyruqlarning tuzilishi
+
+```bash
+buyruq   -parametrlar   argument
+  ↓           ↓            ↓
+ ls          -la        /home
+```
+
+- **Buyruq** — nima qilish kerakligini aytadi
+- **Parametrlar** — qanday qilishni belgilaydi (odatda `-` bilan boshlanadi)
+- **Argument** — nima ustida ishlashni ko'rsatadi
+
+## Yordam olish
+
+Linux'da har bir buyruq haqida yordam olish mumkin:
+
+```bash
+# Qisqa yordam
+ls --help
+
+# To'liq qo'llanma
+man ls
+
+# "man" dan chiqish uchun "q" bosing
+```
+
+## Foydali buyruqlar
+
+### Fayl bilan ishlash
+
+```bash
+# Fayl yaratish
+touch yangi_fayl.txt
+
+# Fayl ichini ko'rish
+cat fayl.txt
+
+# Fayl nusxalash
+cp fayl.txt nusxa.txt
+
+# Fayl ko'chirish/qayta nomlash
+mv fayl.txt yangi_nom.txt
+
+# Fayl o'chirish (ehtiyot bo'ling!)
+rm fayl.txt
+```
+
+### Papka bilan ishlash
+
+```bash
+# Papka yaratish
+mkdir yangi_papka
+
+# Ichma-ich papka yaratish
+mkdir -p papka1/papka2/papka3
+
+# Bo'sh papkani o'chirish
+rmdir papka
+
+# To'liq papkani o'chirish (ehtiyot!)
+rm -rf papka
+```
+
+### Qidirish
+
+```bash
+# Fayl nomini qidirish
+find /home -name "*.txt"
+
+# Fayl ichidan matn qidirish
+grep "salom" fayl.txt
+
+# Rekursiv qidirish
+grep -r "kalit_so'z" papka/
+```
+
+## Klaviatura sehrlari
+
+| Tugma | Vazifasi |
+|-------|----------|
+| `Tab` | Avtomatik to'ldirish |
+| `↑` / `↓` | Oldingi buyruqlar tarixi |
+| `Ctrl + C` | Joriy buyruqni to'xtatish |
+| `Ctrl + L` | Ekranni tozalash |
+| `Ctrl + R` | Tarixdan qidirish |
+| `Ctrl + A` | Satr boshiga o'tish |
+| `Ctrl + E` | Satr oxiriga o'tish |
+
+## Xatolardan qo'rqmang!
+
+```bash
+# "command not found" — buyruq topilmadi
+salm
+# bash: salm: command not found
+
+# To'g'ri yozing:
+ls
+```
+
+> 💡 Linux sizni hech narsa buzishiga ruxsat bermaydi (agar `sudo rm -rf /` kabi ahmoqona buyruq bermasangiz). Bemalol tajriba qiling!
+
+## Keyingi qadam
+
+Endi dasturlar o'rnatishni o'rganamiz — paket menejerlari:
+
+👉 [Paket menejerlari](/fundamentals/package-managers)
