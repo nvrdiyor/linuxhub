@@ -1,0 +1,145 @@
+---
+title: "Paket Menejerlari Urushi"
+description: "Native va Universal paket menejerlari o'rtasidagi farqlar"
+---
+
+# Paket Menejerlari: Native vs Universal
+
+Linux'da dastur o'rnatishning ikki asosiy yo'li mavjud: **Native** (distributivga xos) va **Universal** (har qanday distributivda ishlaydi).
+
+## Native Paket Menejerlari
+
+Har bir distributiv oilasi o'z paket menejeri va formatiga ega:
+
+### Solishtiruv jadvali
+
+| Oila | Paket menejeri | Format | Misol buyruq | Afzalligi |
+|------|---------------|--------|--------------|-----------|
+| **Debian** | APT | `.deb` | `sudo apt install firefox` | Eng mashhur, ko'p paketlar |
+| **Arch** | Pacman | `.pkg.tar.zst` | `sudo pacman -S firefox` | Tez, sodda sintaksis |
+| **Red Hat** | DNF | `.rpm` | `sudo dnf install firefox` | Enterprise qo'llab-quvvatlash |
+| **openSUSE** | Zypper | `.rpm` | `sudo zypper install firefox` | YaST integratsiyasi |
+| **NixOS** | Nix | `.drv` | `nix-env -iA nixpkgs.firefox` | Rollback imkoniyati |
+
+<Callout type="info">
+**Maslahat:** Native paketlar tezroq ishlaydi va tizim bilan yaxshi integratsiyalashgan.
+</Callout>
+
+---
+
+## Universal Paket Formatlari
+
+Distributivdan mustaqil ishlaydigan formatlar:
+
+### Flatpak 📦
+
+```bash
+# O'rnatish
+flatpak install flathub org.mozilla.firefox
+
+# Ishga tushirish
+flatpak run org.mozilla.firefox
+```
+
+**Afzalliklari:**
+- ✅ Sandboxed (xavfsiz)
+- ✅ Har qanday distributivda ishlaydi
+- ✅ Avtomatik yangilanish
+- ✅ Flathub markazi
+
+**Kamchiliklari:**
+- ❌ Ko'proq disk joy
+- ❌ Biroz sekinroq ishga tushish
+
+---
+
+### Snap 🔷
+
+```bash
+# O'rnatish
+sudo snap install firefox
+
+# Ro'yxat
+snap list
+```
+
+**Afzalliklari:**
+- ✅ Canonical (Ubuntu) tomonidan qo'llab-quvvatlanadi
+- ✅ Avtomatik yangilanish
+- ✅ Server dasturlar uchun yaxshi
+
+**Kamchiliklari:**
+- ❌ Sekinroq ishga tushish
+- ❌ Yopiq backend (Canonical serveri)
+- ❌ Ba'zi distributivlar qo'llab-quvvatlamaydi
+
+---
+
+### AppImage 📀
+
+```bash
+# Yuklab olish
+wget https://example.com/app.AppImage
+
+# Bajarish huquqi berish
+chmod +x app.AppImage
+
+# Ishga tushirish
+./app.AppImage
+```
+
+**Afzalliklari:**
+- ✅ O'rnatish shart emas
+- ✅ Portativ (USB'da ko'chirish mumkin)
+- ✅ Hech qanday dependency kerak emas
+
+**Kamchiliklari:**
+- ❌ Avtomatik yangilanish yo'q
+- ❌ Sandbox yo'q
+- ❌ Tizim integratsiyasi zaif
+
+---
+
+## Qaysi birini tanlash kerak?
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    QAROR DARAXTI                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Dastur native repoda bormi?                                   │
+│        │                                                         │
+│        ├── HA ────► Native paketdan o'rnating (eng yaxshi)     │
+│        │                                                         │
+│        └── YO'Q                                                  │
+│              │                                                   │
+│              ├── Sandbox kerakmi?                               │
+│              │      │                                            │
+│              │      ├── HA ────► Flatpak                        │
+│              │      │                                            │
+│              │      └── YO'Q                                     │
+│              │            │                                      │
+│              │            ├── USB'da kerakmi?                   │
+│              │            │      │                               │
+│              │            │      ├── HA ───► AppImage           │
+│              │            │      │                               │
+│              │            │      └── YO'Q ──► Flatpak/Snap      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="tip">
+**Tavsiya:** Asosiy dasturlar uchun native paket, ekzotik dasturlar uchun Flatpak ishlating.
+</Callout>
+
+---
+
+## Amaliy solishtiruv
+
+| Xususiyat | Native | Flatpak | Snap | AppImage |
+|-----------|--------|---------|------|----------|
+| Tezlik | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+| Xavfsizlik | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ |
+| Portativlik | ⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Disk joy | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ |
+| Avtomatik yangilanish | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐ |

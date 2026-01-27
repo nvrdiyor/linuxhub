@@ -51,7 +51,7 @@ export const distros: DistroConfig[] = [
                 iconName: "book-open",
                 items: [
                     { title: "Linux nima?", slug: "intro" },
-                    { title: "Distributivlar Shajarasi", slug: "family-tree" },
+                    { title: "Linux Olami", slug: "family-tree" },
                 ],
             },
             {
@@ -62,6 +62,16 @@ export const distros: DistroConfig[] = [
                     { title: "Fayl Tizimi", slug: "file-system" },
                     { title: "Terminal asoslari", slug: "terminal" },
                     { title: "Paket menejerlari", slug: "package-managers" },
+                ],
+            },
+            {
+                id: "deep-dive",
+                title: "Chuqurroq O'rganish",
+                iconName: "code",
+                items: [
+                    { title: "Paket Urushi", slug: "package-wars" },
+                    { title: "Display Serverlar", slug: "display-servers" },
+                    { title: "Fayl Tizimlari", slug: "filesystems" },
                 ],
             },
         ],

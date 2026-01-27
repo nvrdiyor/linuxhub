@@ -1,0 +1,169 @@
+---
+title: "Display Serverlar"
+description: "X11 va Wayland o'rtasidagi farqlar"
+---
+
+# Display Serverlar: X11 vs Wayland
+
+Display server — bu dasturlar va grafik qurilmalar o'rtasidagi ko'prik. U oynalarni chizish, klaviatura/sichqoncha kiritishlarini boshqarish uchun javobgar.
+
+## X11 (Xorg)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         X11 Arxitekturasi                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐               │
+│   │ Dastur 1 │     │ Dastur 2 │     │ Dastur 3 │               │
+│   └────┬─────┘     └────┬─────┘     └────┬─────┘               │
+│        │                │                │                      │
+│        └────────────────┼────────────────┘                      │
+│                         ▼                                        │
+│                 ┌───────────────┐                               │
+│                 │   X Server    │  ◄── Markaziy boshqaruv       │
+│                 └───────┬───────┘                               │
+│                         │                                        │
+│                         ▼                                        │
+│                 ┌───────────────┐                               │
+│                 │   Compositor  │  ◄── Alohida jarayon          │
+│                 └───────┬───────┘                               │
+│                         │                                        │
+│                         ▼                                        │
+│                 ┌───────────────┐                               │
+│                 │    Hardware   │                               │
+│                 └───────────────┘                               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Tarix:** 1984-yilda yaratilgan, 40 yoshdan oshgan!
+
+### X11 xususiyatlari
+
+| Xususiyat | Qiymati |
+|-----------|---------|
+| Yoshi | 40+ yil |
+| Orqaga moslik | ⭐⭐⭐⭐⭐ |
+| Xavfsizlik | ⭐⭐ (Har qanday dastur boshqasini "ko'ra" oladi) |
+| Tarmoq qo'llab-quvvatlashi | ⭐⭐⭐⭐⭐ (SSH X forwarding) |
+| Gaming | ⭐⭐⭐⭐ |
+
+<Callout type="warning">
+**Xavfsizlik muammosi:** X11'da har qanday dastur boshqa dasturlarning oynalarini o'qiy oladi — bu keylogger'lar uchun imkoniyat yaratadi.
+</Callout>
+
+---
+
+## Wayland
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       Wayland Arxitekturasi                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐               │
+│   │ Dastur 1 │     │ Dastur 2 │     │ Dastur 3 │               │
+│   └────┬─────┘     └────┬─────┘     └────┬─────┘               │
+│        │                │                │                      │
+│        └────────────────┼────────────────┘                      │
+│                         ▼                                        │
+│        ┌─────────────────────────────────────┐                  │
+│        │      Wayland Compositor             │                  │
+│        │  (Display server + Compositor)      │  ◄── Bitta!      │
+│        └─────────────────┬───────────────────┘                  │
+│                          │                                       │
+│                          ▼                                       │
+│                  ┌───────────────┐                              │
+│                  │    Hardware   │                              │
+│                  └───────────────┘                              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Tarix:** 2008-yilda boshlangan, 2012-da birinchi stabil versiya.
+
+### Wayland xususiyatlari
+
+| Xususiyat | Qiymati |
+|-----------|---------|
+| Yoshi | ~15 yil |
+| Xavfsizlik | ⭐⭐⭐⭐⭐ (Izolyatsiya) |
+| Ishlash | ⭐⭐⭐⭐⭐ (Kompozitor ichida) |
+| Smooth scroll | ⭐⭐⭐⭐⭐ |
+| HiDPI | ⭐⭐⭐⭐⭐ |
+| Tarmoq | ⭐⭐ (Murakkab) |
+
+---
+
+## To'g'ridan-to'g'ri solishtiruv
+
+| Xususiyat | X11 | Wayland |
+|-----------|-----|---------|
+| **Arxitektura** | Client-Server (ajratilgan) | Kompozitor (birlashgan) |
+| **Xavfsizlik** | 🔓 Zaif (dasturlar bir-birini ko'radi) | 🔒 Kuchli (izolyatsiya) |
+| **Ishlash tezligi** | Yaxshi | Juda yaxshi |
+| **Screen recording** | Oson | Murakkab (portal orqali) |
+| **Nvidia qo'llab-quvvatlashi** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ (Yaxshilanmoqda) |
+| **Eski dasturlar** | ⭐⭐⭐⭐⭐ | XWayland orqali |
+| **Kelajak** | Legacy | Standart |
+
+---
+
+## Compositor'lar (Wayland)
+
+Wayland'da compositor display server vazifasini ham bajaradi:
+
+### Desktop Environment compositor'lari
+
+| DE | Compositor | Holati |
+|----|------------|--------|
+| GNOME | Mutter | ✅ Stabil |
+| KDE | KWin | ✅ Stabil |
+| XFCE | - | 🔄 Ishlanmoqda |
+
+### Window Manager compositor'lari
+
+| WM | Turi | Xususiyati |
+|----|------|------------|
+| **Hyprland** | Tiling | Animatsiyalar, zamonaviy |
+| **Sway** | Tiling | i3 bilan mos |
+| **Weston** | Stacking | Reference implementation |
+| **River** | Tiling | Sodda, tez |
+
+---
+
+## Qaysi birini tanlash kerak?
+
+```
+Siz tanlang:
+
+🟢 Wayland — agar:
+   • Yangi kompyuter/laptop
+   • Xavfsizlik muhim
+   • GNOME/KDE ishlatmoqchisiz
+   • Nvidia RTX 20+ kartangiz bor
+
+🟡 X11 — agar:
+   • Eski hardware
+   • SSH X forwarding kerak
+   • Nvidia eski karta
+   • Maxsus dasturlar (ba'zi CAD)
+```
+
+<Callout type="tip">
+**Tavsiya:** Yangi o'rnatishlar uchun Wayland'ni sinab ko'ring. Muammo chiqsa, X11'ga o'tish oson.
+</Callout>
+
+---
+
+## Tekshirish
+
+Qaysi display server ishlatilayotganini bilish:
+
+```bash
+# Joriy sessiya
+echo $XDG_SESSION_TYPE
+
+# Natija: wayland yoki x11
+```

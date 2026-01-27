@@ -1,113 +1,39 @@
 ---
-title: "Distributivlar Shajarasi"
-description: "Linux distributivlarining oilalari va ularning o'ziga xos xususiyatlari"
-order: 2
-lastUpdated: "2026-01-27"
+title: "Linux Olami"
+description: "Linux distributivlari shajarasi va tizim anatomiyasi"
 ---
 
-# Linux Distributivlari Shajarasi
+# Linux Olami: Distributivlar va Anatomiya
 
-Linux dunyosida yuzlab turli **distributivlar** mavjud. Har biri Linux kernelidan foydalanadi, lekin turli maqsadlar va foydalanuvchilar uchun moslashtirilgan.
+Bu sahifada Linux olamining to'liq ko'rinishini ko'rasiz: distributivlar shajarasi va tizim arxitekturasi.
 
-Quyida asosiy oilalarni interaktiv tarzda ko'rishingiz mumkin:
+---
+
+## Linux Distributivlari Shajarasi
+
+Quyidagi interaktiv xarita orqali Linux distributivlari oilalarini o'rganing.
+
+<Callout type="tip">
+**Maslahat:** Boshlang'ich/Ekspert rejimini almashtiring va oilalarni bosib kengaytiring. Zoom uchun `+`/`-` tugmalarini ishlating.
+</Callout>
 
 <LinuxFamilyTree />
 
-## Asosiy oilalar haqida batafsil
+---
 
-### 🔵 Debian oilasi
+## Linux Anatomiyasi
 
-**Xususiyatlari:**
-- Barqarorlik va ishonchlilik
-- APT paket menejeri
-- `.deb` paket formati
-- Keng hamjamiyat qo'llab-quvvatlashi
+Linux tizimi qatlamlardan tashkil topgan. Har bir qatlam o'z vazifasini bajaradi:
 
-| Distributiv | Maqsad |
-|-------------|--------|
-| **Debian** | Server va barqaror ish stoli |
-| **Ubuntu** | Boshlang'ich foydalanuvchilar uchun eng qulay |
-| **Linux Mint** | Windows'dan o'tuvchilar uchun |
-| **Kali Linux** | Xavfsizlik testlari |
-| **Pop!_OS** | Dasturchilar va o'yinchilar |
-
-```bash
-# Debian oilasida paket o'rnatish
-sudo apt update
-sudo apt install paket-nomi
-```
+<LinuxAnatomy />
 
 ---
 
-### 🟢 Arch oilasi
+## Xulosa
 
-**Xususiyatlari:**
-- "Bleeding edge" — eng yangi versiyalar
-- Rolling release model
-- Pacman paket menejeri
-- Minimalizm va moslashuvchanlik
+Linux tizimini tushunish uchun ikkita asosiy tushunchani o'rganish kerak:
 
-| Distributiv | Maqsad |
-|-------------|--------|
-| **Arch Linux** | Tajribali foydalanuvchilar, DIY |
-| **Manjaro** | Arch'ning qulay versiyasi |
-| **EndeavourOS** | Arch'ga oson kirish |
+1. **Distributivlar** — Turli maqsadlar uchun tayyorlangan Linux versiyalari
+2. **Arxitektura** — Hardware'dan Desktop Environment'gacha bo'lgan qatlamlar
 
-```bash
-# Arch oilasida paket o'rnatish
-sudo pacman -S paket-nomi
-
-# AUR dan o'rnatish
-yay -S aur-paket
-```
-
----
-
-### 🔴 Red Hat oilasi
-
-**Xususiyatlari:**
-- Korporativ va server maqsadlar
-- DNF/YUM paket menejeri
-- `.rpm` paket formati
-- Tijorat qo'llab-quvvatlash mavjud
-
-| Distributiv | Maqsad |
-|-------------|--------|
-| **RHEL** | Korporativ serverlar |
-| **Fedora** | Yangi texnologiyalarni sinash |
-| **CentOS/Rocky** | RHEL ning bepul alternativasi |
-| **AlmaLinux** | RHEL bilan mos server OS |
-
-```bash
-# Red Hat oilasida paket o'rnatish
-sudo dnf install paket-nomi
-```
-
----
-
-### 🟣 Mustaqil distributivlar
-
-Ba'zi distributivlar boshqalardan kelib chiqmagan — ular o'ziga xos yondashuv bilan yaratilgan:
-
-| Distributiv | O'ziga xosligi |
-|-------------|----------------|
-| **NixOS** | Deklarativ konfiguratsiya, takrorlanadigan tizim |
-| **Void Linux** | runit init tizimi, soddalik |
-| **Gentoo** | Source-based, maksimal optimallashtirish |
-| **Slackware** | Eng qadimiy distributivlardan biri |
-
-## Qaysi birini tanlash kerak?
-
-| Holat | Tavsiya |
-|-------|---------|
-| Yangi boshlovchi | Ubuntu yoki Linux Mint |
-| O'rganishni xohlayman | Manjaro yoki Fedora |
-| Server uchun | Debian yoki Rocky Linux |
-| Xavfsizlik | Kali yoki Parrot |
-| Zamonaviy yondashuv | NixOS |
-
-## Keyingi qadam
-
-Endi Linux fayl tizimini tushunib olaylik:
-
-👉 [Fayl Tizimi](/fundamentals/file-system)
+Keyingi bo'limlarda har bir qatlamni batafsil o'rganamiz.

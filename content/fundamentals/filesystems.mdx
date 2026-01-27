@@ -1,0 +1,188 @@
+---
+title: "Fayl Tizimlari"
+description: "EXT4 vs BTRFS va boshqa Linux fayl tizimlari"
+---
+
+# Linux Fayl Tizimlari: EXT4 vs BTRFS
+
+Fayl tizimi — ma'lumotlarni diskda saqlash va tashkillash usuli. Linux'da eng mashhur ikki fayl tizimi EXT4 va BTRFS.
+
+## Fayl tizimlari taqqoslash
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    FAYL TIZIMLARI OILASI                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │    EXT4     │  │    BTRFS    │  │     XFS     │             │
+│  │  ──────────  │  │  ──────────  │  │  ──────────  │             │
+│  │  • Standart  │  │  • Zamonaviy │  │  • Katta    │             │
+│  │  • Ishonchli │  │  • Snapshots │  │    fayllar  │             │
+│  │  • Tez      │  │  • CoW       │  │  • Server   │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │     ZFS     │  │    F2FS     │  │    NTFS     │             │
+│  │  ──────────  │  │  ──────────  │  │  ──────────  │             │
+│  │  • Enterprise│  │  • SSD uchun │  │  • Windows  │             │
+│  │  • RAID     │  │  • Flash    │  │    uchun    │             │
+│  │  • Pools    │  │  • Telefon  │  │  • Read-only│             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## EXT4 — Standart tanlovi
+
+**Extended Filesystem 4** — ko'p distributivlarda standart.
+
+### Xususiyatlari
+
+| Xususiyat | Qiymati |
+|-----------|---------|
+| Maksimal fayl hajmi | 16 TB |
+| Maksimal partition | 1 EB (Exabyte) |
+| Journaling | ✅ Ha |
+| Ishonchlilik | ⭐⭐⭐⭐⭐ |
+| Tezlik | ⭐⭐⭐⭐⭐ |
+| Snapshot | ❌ Yo'q |
+
+### Qachon ishlatish kerak?
+
+```bash
+# EXT4 yaratish
+sudo mkfs.ext4 /dev/sda1
+
+# Tekshirish
+sudo fsck.ext4 /dev/sda1
+```
+
+<Callout type="info">
+**Tavsiya:** Agar shunchaki ishlashini xohlasangiz va murakkab xususiyatlar kerak bo'lmasa — EXT4 eng yaxshi tanlov.
+</Callout>
+
+---
+
+## BTRFS — Zamonaviy tanlov
+
+**B-Tree Filesystem** — snapshot va self-healing qobiliyatli.
+
+### Xususiyatlari
+
+| Xususiyat | Qiymati |
+|-----------|---------|
+| Maksimal fayl hajmi | 16 EB |
+| Snapshot | ✅ Ha (bir zumda) |
+| Copy-on-Write | ✅ Ha |
+| Compression | ✅ zstd, lzo, zlib |
+| RAID | ✅ Built-in |
+| Self-healing | ✅ Ha (RAID bilan) |
+
+### Snapshot — Eng katta afzallik
+
+```bash
+# Snapshot yaratish (bir zumda!)
+sudo btrfs subvolume snapshot / /snapshots/before-update
+
+# Agar muammo chiqsa, qaytish
+sudo btrfs subvolume delete /
+sudo btrfs subvolume snapshot /snapshots/before-update /
+
+# Snapshotlar ro'yxati
+sudo btrfs subvolume list /
+```
+
+### Compression bilan joy tejash
+
+```bash
+# Fayl tizimi yaratish
+sudo mkfs.btrfs /dev/sda1
+
+# Compression bilan mount qilish
+sudo mount -o compress=zstd /dev/sda1 /mnt
+```
+
+<Callout type="tip">
+**Snapshot qoidasi:** Har bir katta o'zgarishdan oldin (yangilanish, o'rnatish) snapshot oling!
+</Callout>
+
+---
+
+## To'g'ridan-to'g'ri solishtiruv
+
+| Xususiyat | EXT4 | BTRFS |
+|-----------|------|-------|
+| **Barqarorlik** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Tezlik (SSD)** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Tezlik (HDD)** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Snapshot** | ❌ | ✅ |
+| **Compression** | ❌ | ✅ 30-50% tejash |
+| **RAID** | mdadm kerak | ✅ Built-in |
+| **Murakkablik** | Oddiy | O'rtacha |
+| **Tavsiya** | Serverlar | Desktop/Laptop |
+
+---
+
+## Qaysi distributivlar qaysi FS ishlatadi?
+
+| Distributiv | Standart FS | Izoh |
+|-------------|-------------|------|
+| Ubuntu | EXT4 | An'anaviy tanlov |
+| Fedora | BTRFS | 2020-dan beri |
+| openSUSE | BTRFS | Snapper bilan |
+| NixOS | EXT4/BTRFS | Tanlov beriladi |
+| Arch | EXT4 | Foydalanuvchi tanlaydi |
+
+---
+
+## Amaliy qo'llanma
+
+### EXT4 dan BTRFS ga o'tish
+
+<Callout type="warning">
+**Ogohlantirish:** Fayl tizimini o'zgartirish xavfli. Avval backup qiling!
+</Callout>
+
+```bash
+# 1. Backup qilish
+sudo rsync -aAXv / /mnt/backup/
+
+# 2. Live USB'dan boot qilish
+
+# 3. BTRFS yaratish
+sudo mkfs.btrfs /dev/sda1
+
+# 4. Subvolume yaratish (tavsiya)
+sudo mount /dev/sda1 /mnt
+sudo btrfs subvolume create /mnt/@
+sudo btrfs subvolume create /mnt/@home
+sudo btrfs subvolume create /mnt/@snapshots
+
+# 5. Ma'lumotlarni qaytarish
+sudo rsync -aAXv /mnt/backup/ /mnt/@/
+```
+
+---
+
+## Xulosa
+
+```
+┌─────────────────────────────────────────────────────┐
+│              QANDAY TANLASH KERAK?                  │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  🟢 EXT4 tanlang agar:                              │
+│     • Yangi boshlovchi bo'lsangiz                   │
+│     • Server o'rnatmoqchi bo'lsangiz                │
+│     • Maksimal barqarorlik kerak bo'lsa            │
+│                                                      │
+│  🔵 BTRFS tanlang agar:                             │
+│     • Snapshot xohlasangiz                          │
+│     • Disk joyini tejagingiz kelsa                  │
+│     • Fedora/openSUSE ishlatmoqchi bo'lsangiz       │
+│                                                      │
+└─────────────────────────────────────────────────────┘
+```

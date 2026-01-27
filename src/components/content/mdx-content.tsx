@@ -7,6 +7,7 @@ import { Tabs, TabList, TabTrigger, TabContent } from "./tabs";
 import { CodeBlock } from "./code-block";
 import { LinuxFamilyTree } from "./linux-family-tree";
 import { NextStepsCard } from "./next-steps-card";
+import { LinuxAnatomy } from "./linux-anatomy";
 
 // MDX components
 const mdxComponents = {
@@ -20,6 +21,7 @@ const mdxComponents = {
     CodeBlock,
     LinuxFamilyTree,
     NextStepsCard,
+    LinuxAnatomy,
 };
 
 interface MDXContentProps {
@@ -29,4 +31,5 @@ interface MDXContentProps {
 export function MDXContent({ mdxSource }: MDXContentProps) {
     return <MDXRemoteClient {...mdxSource} components={mdxComponents} />;
 }
+
 
