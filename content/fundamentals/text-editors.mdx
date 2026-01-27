@@ -1,0 +1,133 @@
+---
+title: "Matn Muharrirlari: Nano vs Vim"
+description: "Terminal matn muharrirlari bilan ishlash"
+---
+
+# Matn Muharrirlari: Nano vs Vim
+
+Linux'da konfiguratsiya fayllarini tahrirlash uchun terminal matn muharrirlari ishlatiladi.
+
+---
+
+## Nano — Boshlang'ichlar Uchun
+
+Nano eng oddiy va intuitiv muharrir.
+
+### Ishga tushirish
+
+```bash
+nano fayl.txt
+```
+
+### Asosiy tugmalar
+
+| Tugma | Vazifasi |
+|-------|----------|
+| `Ctrl + O` | Saqlash |
+| `Ctrl + X` | Chiqish |
+| `Ctrl + K` | Qatorni kesish |
+| `Ctrl + U` | Qo'yish |
+| `Ctrl + W` | Qidirish |
+| `Ctrl + G` | Yordam |
+
+<Callout type="tip">
+Ekranning pastida tugmalar ko'rsatib turiladi — `^` = Ctrl
+</Callout>
+
+---
+
+## Vim — Kuchli Muharrir
+
+Vim professional darajadagi muharrir — o'rganish qiyinroq, lekin juda kuchli.
+
+### Rejimlar (Modes)
+
+Vim turli rejimlarda ishlaydi:
+
+| Rejim | Kirish | Vazifasi |
+|-------|--------|----------|
+| **Normal** | `Esc` | Buyruqlar |
+| **Insert** | `i` | Matn yozish |
+| **Visual** | `v` | Tanlash |
+| **Command** | `:` | Fayl buyruqlari |
+
+### Ishga tushirish
+
+```bash
+vim fayl.txt
+```
+
+### Eng muhim buyruqlar
+
+```
+i       → Insert rejimga o'tish (yozish)
+Esc     → Normal rejimga qaytish
+:w      → Saqlash
+:q      → Chiqish
+:wq     → Saqlash va chiqish
+:q!     → Saqlamasdan chiqish
+```
+
+### Navigatsiya (Normal rejimda)
+
+```
+h  ←  chapga
+j  ↓  pastga
+k  ↑  tepaga
+l  →  o'ngga
+
+gg      → Fayl boshiga
+G       → Fayl oxiriga
+0       → Qator boshiga
+$       → Qator oxiriga
+```
+
+### Tahrirlash
+
+```
+dd      → Qatorni o'chirish
+yy      → Qatorni nusxalash
+p       → Qo'yish
+u       → Orqaga qaytarish (undo)
+Ctrl+r  → Redo
+```
+
+---
+
+## Vim dan Qanday Chiqish Kerak?
+
+Bu mashhur mem sababi bor 😄
+
+```
+Esc → :q! → Enter
+```
+
+---
+
+## Qaysi Birini Tanlash?
+
+| Xususiyat | Nano | Vim |
+|-----------|------|-----|
+| O'rganish | ⭐ Oson | ⭐⭐⭐ Qiyin |
+| Tezlik | ⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Xususiyatlar | Kam | Juda ko'p |
+| Mashhurlik | Boshlang'ich | Professional |
+
+<Callout type="info">
+**Tavsiya:** Nano bilan boshlang, keyin Vim o'rganishga o'ting.
+</Callout>
+
+---
+
+## Amaliy mashq
+
+1. Nano bilan yangi fayl yarating: `nano test.txt`
+2. Biror matn yozing
+3. `Ctrl+O` bilan saqlang
+4. `Ctrl+X` bilan chiqing
+
+5. Vim bilan oching: `vim test.txt`
+6. `i` bosing (Insert rejim)
+7. Matn qo'shing
+8. `Esc` bosing
+9. `:wq` yozing va Enter bosing

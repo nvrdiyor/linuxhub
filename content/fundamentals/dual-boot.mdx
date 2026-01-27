@@ -1,0 +1,136 @@
+---
+title: "Dual Boot Nima?"
+description: "Windows yoniga Linux o'rnatish"
+---
+
+# Dual Boot: Windows va Linux Birga
+
+Dual Boot — bir kompyuterda ikkita operatsion tizimni o'rnatish. Kompyuter yoqilganda qaysi birini ishlatishni tanlaysiz.
+
+<Callout type="warning">
+**Ehtiyot bo'ling:** Dual boot xato qilinsa, ma'lumotlar yo'qolishi mumkin. Avval **backup** qiling!
+</Callout>
+
+---
+
+## Dual Boot vs Boshqa Usullar
+
+| Usul | Tezlik | Xavf | Qachon ishlatish |
+|------|--------|------|------------------|
+| **Virtual Mashina** | Sekinroq | Xavfsiz | O'rganish, test |
+| **WSL (Windows)** | O'rtacha | Xavfsiz | Faqat terminal |
+| **Dual Boot** | To'liq tezlik | O'rtacha | Doimiy foydalanish |
+| **Faqat Linux** | To'liq tezlik | Qaytarib bo'lmaydi | Tajribali foydalanuvchilar |
+
+---
+
+## Tayyorgarlik
+
+### 1. Backup qilish
+
+Eng muhim qadamlardan biri:
+
+- Muhim fayllarni tashqi diskka nusxalang
+- Cloud (Google Drive, OneDrive) ga yuklang
+
+### 2. Disk joy ajratish
+
+Windows'da disk maydonini bo'lish:
+
+<Steps>
+<Step>
+Win + X → Disk Management
+</Step>
+<Step>
+C: disk ustida o'ng tugma → "Shrink Volume"
+</Step>
+<Step>
+Linux uchun 50-100 GB joy ajrating
+</Step>
+<Step>
+"Unallocated" space paydo bo'ladi — bu Linux uchun
+</Step>
+</Steps>
+
+### 3. Fast Startup o'chirish
+
+Windows Settings → System → Power → Additional power settings → "Choose what the power buttons do" → "Change settings that are currently unavailable" → "Turn on fast startup" ❌
+
+### 4. Secure Boot
+
+Ba'zi hollarda BIOS'da Secure Boot'ni o'chirish kerak bo'ladi.
+
+---
+
+## O'rnatish Jarayoni
+
+<Steps>
+<Step>
+Live USB yarating (oldingi bo'limga qarang)
+</Step>
+<Step>
+USB'dan boot qiling
+</Step>
+<Step>
+"Install Linux" ni tanlang
+</Step>
+<Step>
+"Install alongside Windows" variantini tanlang
+</Step>
+<Step>
+Ajratilgan bo'sh joyni Linux uchun belgilang
+</Step>
+<Step>
+O'rnatish jarayonini davom ettiring
+</Step>
+</Steps>
+
+---
+
+## GRUB Boot Loader
+
+O'rnatishdan keyin kompyuter yoqilganda GRUB menyu paydo bo'ladi:
+
+```
+┌─────────────────────────────────────┐
+│         GNU GRUB 2.06               │
+├─────────────────────────────────────┤
+│ > Ubuntu                            │
+│   Windows Boot Manager              │
+│   Advanced options for Ubuntu       │
+│   System setup                      │
+└─────────────────────────────────────┘
+```
+
+⬆️⬇️ tugmalari bilan tanlang, Enter bilan tasdiqlang.
+
+---
+
+## Ko'p Uchraydigan Muammolar
+
+### Windows ko'rinmayapti?
+
+```bash
+sudo update-grub
+```
+
+### Linux boot qilmayapti?
+
+Boot Repair dasturidan foydalaning:
+```bash
+sudo add-apt-repository ppa:yannubuntu/boot-repair
+sudo apt update
+sudo apt install boot-repair
+boot-repair
+```
+
+### Vaqt noto'g'ri ko'rsatilmoqda?
+
+Linux'da:
+```bash
+timedatectl set-local-rtc 1
+```
+
+<Callout type="tip">
+**Maslahat:** Agar Linux'dan to'liq voz kechmoqchi bo'lsangiz, Windows'dan Linux partition'ni o'chirib, GRUB'ni olib tashlash mumkin.
+</Callout>

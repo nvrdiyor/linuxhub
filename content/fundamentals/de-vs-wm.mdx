@@ -1,0 +1,130 @@
+---
+title: "DE vs WM"
+description: "Desktop Environment va Window Manager farqi"
+---
+
+# Desktop Environment vs Window Manager
+
+Linux'da ish stolini boshqarishning ikki asosiy yondashuvi bor: to'liq Desktop Environment (DE) yoki minimal Window Manager (WM).
+
+---
+
+## Desktop Environment (DE)
+
+DE — bu to'liq ish stoli muhiti: panel, fayl menejeri, sozlamalar, ikonkalar — hammasi tayyor.
+
+### Mashhur DE'lar
+
+| DE | Xususiyati | Resurs |
+|----|------------|--------|
+| **GNOME** | Zamonaviy, minimalist | Yuqori |
+| **KDE Plasma** | Moslashuvchan, Windows o'xshash | O'rtacha |
+| **XFCE** | Yengil, tez | Past |
+| **Cinnamon** | An'anaviy, Mint uchun | O'rtacha |
+| **MATE** | GNOME 2 davomchisi | Past |
+| **Budgie** | Zamonaviy, sodda | O'rtacha |
+
+### GNOME
+
+```
+┌─────────────────────────────────────────┐
+│                                         │
+│            Activities   🕐 15:30         │
+│                                         │
+│  ┌─────┐  ┌─────┐  ┌─────┐             │
+│  │Firefox│  │Files│  │Term │             │
+│  └─────┘  └─────┘  └─────┘             │
+│                                         │
+│                                         │
+│                                         │
+│  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
+└─────────────────────────────────────────┘
+```
+
+### KDE Plasma
+
+```
+┌─────────────────────────────────────────┐
+│  📁 Files  🌐 Firefox  📧 Mail          │
+│ ┌─────────────────────────────────────┐ │
+│ │                                     │ │
+│ │                                     │ │
+│ │                                     │ │
+│ │                                     │ │
+│ └─────────────────────────────────────┘ │
+│  🏠  📁  🔧  ▶️           🔊 🔋 15:30   │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Window Manager (WM)
+
+WM — faqat oynalarni boshqaradi. Boshqa hamma narsa (panel, wallpaper) alohida sozlanadi.
+
+### Tiling vs Floating
+
+| Turi | Tarif | Misollar |
+|------|-------|----------|
+| **Tiling** | Oynalar avtomatik joylashadi | i3, Hyprland, Sway |
+| **Floating** | Oynalar erkin harakatlanadi | Openbox, Fluxbox |
+
+### Tiling WM ko'rinishi
+
+```
+┌─────────────────────────────────────────┐
+│ i3wm      [1] [2] [3]           15:30   │
+├────────────────────┬────────────────────┤
+│                    │                    │
+│                    │                    │
+│     Terminal       │      Code          │
+│                    │                    │
+│                    │                    │
+├────────────────────┴────────────────────┤
+│                 Browser                 │
+└─────────────────────────────────────────┘
+```
+
+### Mashhur WM'lar
+
+| WM | Display | Xususiyati |
+|----|---------|------------|
+| **i3wm** | X11 | Oddiy, barqaror |
+| **Sway** | Wayland | i3 ning Wayland versiyasi |
+| **Hyprland** | Wayland | Animatsiyalar, zamonaviy |
+| **bspwm** | X11 | Script bilan boshqarish |
+| **AwesomeWM** | X11 | Lua bilan moslash |
+
+---
+
+## Qaysi Birini Tanlash?
+
+### DE tanlang agar:
+
+- 🌱 Linux'da yangisiz
+- 🖱️ Sichqoncha bilan ishlashni xohlaysiz
+- ⚙️ Tayyor sozlamalarni afzal ko'rsangiz
+- 🎨 GUI sozlamalar paneli kerak
+
+### WM tanlang agar:
+
+- ⌨️ Klaviatura bilan tezroq ishlaysiz
+- 💻 Dasturchi yoki tizim adminsiz
+- 🔧 To'liq nazoratni xohlaysiz
+- 📉 Minimal resurs sarflashni xohlaysiz
+
+---
+
+## Amaliy solishtiruv
+
+| Xususiyat | DE (GNOME) | WM (i3) |
+|-----------|------------|---------|
+| RAM ishlatish | ~1-2 GB | ~100-300 MB |
+| Sozlash vaqti | Daqiqalar | Soatlar/Kunlar |
+| O'rganish qiymati | Past | Yuqori |
+| Moslashuvchanlik | O'rtacha | Yuqori |
+| Foydalanish | Sichqoncha | Klaviatura |
+
+<Callout type="tip">
+**Tavsiya:** DE bilan boshlang, keyin WM'ni sinab ko'ring.
+</Callout>

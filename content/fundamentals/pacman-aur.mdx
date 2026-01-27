@@ -1,0 +1,138 @@
+---
+title: "pacman va AUR"
+description: "Arch Linux paket boshqaruvi"
+---
+
+# pacman va AUR
+
+Arch Linux va uning hosilalari (Manjaro, EndeavourOS) `pacman` paket menejeri va AUR (Arch User Repository) dan foydalanadi.
+
+---
+
+## pacman Asoslari
+
+### O'rnatish
+
+```bash
+sudo pacman -S paket_nomi
+sudo pacman -S firefox vlc gimp    # Bir nechta
+```
+
+### O'chirish
+
+```bash
+sudo pacman -R paket_nomi          # Faqat paket
+sudo pacman -Rs paket_nomi         # Dependency'lar bilan
+sudo pacman -Rns paket_nomi        # Konfiglar bilan
+```
+
+### Yangilash
+
+```bash
+sudo pacman -Syu                   # Tizimni to'liq yangilash
+sudo pacman -Sy                    # Faqat repo sync
+```
+
+### Qidirish
+
+```bash
+pacman -Ss qidiruv_so'zi           # Repo'da qidirish
+pacman -Qs qidiruv_so'zi           # O'rnatilganlarda qidirish
+pacman -Qi paket_nomi              # Ma'lumot olish
+```
+
+---
+
+## pacman Bayroqchalari (Flags)
+
+| Flag | Ma'nosi |
+|------|---------|
+| `-S` | Sync (o'rnatish) |
+| `-R` | Remove (o'chirish) |
+| `-Q` | Query (so'rov) |
+| `-U` | Upgrade (lokal fayldan) |
+| `-y` | Refresh (yangilash) |
+| `-u` | Upgrade (yangilash) |
+| `-s` | Search (qidirish) |
+
+---
+
+## AUR — Arch User Repository
+
+AUR — jamiyat tomonidan yaratiladigan paketlar ombori. Rasmiy repo'da bo'lmagan 70,000+ paket mavjud.
+
+<Callout type="warning">
+AUR paketlar rasmiy emas — xavfsizlikni o'zingiz tekshiring!
+</Callout>
+
+### AUR Helper'lar
+
+AUR bilan ishlash uchun helper kerak:
+
+| Helper | Xususiyatlari |
+|--------|--------------|
+| **yay** | Eng mashhur, sodda |
+| **paru** | Rust'da yozilgan, tez |
+| **trizen** | Perl'da, minimal |
+
+### yay O'rnatish
+
+```bash
+sudo pacman -S --needed git base-devel
+git clone https://aur.archlinux.org/yay.git
+cd yay
+makepkg -si
+```
+
+### yay Ishlatish
+
+```bash
+yay -S paket_nomi        # AUR dan o'rnatish
+yay -Ss qidiruv          # AUR + repo qidirish
+yay -Syu                 # Hammani yangilash (AUR ham)
+yay                      # Interaktiv yangilash
+```
+
+---
+
+## Amaliy Misollar
+
+### Google Chrome (AUR)
+
+```bash
+yay -S google-chrome
+```
+
+### VS Code (AUR)
+
+```bash
+yay -S visual-studio-code-bin
+```
+
+### Discord (AUR)
+
+```bash
+yay -S discord
+```
+
+---
+
+## Cache Tozalash
+
+Disk joyini tejash:
+
+```bash
+sudo pacman -Sc          # Eski paketlarni tozalash
+sudo pacman -Scc         # Barcha cache'ni tozalash
+```
+
+---
+
+## Xulosa
+
+| Vazifa | pacman | yay (AUR) |
+|--------|--------|-----------|
+| O'rnatish | `pacman -S` | `yay -S` |
+| O'chirish | `pacman -R` | `yay -R` |
+| Yangilash | `pacman -Syu` | `yay -Syu` |
+| Qidirish | `pacman -Ss` | `yay -Ss` |

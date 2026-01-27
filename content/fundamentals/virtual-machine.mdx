@@ -1,0 +1,122 @@
+---
+title: "Virtual Mashina O'rnatish"
+description: "VirtualBox va VMware yordamida Linux'ni xavfsiz sinab ko'rish"
+---
+
+# Virtual Mashina O'rnatish
+
+Linux'ni o'rganishni boshlashning eng xavfsiz yo'li — Virtual Mashina (VM) yaratish. Bu sizga asosiy operatsion tizimingizni o'zgartirmasdan Linux'ni sinab ko'rish imkonini beradi.
+
+<Callout type="tip">
+**Tavsiya:** Boshlang'ich foydalanuvchilar uchun VirtualBox eng yaxshi tanlov — bepul va oson.
+</Callout>
+
+## Nima uchun Virtual Mashina?
+
+| Afzalligi | Tushuntirish |
+|-----------|-------------|
+| ✅ Xavfsiz | Asosiy tizimga ta'sir qilmaydi |
+| ✅ Qaytarish oson | Snapshot yaratib, xatolarni tezda tuzatish |
+| ✅ Ko'p OS | Bir kompyuterda bir nechta Linux distributiv |
+| ✅ Eksperiment | Xavfsiz muhitda o'rganish |
+
+---
+
+## VirtualBox O'rnatish
+
+### 1. Yuklab olish
+
+```
+https://www.virtualbox.org/wiki/Downloads
+```
+
+Windows uchun "Windows hosts" tugmasini bosing.
+
+### 2. O'rnatish
+
+<Steps>
+<Step>
+VirtualBox o'rnatuvchisini ishga tushiring
+</Step>
+<Step>
+Barcha sozlamalarni default qoldiring
+</Step>
+<Step>
+"Install" tugmasini bosing
+</Step>
+<Step>
+Kompyuterni qayta ishga tushiring (tavsiya)
+</Step>
+</Steps>
+
+---
+
+## Linux ISO Yuklab Olish
+
+Mashhur boshlang'ich distributivlar:
+
+| Distributiv | ISO hajmi | Yuklab olish |
+|-------------|-----------|--------------|
+| Ubuntu | ~4 GB | ubuntu.com |
+| Linux Mint | ~2.5 GB | linuxmint.com |
+| Fedora | ~2 GB | fedoraproject.org |
+
+---
+
+## VM Yaratish
+
+<Steps>
+<Step>
+VirtualBox'ni oching → "New" tugmasini bosing
+</Step>
+<Step>
+Nom bering (masalan: "Ubuntu-Test") → Type: Linux → Version: Ubuntu (64-bit)
+</Step>
+<Step>
+RAM: 4096 MB (minimum 2048 MB)
+</Step>
+<Step>
+Hard disk: "Create a virtual hard disk now" → VDI → Dynamically allocated → 25 GB
+</Step>
+<Step>
+"Create" tugmasini bosing
+</Step>
+</Steps>
+
+---
+
+## ISO Ulash va O'rnatish
+
+<Steps>
+<Step>
+Yaratilgan VM ustida o'ng tugma → Settings → Storage
+</Step>
+<Step>
+"Empty" disk ustiga bosing → o'ngdagi disk ikonkasini bosing → "Choose a disk file"
+</Step>
+<Step>
+Yuklab olingan ISO faylini tanlang
+</Step>
+<Step>
+"OK" → "Start" tugmasini bosing
+</Step>
+<Step>
+Linux o'rnatuvchisi ishga tushadi — ekrandagi ko'rsatmalarga amal qiling
+</Step>
+</Steps>
+
+<Callout type="info">
+O'rnatish tugagach, ISO'ni ajratishni unutmang (Settings → Storage → ISO ni olib tashlang)
+</Callout>
+
+---
+
+## VMware (Alternativ)
+
+VMware Workstation Player ham bepul variant:
+
+```
+https://www.vmware.com/products/workstation-player.html
+```
+
+Farqi: VMware biroz tezroq ishlaydi, lekin VirtualBox ko'proq xususiyatlarga ega.

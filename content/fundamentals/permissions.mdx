@@ -1,0 +1,157 @@
+---
+title: "Ruxsatlar: chmod, chown, sudo"
+description: "Linux fayllar xavfsizligi va administrator huquqlari"
+---
+
+# Ruxsatlar: chmod, chown, sudo
+
+Linux xavfsizlik tizimi fayl ruxsatlariga asoslangan. Har bir fayl va papkaning egasi va ruxsatlari bor.
+
+---
+
+## Ruxsatlarni Ko'rish
+
+```bash
+ls -l
+```
+
+Natija:
+```
+-rwxr-xr-- 1 user group 1234 Jan 1 12:00 script.sh
+```
+
+Bu qatorni tahlil qilaylik:
+
+```
+-rwxr-xr--
+│└┬┘└┬┘└┬┘
+│ │  │  └── Boshqalar (others): r-- (faqat o'qish)
+│ │  └───── Guruh (group): r-x (o'qish + bajarish)
+│ └──────── Egasi (owner): rwx (to'liq)
+└────────── Turi: - (fayl), d (papka), l (link)
+```
+
+---
+
+## Ruxsat Belgilari
+
+| Belgi | Raqam | Ma'nosi |
+|-------|-------|---------|
+| `r` | 4 | Read — o'qish |
+| `w` | 2 | Write — yozish |
+| `x` | 1 | Execute — bajarish |
+| `-` | 0 | Ruxsat yo'q |
+
+---
+
+## chmod — Ruxsatlarni O'zgartirish
+
+### Raqamli usul (eng keng tarqalgan)
+
+```bash
+chmod 755 script.sh    # rwxr-xr-x
+chmod 644 file.txt     # rw-r--r--
+chmod 700 secret.txt   # rwx------
+```
+
+Raqam qanday hisoblanadi:
+- Owner: r(4) + w(2) + x(1) = 7
+- Group: r(4) + x(1) = 5
+- Others: r(4) + x(1) = 5
+- Natija: 755
+
+### Harfli usul
+
+```bash
+chmod +x script.sh     # Bajarish huquqi qo'shish
+chmod -w file.txt      # Yozish huquqini olib tashlash
+chmod u+x,g+r file     # Owner + execute, Group + read
+```
+
+---
+
+## Keng Tarqalgan Kombinatsiyalar
+
+| Raqam | Ruxsatlar | Qachon ishlatiladi |
+|-------|-----------|-------------------|
+| `777` | rwxrwxrwx | Hamma uchun to'liq (xavfli!) |
+| `755` | rwxr-xr-x | Skriptlar, dasturlar |
+| `644` | rw-r--r-- | Oddiy fayllar |
+| `600` | rw------- | Maxfiy fayllar |
+| `700` | rwx------ | Shaxsiy skriptlar |
+
+<Callout type="warning">
+`777` ruxsatini xavfsizlik sabablari uchun ISHLATMANG!
+</Callout>
+
+---
+
+## chown — Egasini O'zgartirish
+
+```bash
+chown user file.txt           # Faqat egasini
+chown user:group file.txt     # Egasi va guruhini
+chown -R user:group folder/   # Recursive (papka ichidagi hammasi)
+```
+
+---
+
+## sudo — Superuser Do
+
+`sudo` vaqtinchalik administrator (root) huquqlari beradi.
+
+### Ishlatish
+
+```bash
+sudo apt update           # Bitta buyruq
+sudo -i                   # Root shell'ga kirish
+sudo -u user komanda      # Boshqa foydalanuvchi sifatida
+```
+
+### sudoers fayli
+
+```bash
+sudo visudo               # sudoers faylini xavfsiz tahrirlash
+```
+
+Qo'shish mumkin:
+```
+user ALL=(ALL) ALL        # user ga to'liq sudo huquqi
+user ALL=(ALL) NOPASSWD: ALL  # Parolsiz
+```
+
+---
+
+## Amaliy misollar
+
+### Skriptni bajariladigan qilish
+
+```bash
+chmod +x myscript.sh
+./myscript.sh
+```
+
+### SSH kalit faylini himoyalash
+
+```bash
+chmod 600 ~/.ssh/id_rsa
+chmod 644 ~/.ssh/id_rsa.pub
+```
+
+### Veb-server papkasi
+
+```bash
+sudo chown -R www-data:www-data /var/www/html
+sudo chmod -R 755 /var/www/html
+```
+
+---
+
+## Xulosa
+
+| Buyruq | Vazifasi |
+|--------|----------|
+| `chmod` | Ruxsatlarni o'zgartirish |
+| `chown` | Egasini o'zgartirish |
+| `sudo` | Administrator sifatida bajarish |
+| `ls -l` | Ruxsatlarni ko'rish |

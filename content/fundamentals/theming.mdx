@@ -1,0 +1,153 @@
+---
+title: "Theming: Mavzular O'zgartirish"
+description: "Linux ish stolini sozlash va bezash"
+---
+
+# Linux Theming: Mavzular O'zgartirish
+
+Linux'ning eng katta afzalliklaridan biri — ish stolini to'liq o'z didingizga moslash imkoniyati.
+
+---
+
+## Theming Elementlari
+
+| Element | Tarif |
+|---------|-------|
+| **GTK Theme** | Dastur oynalari ko'rinishi |
+| **Icon Theme** | Ikonkalar to'plami |
+| **Cursor Theme** | Kursor shakli |
+| **Font** | Shriftlar |
+| **Wallpaper** | Fon rasmi |
+| **Shell Theme** | Panel/dock ko'rinishi (GNOME) |
+
+---
+
+## Qayerdan Topish?
+
+### Mashhur Manbalar
+
+| Sayt | Nima topiladi |
+|------|--------------|
+| [gnome-look.org](https://gnome-look.org) | GTK, Icon, Cursor |
+| [store.kde.org](https://store.kde.org) | KDE mavzulari |
+| [pling.com](https://pling.com) | Umumiy |
+| GitHub | Yakka mavzular |
+
+### Mashhur Mavzular
+
+**GTK:**
+- Adwaita (GNOME standart)
+- Catppuccin (pastel ranglar)
+- Nordic (skandinav uslubi)
+- Dracula (qorong'i)
+
+**Ikonkalar:**
+- Papirus
+- Tela
+- Fluent
+- Reversal
+
+---
+
+## GNOME da O'zgartirish
+
+### GNOME Tweaks o'rnatish
+
+```bash
+# Ubuntu/Debian
+sudo apt install gnome-tweaks gnome-shell-extensions
+
+# Fedora
+sudo dnf install gnome-tweaks gnome-extensions-app
+```
+
+### Mavzularni qo'llash
+
+<Steps>
+<Step>
+Mavzuni yuklab oling (.tar.gz yoki .zip)
+</Step>
+<Step>
+GTK mavzu: `~/.themes/` papkasiga chiqaring
+</Step>
+<Step>
+Ikonkalar: `~/.icons/` papkasiga chiqaring
+</Step>
+<Step>
+GNOME Tweaks → Appearance → mavzuni tanlang
+</Step>
+</Steps>
+
+---
+
+## KDE Plasma da O'zgartirish
+
+KDE'da hamma narsa System Settings ichida:
+
+<Steps>
+<Step>
+System Settings → Appearance
+</Step>
+<Step>
+Global Theme → "Get New..." tugmasini bosing
+</Step>
+<Step>
+Yoqqan mavzuni tanlang va Apply
+</Step>
+</Steps>
+
+<Callout type="tip">
+KDE'da har bir elementni alohida sozlash mumkin!
+</Callout>
+
+---
+
+## Terminal Mavzulari
+
+### Bash/Zsh uchun
+
+Mashhur promptlar:
+- **Starship** — tez, moslashuvchan
+- **Oh My Zsh** — Zsh uchun framework
+- **Powerlevel10k** — kuchli Zsh prompt
+
+### Starship o'rnatish
+
+```bash
+curl -sS https://starship.rs/install.sh | sh
+
+# .bashrc yoki .zshrc ga qo'shing:
+eval "$(starship init bash)"
+```
+
+---
+
+## Oldindan Sozlangan "Rice"lar
+
+"Rice" — to'liq sozlangan Linux ish stoli konfiguratsiyasi.
+
+### Qayerdan topish?
+
+- Reddit: r/unixporn
+- GitHub: "dotfiles" qidiruvi
+
+### Misol (i3wm rice)
+
+```
+┌─────────────────────────────────────────┐
+│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  polybar         │
+├──────────────────┬──────────────────────┤
+│                  │  ░░░░neofetch░░░░░░  │
+│   vim            │  OS: Arch Linux      │
+│                  │  WM: i3              │
+│   config.py      │  Theme: Catppuccin   │
+│                  │  Terminal: Kitty     │
+├──────────────────┴──────────────────────┤
+│  > ~/dotfiles                           │
+│  $ ls -la                               │
+└─────────────────────────────────────────┘
+```
+
+<Callout type="info">
+r/unixporn — Linux ish stoli ko'rinishlarini baham ko'rish uchun eng mashhur jamiyat.
+</Callout>

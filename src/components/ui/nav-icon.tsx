@@ -1,4 +1,4 @@
-import { BookOpen, Download, Settings, Code, Terminal, Shield, Layers, Cpu, LucideIcon } from "lucide-react";
+import { BookOpen, Download, Settings, Code, Terminal, Shield, Layers, Cpu, Package, Palette, LucideIcon } from "lucide-react";
 import { type IconName } from "@/config/distros";
 
 interface NavIconProps {
@@ -18,6 +18,8 @@ export function NavIcon({ name, className = "h-4 w-4" }: NavIconProps) {
         "shield": Shield,
         "layers": Layers,
         "cpu": Cpu,
+        "package": Package,
+        "palette": Palette,
     };
 
     const Icon = icons[name];

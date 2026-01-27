@@ -1,0 +1,176 @@
+---
+title: "Jarayonlar Boshqaruvi"
+description: "top, htop, kill va systemctl bilan ishlash"
+---
+
+# Jarayonlar Boshqaruvi
+
+Linux'da ishlaydigan har bir dastur — bu jarayon (process). Ularni ko'rish, monitoring qilish va boshqarishni o'rganamiz.
+
+---
+
+## Jarayonlarni Ko'rish
+
+### ps — Snapshot
+
+```bash
+ps                  # Joriy terminal jarayonlari
+ps aux              # Barcha jarayonlar
+ps aux | grep nginx # Maxsus jarayonni qidirish
+```
+
+### top — Real-time
+
+```bash
+top
+```
+
+Tugmalar:
+- `q` — chiqish
+- `k` — jarayonni o'ldirish
+- `M` — RAM bo'yicha saralash
+- `P` — CPU bo'yicha saralash
+
+### htop — Yaxshiroq top
+
+```bash
+# O'rnatish
+sudo apt install htop  # Ubuntu/Debian
+sudo pacman -S htop    # Arch
+
+# Ishga tushirish
+htop
+```
+
+htop afzalliklari:
+- 🎨 Rangli interfeys
+- 🖱️ Sichqoncha bilan ishlash
+- 📊 Grafiklar
+- ⌨️ Oson navigatsiya
+
+---
+
+## Jarayonlar Haqida Ma'lumot
+
+### PID (Process ID)
+
+Har bir jarayonning unikal raqami:
+
+```bash
+pidof nginx          # nginx ning PID'si
+pgrep firefox        # PID qidirish
+```
+
+### Jarayon holati
+
+| Holat | Ma'nosi |
+|-------|---------|
+| `R` | Running — ishlayapti |
+| `S` | Sleeping — kutmoqda |
+| `D` | Disk sleep — I/O kutmoqda |
+| `Z` | Zombie — tugagan, lekin tozalanmagan |
+| `T` | Stopped — to'xtatilgan |
+
+---
+
+## Jarayonlarni O'ldirish
+
+### kill — PID bilan
+
+```bash
+kill 1234            # Oddiy to'xtatish (SIGTERM)
+kill -9 1234         # Majburiy o'ldirish (SIGKILL)
+```
+
+### killall — Nomi bilan
+
+```bash
+killall firefox      # Barcha firefox jarayonlarini
+killall -9 nginx     # Majburiy
+```
+
+### pkill — Pattern bilan
+
+```bash
+pkill -f "python script"  # Pattern bo'yicha
+```
+
+---
+
+## Signallar
+
+| Signal | Raqam | Ma'nosi |
+|--------|-------|---------|
+| SIGTERM | 15 | Muomala bilan to'xtatish (default) |
+| SIGKILL | 9 | Majburiy o'ldirish |
+| SIGHUP | 1 | Qayta yuklash |
+| SIGSTOP | 19 | Pauza |
+| SIGCONT | 18 | Davom ettirish |
+
+---
+
+## Background/Foreground
+
+```bash
+./script.sh &        # Background'da ishga tushirish
+Ctrl + Z             # Foreground → pauza
+bg                   # Pauza → background
+fg                   # Background → foreground
+jobs                 # Background ishlar ro'yxati
+```
+
+---
+
+## systemctl — Servislar
+
+Systemd bilan boshqariladigan xizmatlar:
+
+### Asosiy buyruqlar
+
+```bash
+sudo systemctl start nginx    # Boshlash
+sudo systemctl stop nginx     # To'xtatish
+sudo systemctl restart nginx  # Qayta boshlash
+sudo systemctl status nginx   # Holat
+```
+
+### Yoqish/O'chirish (boot)
+
+```bash
+sudo systemctl enable nginx   # Bootda avtomatik
+sudo systemctl disable nginx  # Bootda o'chirish
+```
+
+### Ro'yxat
+
+```bash
+systemctl list-units --type=service          # Ishlayotganlar
+systemctl list-units --type=service --all    # Hammasi
+systemctl list-unit-files --type=service     # O'rnatilganlar
+```
+
+---
+
+## Monitoring Buyruqlari
+
+| Buyruq | Vazifasi |
+|--------|----------|
+| `top` | CPU/RAM real-time |
+| `htop` | Yaxshiroq top |
+| `free -h` | RAM holati |
+| `df -h` | Disk holati |
+| `iotop` | Disk I/O (sudo kerak) |
+| `nethogs` | Tarmoq (sudo kerak) |
+
+---
+
+## Amaliy Mashq
+
+1. `htop` ni oching
+2. Firefox ishga tushiring
+3. htop'da Firefox ni toping
+4. F9 bilan SIGTERM yuboring
+
+<Callout type="tip">
+`htop` — Linux administratori uchun eng foydali vositalardan biri!
+</Callout>

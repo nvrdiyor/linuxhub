@@ -1,0 +1,128 @@
+---
+title: "Live USB Yaratish"
+description: "Rufus va Ventoy yordamida bootable USB yaratish"
+---
+
+# Live USB Yaratish
+
+Live USB — bu USB flesh-diskdan Linux'ni ishga tushirish imkoniyati. Bu kompyuteringizga hech narsa o'rnatmasdan Linux'ni sinab ko'rish uchun ideal.
+
+## Nima kerak?
+
+- 📦 USB flesh-disk (minimum 8 GB)
+- 💿 Linux ISO fayili
+- 🔧 Rufus yoki Ventoy dasturi
+
+---
+
+## 1-usul: Rufus (Oddiy)
+
+Bitta distributiv uchun ideal.
+
+### Yuklab olish
+
+```
+https://rufus.ie
+```
+
+### Qadamlar
+
+<Steps>
+<Step>
+USB'ni kompyuterga ulang
+</Step>
+<Step>
+Rufus'ni ishga tushiring
+</Step>
+<Step>
+Device: USB flesh-diskingizni tanlang
+</Step>
+<Step>
+Boot selection: "SELECT" → ISO faylini tanlang
+</Step>
+<Step>
+Partition scheme: GPT (yangi kompyuterlar) yoki MBR (eski)
+</Step>
+<Step>
+"START" tugmasini bosing
+</Step>
+</Steps>
+
+<Callout type="warning">
+**Ogohlantirish:** USB'dagi barcha ma'lumotlar o'chib ketadi!
+</Callout>
+
+---
+
+## 2-usul: Ventoy (Ko'p ISO)
+
+Bir USB'ga bir nechta distributiv joylash.
+
+### Afzalliklari
+
+| Xususiyat | Rufus | Ventoy |
+|-----------|-------|--------|
+| Ko'p ISO | ❌ | ✅ |
+| ISO qo'shish | Qayta yozish | Faqat nusxalash |
+| Tezlik | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+
+### Yuklab olish
+
+```
+https://www.ventoy.net
+```
+
+### Qadamlar
+
+<Steps>
+<Step>
+Ventoy'ni yuklab oling va arxivdan chiqaring
+</Step>
+<Step>
+`Ventoy2Disk.exe` ni ishga tushiring
+</Step>
+<Step>
+USB'ni tanlang → "Install" tugmasini bosing
+</Step>
+<Step>
+ISO fayllarini USB'ga oddiy nusxalang (drag & drop)
+</Step>
+<Step>
+Tayyor! USB'dan boot qilganingizda ro'yxat paydo bo'ladi
+</Step>
+</Steps>
+
+---
+
+## USB'dan Boot Qilish
+
+### BIOS/UEFI ga kirish
+
+Kompyuter yoqilayotganda quyidagi tugmalardan birini bosing:
+
+| Brend | Tugma |
+|-------|-------|
+| Dell | F12 |
+| HP | F9 yoki Esc |
+| Lenovo | F12 |
+| ASUS | F8 yoki Esc |
+| Acer | F12 |
+
+### Boot menyu
+
+1. USB flesh-diskni tanlang
+2. Enter tugmasini bosing
+3. Linux Live muhiti ishga tushadi
+
+---
+
+## Live Muhitda Nima Qilish Mumkin?
+
+- ✅ Linux'ni sinab ko'rish
+- ✅ Hardware mosligini tekshirish
+- ✅ Internet, Wi-Fi ishlashini tekshirish
+- ✅ Linux'ni o'rnatish ("Install" ikonkasini bosing)
+
+<Callout type="tip">
+**Maslahat:** Live rejimda qilingan o'zgarishlar saqlanmaydi — bu normal holat.
+</Callout>

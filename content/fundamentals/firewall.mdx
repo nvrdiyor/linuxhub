@@ -1,0 +1,176 @@
+---
+title: "Firewall (UFW)"
+description: "Linux tarmoq xavfsizligini sozlash"
+---
+
+# Firewall: UFW
+
+UFW (Uncomplicated Firewall) — Linux uchun oddiy firewall interfeysi. U iptables ustida qulay qatlam.
+
+---
+
+## UFW Nima Qiladi?
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         INTERNET                                 │
+│                            │                                     │
+│                            ▼                                     │
+│                    ┌───────────────┐                            │
+│                    │   FIREWALL    │                            │
+│                    │     (UFW)     │                            │
+│                    └───────┬───────┘                            │
+│                            │                                     │
+│         ┌──────────────────┼──────────────────┐                 │
+│         │                  │                  │                  │
+│    ✅ Port 22         ✅ Port 80        ❌ Port 3306            │
+│    (SSH)              (HTTP)            (MySQL)                  │
+│                                                                  │
+│                    SIZNING SERVER                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## UFW O'rnatish
+
+```bash
+# Ubuntu/Debian (odatda o'rnatilgan)
+sudo apt install ufw
+
+# Arch
+sudo pacman -S ufw
+
+# Fedora
+sudo dnf install ufw
+```
+
+---
+
+## Asosiy Buyruqlar
+
+### Yoqish/O'chirish
+
+```bash
+sudo ufw enable      # Yoqish
+sudo ufw disable     # O'chirish
+sudo ufw status      # Holat
+sudo ufw status verbose  # Batafsil
+```
+
+### Standart Qoidalar
+
+```bash
+# Standart: kiruvchi trafik rad, chiquvchi ruxsat
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+```
+
+---
+
+## Port Boshqaruvi
+
+### Ruxsat berish
+
+```bash
+sudo ufw allow 22           # Port 22 (SSH)
+sudo ufw allow 80           # Port 80 (HTTP)
+sudo ufw allow 443          # Port 443 (HTTPS)
+sudo ufw allow 22/tcp       # Faqat TCP
+sudo ufw allow 53/udp       # Faqat UDP
+```
+
+### Xizmat nomi bilan
+
+```bash
+sudo ufw allow ssh          # = port 22
+sudo ufw allow http         # = port 80
+sudo ufw allow https        # = port 443
+```
+
+### Rad etish
+
+```bash
+sudo ufw deny 3306          # MySQL portini yopish
+sudo ufw deny from 192.168.1.100  # IP'dan rad
+```
+
+### O'chirish
+
+```bash
+sudo ufw delete allow 80
+# yoki raqami bilan:
+sudo ufw status numbered
+sudo ufw delete 2
+```
+
+---
+
+## IP Asosida Qoidalar
+
+```bash
+# Bitta IP'ga ruxsat
+sudo ufw allow from 192.168.1.100
+
+# Subnet'ga ruxsat
+sudo ufw allow from 192.168.1.0/24
+
+# Bitta IP, bitta port
+sudo ufw allow from 192.168.1.100 to any port 22
+```
+
+---
+
+## Amaliy Misollar
+
+### Web Server
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw allow http
+sudo ufw allow https
+sudo ufw enable
+```
+
+### Home Server
+
+```bash
+sudo ufw allow ssh
+sudo ufw allow from 192.168.0.0/16  # LAN faqat
+sudo ufw enable
+```
+
+---
+
+## Qoidalarni Ko'rish
+
+```bash
+sudo ufw status numbered
+```
+
+Natija:
+```
+Status: active
+
+     To                         Action      From
+     --                         ------      ----
+[ 1] 22/tcp                     ALLOW IN    Anywhere
+[ 2] 80/tcp                     ALLOW IN    Anywhere
+[ 3] 443/tcp                    ALLOW IN    Anywhere
+```
+
+---
+
+## Reset
+
+Barcha qoidalarni o'chirish:
+
+```bash
+sudo ufw reset
+```
+
+<Callout type="warning">
+**Ehtiyot:** UFW yoqilganda SSH port (22) ni yopmaslik haqida o'ylang — serverdan chiqib qolishingiz mumkin!
+</Callout>

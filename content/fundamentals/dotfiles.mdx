@@ -1,0 +1,148 @@
+---
+title: "Dotfiles Nima?"
+description: "Linux konfiguratsiya fayllarini boshqarish"
+---
+
+# Dotfiles Nima?
+
+Dotfiles — bu nuqta bilan boshlanadigan yashirin konfiguratsiya fayllari. Linux'da deyarli har bir dastur o'z sozlamalarini dotfile'larda saqlaydi.
+
+---
+
+## Nima Uchun "Dot"?
+
+Linux'da nuqta bilan boshlanadigan fayllar yashirin hisoblanadi:
+
+```bash
+ls -la ~/
+```
+
+Natija:
+```
+.bashrc         # Bash konfiguratsiyasi
+.config/        # Zamonaviy dasturlar konfiguratsiyasi
+.gitconfig      # Git sozlamalari
+.ssh/           # SSH kalitlari
+.vimrc          # Vim sozlamalari
+.zshrc          # Zsh konfiguratsiyasi
+```
+
+---
+
+## Asosiy Dotfile'lar
+
+| Fayl | Maqsadi |
+|------|---------|
+| `~/.bashrc` | Bash shell sozlamalari |
+| `~/.zshrc` | Zsh shell sozlamalari |
+| `~/.gitconfig` | Git global sozlamalari |
+| `~/.vimrc` | Vim muharriri sozlamalari |
+| `~/.config/` | XDG konfiguratsiya papkasi |
+| `~/.local/` | Foydalanuvchi dasturlari |
+
+---
+
+## .bashrc Misoli
+
+```bash
+# ~/.bashrc
+
+# Aliaslar
+alias ll='ls -la'
+alias update='sudo apt update && sudo apt upgrade'
+alias ..='cd ..'
+
+# Muhit o'zgaruvchilari
+export EDITOR=vim
+export PATH="$HOME/.local/bin:$PATH"
+
+# Prompt sozlash
+PS1='\u@\h:\w\$ '
+```
+
+O'zgarishlarni qo'llash:
+```bash
+source ~/.bashrc
+```
+
+---
+
+## Dotfiles Boshqaruvi
+
+### Nega saqlash kerak?
+
+- 💾 Backup — sozlamalar yo'qolmaydi
+- 🔄 Sync — bir nechta kompyuter o'rtasida
+- 📦 Tez o'rnatish — yangi tizimda bir buyruq
+
+### Git bilan saqlash
+
+<Steps>
+<Step>
+GitHub'da `dotfiles` repo yarating
+</Step>
+<Step>
+Lokal repo yarating:
+```bash
+mkdir ~/dotfiles
+cd ~/dotfiles
+git init
+```
+</Step>
+<Step>
+Dotfile'larni nusxalang:
+```bash
+cp ~/.bashrc ~/dotfiles/
+cp ~/.vimrc ~/dotfiles/
+cp -r ~/.config/nvim ~/dotfiles/
+```
+</Step>
+<Step>
+Symlink yarating (asl joyiga):
+```bash
+ln -sf ~/dotfiles/.bashrc ~/.bashrc
+```
+</Step>
+<Step>
+Push qiling:
+```bash
+git add .
+git commit -m "Initial dotfiles"
+git push origin main
+```
+</Step>
+</Steps>
+
+---
+
+## Dotfiles Menejerlari
+
+| Dastur | Xususiyati |
+|--------|------------|
+| **GNU Stow** | Symlink menejeri |
+| **chezmoi** | Cross-platform, shifrlash |
+| **yadm** | Git wrapper, oddiy |
+| **dotbot** | Bootstrap skript |
+
+### Stow misoli
+
+```bash
+sudo apt install stow
+cd ~/dotfiles
+stow bash    # ~/.bashrc symlink yaratadi
+stow vim     # ~/.vimrc symlink yaratadi
+```
+
+---
+
+## Mashhur Dotfiles Misollar
+
+GitHub'da "dotfiles" qidirib, ilhom olishingiz mumkin:
+
+- mathiasbynens/dotfiles (macOS)
+- thoughtbot/dotfiles
+- holman/dotfiles
+
+<Callout type="tip">
+**Tavsiya:** O'z dotfiles repo'ingizni boshlang — bu vaqt o'tishi bilan juda foydali bo'ladi!
+</Callout>

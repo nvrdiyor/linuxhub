@@ -1,0 +1,130 @@
+---
+title: "Repozitoriy Nima?"
+description: "Linux dastur omborlari tushunchasi"
+---
+
+# Repozitoriy Nima?
+
+Repozitoriy (repo) — bu markazlashtirilgan dastur ombori. Linux'da dasturlar app store o'rniga paket menejeri orqali shu omborlardan yuklab olinadi.
+
+---
+
+## Tushuncha
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    REPOZITORIY TIZIMI                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   📦 Rasmiy Repo          📦 Jamiyat Repo        📦 PPA         │
+│   (Ubuntu servers)        (AUR, COPR)            (Personal)     │
+│         │                       │                     │         │
+│         └───────────────────────┼─────────────────────┘         │
+│                                 ▼                               │
+│                      ┌──────────────────┐                       │
+│                      │  Paket Menejeri  │                       │
+│                      │  (apt, dnf, etc) │                       │
+│                      └────────┬─────────┘                       │
+│                               ▼                                  │
+│                      ┌──────────────────┐                       │
+│                      │  Sizning tizim   │                       │
+│                      └──────────────────┘                       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Nima Uchun Repozitoriylar?
+
+| Xususiyat | Windows Store | Linux Repo |
+|-----------|--------------|------------|
+| Markazlashtirilgan | Qisman | ✅ To'liq |
+| Xavfsizlik | O'rtacha | ✅ Yuqori (imzolangan) |
+| Yangilanish | Har bir dastur alohida | ✅ Bitta buyruq |
+| Bepul | Yo'q | ✅ Asosan bepul |
+
+---
+
+## Repo Turlari
+
+### 1. Rasmiy Repozitoriylar
+
+Distributiv yaratuvchilari tomonidan boshqariladi.
+
+**Ubuntu:**
+- `main` — Canonical qo'llab-quvvatlaydigan ochiq kodli
+- `universe` — Jamiyat qo'llab-quvvatlaydigan
+- `restricted` — Yopiq kodli driverlar
+- `multiverse` — Patentli dasturlar
+
+**Fedora:**
+- `fedora` — Asosiy paketlar
+- `updates` — Yangilanishlar
+
+### 2. Uchinchi Tomon Repozitoriylar
+
+**PPA (Personal Package Archive)** — Ubuntu uchun:
+```bash
+sudo add-apt-repository ppa:user/repo
+sudo apt update
+```
+
+**COPR** — Fedora uchun:
+```bash
+sudo dnf copr enable user/repo
+```
+
+**AUR (Arch User Repository)** — Arch uchun:
+```bash
+yay -S package-name
+```
+
+---
+
+## Repo Bilan Ishlash
+
+### Ubuntu/Debian
+
+```bash
+# Repo ro'yxatini yangilash
+sudo apt update
+
+# Repo manzillari
+cat /etc/apt/sources.list
+ls /etc/apt/sources.list.d/
+```
+
+### Fedora
+
+```bash
+# Repo ro'yxati
+dnf repolist
+
+# Repo qo'shish
+sudo dnf config-manager --add-repo URL
+```
+
+### Arch
+
+```bash
+# Repo sozlamalari
+cat /etc/pacman.conf
+
+# Sync
+sudo pacman -Sy
+```
+
+---
+
+## Xavfsizlik
+
+<Callout type="warning">
+Faqat ishonchli repozitoriylardan foydalaning!
+</Callout>
+
+Tekshirish:
+- ✅ Rasmiy distributiv repo'lari
+- ✅ Mashhur loyihalarning repo'lari (Docker, VS Code)
+- ⚠️ PPA — avval tadqiq qiling
+- ❌ Noma'lum repo'lar — xavfli

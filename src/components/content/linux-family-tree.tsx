@@ -332,7 +332,7 @@ export function LinuxFamilyTree() {
     const totalExpert = linuxFamilies.flatMap((f) => f.children).length;
 
     return (
-        <div className="my-8 space-y-6">
+        <div className="my-8 space-y-6 select-none">
             {/* Header with toggle */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-muted/30 border border-border backdrop-blur-sm">
                 <div className="text-center sm:text-left">
@@ -350,8 +350,8 @@ export function LinuxFamilyTree() {
                     <button
                         onClick={() => setExpertMode(!expertMode)}
                         className={`relative w-14 h-7 rounded-full transition-all ${expertMode
-                                ? "bg-gradient-to-r from-orange-500 to-red-500"
-                                : "bg-muted"
+                            ? "bg-linear-to-r from-orange-500 to-red-500"
+                            : "bg-muted"
                             }`}
                     >
                         <motion.div
@@ -375,12 +375,12 @@ export function LinuxFamilyTree() {
                     className="relative"
                 >
                     {/* Multi-layer glow */}
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary via-purple-500 to-pink-500 blur-2xl opacity-30 animate-pulse" />
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary via-purple-500 to-pink-500 blur-lg opacity-40" />
+                    <div className="absolute inset-0 rounded-2xl bg-linear-to-r from-primary via-purple-500 to-pink-500 blur-2xl opacity-30 animate-pulse" />
+                    <div className="absolute inset-0 rounded-2xl bg-linear-to-r from-primary via-purple-500 to-pink-500 blur-lg opacity-40" />
 
-                    <div className="relative flex flex-col items-center p-6 rounded-2xl bg-gradient-to-br from-card via-card to-muted border-2 border-primary/50 shadow-2xl">
+                    <div className="relative flex flex-col items-center p-6 rounded-2xl bg-linear-to-br from-card via-card to-muted border-2 border-primary/50 shadow-2xl">
                         <span className="text-5xl mb-3">🐧</span>
-                        <span className="font-bold text-2xl bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+                        <span className="font-bold text-2xl bg-linear-to-r from-primary to-purple-500 bg-clip-text text-transparent">
                             Linux Kernel
                         </span>
                         <span className="text-sm text-muted-foreground">
@@ -396,15 +396,15 @@ export function LinuxFamilyTree() {
                     initial={{ height: 0 }}
                     animate={{ height: 50 }}
                     transition={{ duration: 0.5 }}
-                    className="w-0.5 bg-gradient-to-b from-primary via-purple-500 to-transparent"
+                    className="w-0.5 bg-linear-to-b from-primary via-purple-500 to-transparent"
                 />
             </div>
 
             {/* Horizontal scroll container for families */}
             <div className="relative">
                 {/* Fade edges */}
-                <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
-                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+                <div className="absolute left-0 top-0 bottom-0 w-8 bg-linear-to-r from-background to-transparent z-10 pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-background to-transparent z-10 pointer-events-none" />
 
                 {/* Scrollable container */}
                 <div className="overflow-x-auto pb-4 scrollbar-thin scrollbar-track-muted scrollbar-thumb-primary/50 hover:scrollbar-thumb-primary">

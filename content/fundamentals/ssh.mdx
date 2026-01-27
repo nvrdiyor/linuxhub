@@ -1,0 +1,162 @@
+---
+title: "SSH Kalitlari"
+description: "Xavfsiz masofaviy ulanish"
+---
+
+# SSH Kalitlari
+
+SSH (Secure Shell) — masofadagi serverlarga xavfsiz ulanish protokoli. Parol o'rniga kalitlardan foydalanish eng yaxshi amaliyot.
+
+---
+
+## SSH Qanday Ishlaydi?
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│   Sizning PC    │         │     Server      │
+│                 │         │                 │
+│  🔑 Private Key  │────────▶│  🔒 Public Key   │
+│  (maxfiy)       │   SSH   │  (ochiq)        │
+│                 │◀────────│                 │
+└─────────────────┘         └─────────────────┘
+```
+
+- **Private key** — faqat sizda (hech kimga bermang!)
+- **Public key** — serverlarga joylashtiriladi
+
+---
+
+## SSH Kalit Yaratish
+
+```bash
+ssh-keygen -t ed25519 -C "email@example.com"
+```
+
+Savollar:
+1. Fayl joyi — Enter (default)
+2. Parol — kuchli parol kiriting (tavsiya)
+
+Natija:
+```
+~/.ssh/id_ed25519       # Private key
+~/.ssh/id_ed25519.pub   # Public key
+```
+
+### Kalit turlari
+
+| Turi | Xavfsizlik | Tezlik |
+|------|------------|--------|
+| `ed25519` | ⭐⭐⭐⭐⭐ | Tez |
+| `rsa` (4096) | ⭐⭐⭐⭐ | O'rtacha |
+| `ecdsa` | ⭐⭐⭐⭐ | Tez |
+| `dsa` | ⚠️ Eskirgan | - |
+
+---
+
+## Serverga Kalitni Joylash
+
+### 1-usul: ssh-copy-id
+
+```bash
+ssh-copy-id user@server.com
+```
+
+### 2-usul: Qo'lda
+
+```bash
+# Public key'ni nusxalash
+cat ~/.ssh/id_ed25519.pub
+
+# Serverda:
+mkdir -p ~/.ssh
+echo "kalitning_matni" >> ~/.ssh/authorized_keys
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys
+```
+
+---
+
+## SSH Bilan Ulanish
+
+```bash
+# Oddiy ulanish
+ssh user@server.com
+
+# Port belgilash
+ssh -p 2222 user@server.com
+
+# Maxsus kalit bilan
+ssh -i ~/.ssh/boshqa_kalit user@server.com
+```
+
+---
+
+## SSH Config Fayli
+
+Ulanishlarni osonlashtirish uchun:
+
+```bash
+# ~/.ssh/config
+
+Host myserver
+    HostName 192.168.1.100
+    User admin
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519
+
+Host github
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/github_key
+```
+
+Endi oddiy yozishingiz mumkin:
+```bash
+ssh myserver
+```
+
+---
+
+## GitHub SSH
+
+<Steps>
+<Step>
+Kalit yarating (agar yo'q bo'lsa):
+```bash
+ssh-keygen -t ed25519 -C "github@email.com"
+```
+</Step>
+<Step>
+Public key'ni nusxalang:
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+</Step>
+<Step>
+GitHub → Settings → SSH and GPG keys → New SSH key
+</Step>
+<Step>
+Key'ni qo'shing
+</Step>
+<Step>
+Test:
+```bash
+ssh -T git@github.com
+```
+</Step>
+</Steps>
+
+---
+
+## Xavfsizlik
+
+<Callout type="warning">
+**Hech qachon** private key'ni hech kimga yubormang yoki public repo'ga qo'ymang!
+</Callout>
+
+Ruxsatlar:
+```bash
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_ed25519
+chmod 644 ~/.ssh/id_ed25519.pub
+```

@@ -1,0 +1,179 @@
+---
+title: "Asosiy Terminal Buyruqlari"
+description: "Kundalik ishlatiladigan 20 ta muhim buyruq"
+---
+
+# Asosiy Terminal Buyruqlari
+
+Bu sahifada eng ko'p ishlatiladigan terminal buyruqlarini o'rganasiz.
+
+<Callout type="tip">
+**Maslahat:** Har bir buyruqni terminal'da sinab ko'ring — amaliyot nazariyadan muhimroq!
+</Callout>
+
+---
+
+## Navigatsiya Buyruqlari
+
+### `pwd` — Joriy papka
+
+```bash
+pwd
+# /home/foydalanuvchi
+```
+
+### `ls` — Ro'yxat
+
+```bash
+ls              # Oddiy ro'yxat
+ls -l           # Batafsil
+ls -la          # Yashirin fayllar bilan
+ls -lh          # Odam o'qiy oladigan hajm
+```
+
+### `cd` — Papkani o'zgartirish
+
+```bash
+cd /home        # Mutlaq yo'l
+cd Documents    # Nisbiy yo'l
+cd ..           # Orqaga
+cd ~            # Home papkasiga
+cd -            # Oldingi papkaga
+```
+
+---
+
+## Fayl/Papka Boshqaruvi
+
+### `mkdir` — Papka yaratish
+
+```bash
+mkdir yangi_papka
+mkdir -p path/to/deep/folder  # Bir nechta darajali
+```
+
+### `touch` — Fayl yaratish
+
+```bash
+touch yangi_fayl.txt
+touch file1.txt file2.txt file3.txt
+```
+
+### `cp` — Nusxalash
+
+```bash
+cp fayl.txt nusxa.txt           # Fayl
+cp -r papka/ yangi_papka/       # Papka (-r = recursive)
+```
+
+### `mv` — Ko'chirish/Nomini o'zgartirish
+
+```bash
+mv eski.txt yangi.txt           # Nom o'zgartirish
+mv fayl.txt /path/to/dest/      # Ko'chirish
+```
+
+### `rm` — O'chirish
+
+```bash
+rm fayl.txt                     # Fayl
+rm -r papka/                    # Papka
+rm -rf papka/                   # Majburiy (ehtiyot!)
+```
+
+<Callout type="warning">
+**Ogohlantirish:** `rm -rf /` buyrug'ini HECH QACHON ishlatmang!
+</Callout>
+
+---
+
+## Fayl Tarkibini Ko'rish
+
+### `cat` — To'liq ko'rish
+
+```bash
+cat fayl.txt
+```
+
+### `head` / `tail` — Boshi/Oxiri
+
+```bash
+head -n 10 fayl.txt    # Birinchi 10 qator
+tail -n 20 fayl.txt    # Oxirgi 20 qator
+tail -f log.txt        # Real-time kuzatish
+```
+
+### `less` — Sahifalab ko'rish
+
+```bash
+less uzun_fayl.txt
+# q — chiqish, / — qidirish
+```
+
+---
+
+## Qidirish
+
+### `find` — Fayl qidirish
+
+```bash
+find . -name "*.txt"           # Joriy papkada
+find /home -name "config*"     # /home da config bilan boshlanuvchi
+find . -type d -name "backup"  # Faqat papkalar
+```
+
+### `grep` — Matn qidirish
+
+```bash
+grep "error" log.txt           # Fayl ichida
+grep -r "TODO" .               # Recursive
+grep -i "hello" file.txt       # Case-insensitive
+```
+
+---
+
+## Tizim Ma'lumotlari
+
+### `df` — Disk holati
+
+```bash
+df -h    # Human-readable
+```
+
+### `du` — Papka hajmi
+
+```bash
+du -sh *            # Joriy papkadagi elementlar
+du -sh ~/Downloads  # Bitta papka
+```
+
+### `free` — RAM holati
+
+```bash
+free -h
+```
+
+### `top` / `htop` — Jarayonlar
+
+```bash
+top     # Standart
+htop    # Yaxshiroq (o'rnatish kerak)
+```
+
+---
+
+## Xulosa Jadvali
+
+| Buyruq | Vazifasi |
+|--------|----------|
+| `pwd` | Joriy papka |
+| `ls` | Ro'yxat |
+| `cd` | Papka almashtirish |
+| `mkdir` | Papka yaratish |
+| `touch` | Fayl yaratish |
+| `cp` | Nusxalash |
+| `mv` | Ko'chirish |
+| `rm` | O'chirish |
+| `cat` | Fayl ko'rish |
+| `grep` | Matn qidirish |
+| `find` | Fayl qidirish |

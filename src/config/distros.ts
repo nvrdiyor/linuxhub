@@ -7,7 +7,9 @@ export type IconName =
     | "terminal"
     | "shield"
     | "layers"
-    | "cpu";
+    | "cpu"
+    | "package"
+    | "palette";
 
 export interface NavItem {
     title: string;
@@ -34,42 +36,91 @@ export interface DistroConfig {
 }
 
 export const distros: DistroConfig[] = [
-    // Linux Fundamentals - Entry point for beginners
+    // Linux Fundamentals - Zero to Hero Course
     {
         id: "fundamentals",
         name: "Linux Asoslari",
-        description: "Linux dunyosiga kirish - boshlang'ich qo'llanma",
+        description: "Linux dunyosiga kirish - Zero to Hero qo'llanma",
         logo: "/images/distros/linux.svg",
         color: "#818cf8",
         colorClass: "fundamentals",
         docsUrl: "https://linuxhub.uz/fundamentals",
         status: "active",
         navigation: [
+            // Module 0: Tayyorgarlik
             {
-                id: "getting-started",
-                title: "Kirish",
+                id: "module-0",
+                title: "0. Tayyorgarlik",
+                iconName: "settings",
+                items: [
+                    { title: "Virtual Mashina o'rnatish", slug: "virtual-machine" },
+                    { title: "Live USB yaratish", slug: "live-usb" },
+                    { title: "Dual Boot nima?", slug: "dual-boot" },
+                ],
+            },
+            // Module 1: Linux Asoslari
+            {
+                id: "module-1",
+                title: "1. Linux Asoslari",
                 iconName: "book-open",
                 items: [
                     { title: "Linux nima?", slug: "intro" },
-                    { title: "Linux Olami", slug: "family-tree" },
+                    { title: "Linux Oila Shajarasi", slug: "family-tree" },
+                    { title: "Fayl Tizimi Ierarxiyasi", slug: "file-system" },
                 ],
             },
+            // Module 2: Terminal Bilan Ishlash
             {
-                id: "core-concepts",
-                title: "Asosiy Tushunchalar",
-                iconName: "layers",
+                id: "module-2",
+                title: "2. Terminal Bilan Ishlash",
+                iconName: "terminal",
                 items: [
-                    { title: "Fayl Tizimi", slug: "file-system" },
-                    { title: "Terminal asoslari", slug: "terminal" },
-                    { title: "Paket menejerlari", slug: "package-managers" },
+                    { title: "Nega Terminal?", slug: "terminal" },
+                    { title: "Asosiy buyruqlar", slug: "basic-commands" },
+                    { title: "Nano vs Vim", slug: "text-editors" },
+                    { title: "Ruxsatlar (chmod, sudo)", slug: "permissions" },
                 ],
             },
+            // Module 3: Dasturlar Bilan Ishlash
             {
-                id: "deep-dive",
+                id: "module-3",
+                title: "3. Paket Boshqaruvi",
+                iconName: "package",
+                items: [
+                    { title: "Repozitoriy nima?", slug: "repositories" },
+                    { title: "apt va dnf", slug: "package-managers" },
+                    { title: "pacman va AUR", slug: "pacman-aur" },
+                    { title: "Flatpak, Snap, AppImage", slug: "package-wars" },
+                ],
+            },
+            // Module 4: Tizimni Sozlash
+            {
+                id: "module-4",
+                title: "4. Tizimni Sozlash",
+                iconName: "palette",
+                items: [
+                    { title: "DE vs WM", slug: "de-vs-wm" },
+                    { title: "Mavzular o'zgartirish", slug: "theming" },
+                    { title: "Dotfiles nima?", slug: "dotfiles" },
+                ],
+            },
+            // Module 5: Tarmoq va Xavfsizlik
+            {
+                id: "module-5",
+                title: "5. Tarmoq va Xavfsizlik",
+                iconName: "shield",
+                items: [
+                    { title: "SSH kalitlari", slug: "ssh" },
+                    { title: "Firewall (UFW)", slug: "firewall" },
+                    { title: "Jarayonlar boshqaruvi", slug: "processes" },
+                ],
+            },
+            // Advanced Topics
+            {
+                id: "advanced",
                 title: "Chuqurroq O'rganish",
                 iconName: "code",
                 items: [
-                    { title: "Paket Urushi", slug: "package-wars" },
                     { title: "Display Serverlar", slug: "display-servers" },
                     { title: "Fayl Tizimlari", slug: "filesystems" },
                 ],

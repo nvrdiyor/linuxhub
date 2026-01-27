@@ -54,7 +54,7 @@ export function Callout({ type = "info", title, children }: CalloutProps) {
             )}
         >
             <div className="flex items-start gap-3">
-                <Icon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                <Icon className="mt-0.5 h-5 w-5 shrink-0" />
                 <div className="flex-1">
                     <p className="font-semibold">{displayTitle}</p>
                     <div className="mt-1 text-sm opacity-90">{children}</div>
