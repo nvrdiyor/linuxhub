@@ -31,14 +31,19 @@ export async function generateMetadata({ params }: DocPageProps): Promise<Metada
         };
     }
 
+    const canonicalUrl = `${siteConfig.url}/${distro}/${slugPath}`;
+
     return {
         title: `${doc.title} | ${distroConfig.name}`,
         description: doc.description,
+        alternates: {
+            canonical: canonicalUrl,
+        },
         openGraph: {
             title: `${doc.title} | ${distroConfig.name} | ${siteConfig.name}`,
             description: doc.description,
             type: "article",
-            url: `${siteConfig.url}/${distro}/${slugPath}`,
+            url: canonicalUrl,
         },
     };
 }
