@@ -81,8 +81,20 @@ export function Footer() {
                     </div>
                 </div>
 
+                {/* Legal */}
+                <div className="mt-8 border-t border-border pt-4">
+                    <div className="flex justify-center">
+                        <Link
+                            href="/privacy-policy"
+                            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                            Privacy Policy
+                        </Link>
+                    </div>
+                </div>
+
                 {/* Copyright */}
-                <div className="mt-8 border-t border-border pt-8 text-center text-sm text-muted-foreground">
+                <div className="mt-4 text-center text-sm text-muted-foreground">
                     <p>
                         © {currentYear} {siteConfig.name}. Barcha huquqlar himoyalangan.
                     </p>
