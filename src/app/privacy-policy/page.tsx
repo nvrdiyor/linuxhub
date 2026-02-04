@@ -264,23 +264,23 @@ export default function PrivacyPolicyPage() {
                         <li>
                             Via Telegram:{" "}
                             <a
-                                href="https://t.me/linuxhub_uz"
+                                href="https://t.me/dior_react"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary underline"
                             >
-                                @linuxhub_uz
+                                @dior_react
                             </a>
                         </li>
                         <li>
                             Via GitHub:{" "}
                             <a
-                                href="https://github.com/linuxhub-uz"
+                                href="https://github.com/diyornv"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-primary underline"
                             >
-                                github.com/linuxhub-uz
+                                github.com/diyornv
                             </a>
                         </li>
                     </ul>
