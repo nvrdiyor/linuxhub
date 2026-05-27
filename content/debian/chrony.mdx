@@ -1,0 +1,356 @@
+---
+title: "Chrony — NTP vaqt sinxronlash"
+description: "Debian'da chrony bilan vaqtni aniq sinxronlash."
+order: 15
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/debian/server-setup"
+learning_objectives:
+  - "NTP nima va nima uchun zarur"
+  - "chrony vs systemd-timesyncd"
+  - "Server va client config"
+  - "Holatni tekshirish"
+tags: ["debian", "chrony", "ntp", "time"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Chrony"
+    url: "https://chrony.tuxfamily.org/"
+  - title: "Debian Wiki — chrony"
+    url: "https://wiki.debian.org/HowTo/chrony"
+---
+
+**Chrony** — Network Time Protocol (NTP) implementation. Server'lar vaqtni millisekund aniqligida sinxronlash uchun. Database log, security, ssl sertifikat — barchasi to'g'ri vaqtga muhtoj.[¹](https://chrony.tuxfamily.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- NTP nima.
+- chrony vs systemd-timesyncd.
+- Pool server'lar.
+- Local NTP server.
+- Status va debug.
+</Callout>
+
+## 1. Joriy vaqt
+
+```bash
+date
+# Sun May 26 14:30:00 +05 2026
+
+timedatectl
+#                Local time: Sun 2026-05-26 14:30:00 +05
+#            Universal time: Sun 2026-05-26 09:30:00 UTC
+#                  RTC time: Sun 2026-05-26 09:30:01
+#                 Time zone: Asia/Tashkent (+05, +0500)
+# System clock synchronized: yes
+#               NTP service: active
+#           RTC in local TZ: no
+```
+
+## 2. chrony o'rnatish
+
+```bash
+sudo apt update
+sudo apt install -y chrony
+
+# Default'da yoqilgan
+sudo systemctl status chrony
+
+# Boot'da yoqilgan
+sudo systemctl is-enabled chrony
+```
+
+systemd-timesyncd o'chiriladi:
+
+```bash
+sudo systemctl disable --now systemd-timesyncd
+```
+
+(`chrony` va `timesyncd` ikkala bir vaqtda ishlay olmaydi).
+
+## 3. Asosiy config
+
+`/etc/chrony/chrony.conf`:
+
+```
+# NTP server'lar — Debian pool
+pool 2.debian.pool.ntp.org iburst
+
+# Yoki Google
+# server time1.google.com iburst
+# server time2.google.com iburst
+# server time3.google.com iburst
+# server time4.google.com iburst
+
+# Drift fayl
+driftfile /var/lib/chrony/chrony.drift
+
+# Step (katta o'zgarishlar) — boshlangichda
+makestep 1.0 3
+
+# RTC sync
+rtcsync
+
+# Loglar
+logdir /var/log/chrony
+```
+
+## 4. Tekshirish
+
+```bash
+# Sources
+chronyc sources -v
+# 210 Number of sources = 4
+# MS Name/IP address         Stratum Poll Reach LastRx Last sample
+# =================================================================
+# ^- time-c.example.com            2   6   377    37   +1234us[+1234us] +/- 12ms
+# ^* time-d.google.com             1   6   377    35    -456us[-456us] +/- 5ms
+# ^+ time-e.cloudflare.com         2   6   377    36    +789us[+789us] +/- 8ms
+
+# Tracking (aniqlik)
+chronyc tracking
+# Reference ID    : ABCDEF (time-d.google.com)
+# Stratum         : 2
+# System time     : 0.000123456 seconds slow of NTP time
+# Last offset     : -0.000456789 seconds
+# RMS offset      : 0.000234567 seconds
+# Frequency       : 12.345 ppm slow
+
+# Aktiv sources
+chronyc activity
+```
+
+## 5. NTP pool
+
+```
+pool 2.debian.pool.ntp.org iburst
+```
+
+`pool` — bir nechta server avtomatik tanlanadi. `iburst` — birinchi sinxronlash tez.
+
+Alternativlar:
+
+```
+# Google Public NTP
+server time1.google.com iburst
+server time2.google.com iburst
+
+# Cloudflare
+server time.cloudflare.com iburst
+
+# NIST
+server time.nist.gov iburst
+```
+
+## 6. Local NTP server
+
+Server o'zi NTP server bo'lsa, boshqa hosts'larga vaqt beradi:
+
+`/etc/chrony/chrony.conf`:
+
+```
+pool 2.debian.pool.ntp.org iburst
+
+# Local network'ga vaqt berish
+allow 192.168.1.0/24
+allow 10.0.0.0/8
+```
+
+Client'larda:
+
+```
+server YOUR_NTP_SERVER_IP iburst
+```
+
+## 7. Vaqt zona
+
+```bash
+# Joriy
+timedatectl
+
+# Mavjud
+timedatectl list-timezones | grep Tashkent
+# Asia/Tashkent
+
+# O'zgartirish
+sudo timedatectl set-timezone Asia/Tashkent
+```
+
+## 8. Manual sync
+
+```bash
+# Burst step (katta offset uchun)
+sudo chronyc makestep
+
+# Tracking ko'rinishi
+sudo chronyc tracking
+```
+
+## 9. Vaqt RTC (hardware clock)
+
+```bash
+# RTC ko'rsatish
+sudo hwclock --show
+
+# Sistema vaqtiga sinxronlash
+sudo hwclock --systohc
+
+# UTC vs local
+sudo timedatectl set-local-rtc 0     # UTC (Linux standard)
+sudo timedatectl set-local-rtc 1     # local (Windows dual-boot)
+```
+
+Linux'da odatda **UTC** — har vaqt to'g'ri ishlaydi.
+
+## 10. NTP server'larni debug
+
+```bash
+# Verbose
+chronyc -v sources
+
+# `*` — joriy
+# `+` — yaxshi
+# `-` — masala
+# `?` — yaroqsiz
+# `x` — false ticker
+
+# Stats
+chronyc serverstats
+chronyc sourcestats
+```
+
+## 11. Misol — server vaqtini tekshirish
+
+```bash
+# 1. timedatectl
+timedatectl
+# System clock synchronized: yes
+
+# 2. chrony tracking
+chronyc tracking
+# System time: 0.000123 seconds slow of NTP time
+# (millisecond aniqlik)
+
+# 3. Sources
+chronyc sources
+
+# Agar muammo bo'lsa:
+sudo systemctl restart chrony
+sudo chronyc makestep
+```
+
+## 12. NTP firewall
+
+NTP — UDP port 123:
+
+```bash
+# UFW
+sudo ufw allow 123/udp
+
+# Outbound default ruxsatli, lekin local NTP server uchun inbound:
+sudo ufw allow from 192.168.1.0/24 to any port 123 proto udp
+```
+
+## 13. chrony vs systemd-timesyncd
+
+| Xususiyat | chrony | timesyncd |
+|---|---|---|
+| Aniqlik | Yuqori | O'rta |
+| NTP server bo'la oladi | Ha | Yo'q |
+| Multi-source | Ha | Yo'q (asosiy server) |
+| Resurs | O'rta | Past |
+| Server uchun | Ha | Yo'q |
+| Desktop uchun | Ha (ko'p) | Yetarli |
+
+**Server**: chrony.
+**Desktop**: timesyncd yetarli.
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Bir vaqtda chrony va timesyncd** — konflikt.
+- **Vaqt zona noto'g'ri** — `timedatectl set-timezone`.
+- **NTP UDP 123 firewall'da yo'q** — sync ishlamaydi.
+- **RTC local** — boot'da vaqt o'zgaradi.
+- **`makestep` shartsiz** — production'da katta jump xavfli.
+
+## 15. Eng yaxshi amaliyot
+
+- **chrony server'lar uchun** — eng aniq.
+- **`iburst`** — tez birinchi sync.
+- **`pool` bir nechta server** — failover.
+- **UTC RTC** — standart.
+- **`chronyc tracking` monitoring** — offset > 100ms = muammo.
+
+## 16. Mashqlar
+
+1. **Status:** `timedatectl` va `chronyc tracking`.
+2. **Sources:** `chronyc sources -v`.
+3. **Server tanlash:** Google NTP'ga o'tkazing.
+4. **Vaqt zona:** `Asia/Tashkent`.
+5. **Local NTP server:** Tarmoq ichida vaqt taqsimlang.
+
+## 17. Bilim sinovi
+
+**Savol 1.** NTP nima?
+
+- a) Tarmoq protokoli
+- b) Network Time Protocol — vaqtni sinxronlash
+- c) Mail
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** UDP 123 — internet vaqt sinxronlash standart.[¹](https://chrony.tuxfamily.org/)
+</Callout>
+
+**Savol 2.** chrony vs timesyncd:
+
+- a) timesyncd kuchliroq
+- b) chrony aniqroq, server bo'la oladi
+- c) Bir xil
+- d) Hech farqi yo'q
+
+<Callout type="success" title="Javob">
+**(b)** Server uchun chrony — sub-millisecond aniqlik.
+</Callout>
+
+**Savol 3.** `iburst` nima qiladi?
+
+- a) Hech narsa
+- b) Birinchi sync tezroq (bir nechta packet)
+- c) Tezlik
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** 4 ta packet birga jo'natadi — tez sync.
+</Callout>
+
+**Savol 4.** RTC UTC tavsiya etiladi:
+
+- a) Local
+- b) UTC — har vaqt to'g'ri, vaqt zona o'zgarishida muammo yo'q
+- c) Faqat Windows uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Linux'ning standart — Daylight Saving Time'da ham to'g'ri.
+</Callout>
+
+**Savol 5.** Offset 5 soniya:
+
+- a) OK
+- b) Katta — log'lar, SSL, replication muammosi
+- c) Hech narsa
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Production'da 100ms ham ko'p — `chronyc makestep`.
+</Callout>
+
+## Manbalar
+
+1. Chrony. [https://chrony.tuxfamily.org/](https://chrony.tuxfamily.org/)
+2. Debian Wiki — chrony. [https://wiki.debian.org/HowTo/chrony](https://wiki.debian.org/HowTo/chrony)
+
+## Keyingi qadam
+
+👉 [Debian — Logrotate](/debian/logrotate)

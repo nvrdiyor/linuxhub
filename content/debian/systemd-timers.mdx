@@ -1,0 +1,406 @@
+---
+title: "systemd timer'lar — cron alternativi"
+description: "systemd timer bilan scheduled task'lar."
+order: 14
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/fundamentals/systemd-deep"
+learning_objectives:
+  - "Timer unit struktura"
+  - "OnCalendar formatlar"
+  - "Persistent va Randomized"
+  - "Monotonic timer'lar"
+  - "Cron'dan migration"
+tags: ["debian", "systemd", "timer", "cron"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "systemd.timer(5)"
+    url: "https://manpages.debian.org/bookworm/systemd/systemd.timer.5.en.html"
+---
+
+**systemd timer** — `cron`'ning zamonaviy alternativi. Service unit'ni belgilangan vaqtda ishga tushirish.[¹](https://manpages.debian.org/bookworm/systemd/systemd.timer.5.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Timer va service unit pair.
+- `OnCalendar` format.
+- `Persistent`, `RandomizedDelaySec`.
+- Monotonic (OnUnitActiveSec).
+- `systemctl list-timers`.
+- Cron'dan migration.
+</Callout>
+
+## 1. Timer + Service pair
+
+Har timer bir service ishga tushiradi.
+
+`/etc/systemd/system/myjob.service`:
+
+```ini
+[Unit]
+Description=My periodic job
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/myjob.sh
+User=myuser
+```
+
+`/etc/systemd/system/myjob.timer`:
+
+```ini
+[Unit]
+Description=Run myjob daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now myjob.timer
+
+# Service emas, timer'ni enable qilamiz!
+```
+
+## 2. OnCalendar formatlar
+
+```ini
+# Aniq
+OnCalendar=2026-12-31 23:59:00
+
+# Har kun
+OnCalendar=daily          # 00:00
+OnCalendar=*-*-* 00:00:00
+
+# Har soat
+OnCalendar=hourly
+
+# Har 15 daqiqada
+OnCalendar=*:0/15
+
+# Har juma 8:00
+OnCalendar=Fri *-*-* 08:00:00
+
+# Har oyning birinchi dushanbasida
+OnCalendar=Mon *-*-1..7 03:00:00
+
+# Hafta kunlari 9:00
+OnCalendar=Mon..Fri *-*-* 09:00:00
+
+# Wildcard
+OnCalendar=*-*-1 03:00:00     # har oyning birinchi kuni
+OnCalendar=*:15               # har soat:15
+```
+
+Test format:
+
+```bash
+systemd-analyze calendar "Mon *-*-* 09:00:00"
+# Next elapse: Mon 2026-05-26 09:00:00 +05
+```
+
+## 3. Persistent
+
+```ini
+[Timer]
+OnCalendar=daily
+Persistent=true
+```
+
+`Persistent=true` — agar tizim o'chgan vaqtda timer fire qilishi kerak edi, boot'da catch up qiladi.
+
+`anacron` kabi.
+
+## 4. Randomized
+
+```ini
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+```
+
+Har timer'ni 0-30 daqiqa orasida random vaqtda. Ko'p server bir vaqtda ishga tushishini oldini oladi (server overload).
+
+## 5. Monotonic timer
+
+Aniq vaqt emas, boot'dan keyin yoki oxirgi ishga tushishdan:
+
+```ini
+[Timer]
+OnBootSec=15min              # boot'dan 15 daqiqa keyin
+OnUnitActiveSec=1h           # oxirgi ishga tushish'dan 1 soat keyin
+```
+
+Birgalikda — har soatda, lekin boot'dan keyin 15 daqiqada.
+
+Boshqa monotonic:
+
+```
+OnActiveSec=     # timer aktivlashganidan
+OnBootSec=       # boot'dan
+OnStartupSec=    # systemd ishga tushishidan
+OnUnitActiveSec= # service oxirgi marta active bo'lganidan
+OnUnitInactiveSec= # inactive bo'lganidan
+```
+
+## 6. Ro'yxat
+
+```bash
+# Mavjud timer'lar
+systemctl list-timers
+# NEXT                         LEFT     LAST                        PASSED   UNIT                  ACTIVATES
+# Sun 2026-05-26 14:30:00     5min     Sun 2026-05-26 13:30:00     54min ago myjob.timer          myjob.service
+
+# Hammasi (faolsiz ham)
+systemctl list-timers --all
+
+# Aniq holat
+systemctl status myjob.timer
+```
+
+## 7. Manual ishga tushirish
+
+```bash
+# Service'ni ishga tushirish (timer kutmasdan)
+sudo systemctl start myjob.service
+
+# Yoki timer orqali
+sudo systemctl start myjob.timer
+```
+
+## 8. Log
+
+```bash
+journalctl -u myjob.service -f
+journalctl -u myjob.timer
+```
+
+## 9. Misol — backup timer
+
+```ini
+# /etc/systemd/system/backup.service
+[Unit]
+Description=Daily backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup.sh
+User=root
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```ini
+# /etc/systemd/system/backup.timer
+[Unit]
+Description=Daily backup timer
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=30min
+Persistent=true
+Unit=backup.service
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now backup.timer
+```
+
+## 10. Misol — har 5 daqiqa health check
+
+```ini
+# /etc/systemd/system/healthcheck.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/healthcheck.sh
+
+# /etc/systemd/system/healthcheck.timer
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=healthcheck.service
+
+[Install]
+WantedBy=timers.target
+```
+
+## 11. User timer (per-user)
+
+System emas, foydalanuvchi uchun:
+
+```bash
+mkdir -p ~/.config/systemd/user/
+```
+
+`~/.config/systemd/user/sync.service`:
+
+```ini
+[Service]
+Type=oneshot
+ExecStart=/home/diyor/sync.sh
+```
+
+`~/.config/systemd/user/sync.timer`:
+
+```ini
+[Timer]
+OnCalendar=hourly
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now sync.timer
+systemctl --user list-timers
+```
+
+Auto-start (login'siz):
+
+```bash
+sudo loginctl enable-linger diyor
+```
+
+## 12. Cron'dan migration
+
+| Cron | systemd timer |
+|---|---|
+| `0 3 * * *` | `OnCalendar=*-*-* 03:00:00` yoki `daily` |
+| `*/15 * * * *` | `OnCalendar=*:0/15` |
+| `0 */6 * * *` | `OnCalendar=*-*-* 00,06,12,18:00:00` |
+| `0 8 * * 1-5` | `OnCalendar=Mon..Fri *-*-* 08:00:00` |
+| anacron | `Persistent=true` |
+| `@reboot` | `OnBootSec=` |
+
+## 13. Cron vs systemd timer
+
+| Xususiyat | cron | systemd timer |
+|---|---|---|
+| Sintaksis | Sodda | Verbose |
+| Dependency | Yo'q | `After=`, `Wants=` |
+| Log | Mailto / file | journald |
+| Failure handling | Manual | systemd restart, monitoring |
+| Resource limit | Yo'q | `Nice`, `IOSchedulingClass`, `CPUQuota` |
+| Multi-user | Per-user | Per-user systemd |
+| Reliability | OK | Yaxshi (catch-up) |
+
+Modern Linux'da — systemd timer tavsiya etiladi.
+
+## 14. Resource limits
+
+```ini
+[Service]
+Nice=10
+IOSchedulingClass=idle
+CPUQuota=50%
+MemoryMax=512M
+ExecStart=/usr/local/bin/backup.sh
+```
+
+Server'ga overhead bermaslik.
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`.timer` o'rniga `.service`'ni enable** — timer ishlamaydi.
+- **`Persistent=true` yo'q** — server o'chgan'da missed run.
+- **`OnCalendar` format xato** — `systemd-analyze calendar` bilan test.
+- **`User=` yo'q** — root sifatida ishlaydi (xavfli).
+- **`daemon-reload` qilmaslik** — yangi unit ko'rinmaydi.
+
+## 16. Eng yaxshi amaliyot
+
+- **`Persistent=true`** — har vaqt.
+- **`RandomizedDelaySec`** — multi-server.
+- **`User=`** — minimal privilege.
+- **`After=network-online.target`** — network kerak bo'lsa.
+- **`Type=oneshot`** — bir martalik task.
+
+## 17. Mashqlar
+
+1. **Birinchi timer:** Echo "Hello" har daqiqada.
+2. **Backup timer:** Har kun 3:00.
+3. **Health check:** Har 5 daqiqada.
+4. **User timer:** Tomorrow's task.
+5. **Cron'dan migration:** Mavjud cron'ni timer'ga.
+
+## 18. Bilim sinovi
+
+**Savol 1.** Timer enable:
+
+- a) `systemctl enable myjob.service`
+- b) `systemctl enable myjob.timer`
+- c) `systemctl enable myjob`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Timer'ni enable qilamiz, u service'ni ishga tushiradi.[¹](https://manpages.debian.org/bookworm/systemd/systemd.timer.5.en.html)
+</Callout>
+
+**Savol 2.** `Persistent=true`:
+
+- a) Hech narsa
+- b) Missed run'larni boot'da catch up qiladi
+- c) Tezroq
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** anacron behavior — server o'chgan vaqtda ishlamagan timer reboot'da fire qiladi.
+</Callout>
+
+**Savol 3.** `OnCalendar=daily`:
+
+- a) Har soatda
+- b) Har kun 00:00'da
+- c) Har 24 soatda
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `*-*-* 00:00:00` shorthand.
+</Callout>
+
+**Savol 4.** Format test buyrug'i:
+
+- a) `systemd-analyze calendar`
+- b) `cron-test`
+- c) `at`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(a)** `systemd-analyze calendar "Mon *-*-* 09:00:00"` — keyingi fire vaqti.
+</Callout>
+
+**Savol 5.** RandomizedDelaySec foydasi:
+
+- a) Random ishlash
+- b) Multi-server overload'ni oldini olish
+- c) Tezlik
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** 100 ta server bir vaqtda DB'ga urilmasligi uchun.
+</Callout>
+
+## Manbalar
+
+1. systemd.timer(5). [https://manpages.debian.org/bookworm/systemd/systemd.timer.5.en.html](https://manpages.debian.org/bookworm/systemd/systemd.timer.5.en.html)
+
+## Keyingi qadam
+
+👉 [Debian — chrony NTP](/debian/chrony)
