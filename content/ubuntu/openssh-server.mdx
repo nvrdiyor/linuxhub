@@ -1,0 +1,451 @@
+---
+title: "OpenSSH Server Ubuntu'da"
+description: "SSH server o'rnatish, key auth, hardening Ubuntu'da."
+order: 16
+level: "intermediate"
+estimated_minutes: 9
+prerequisites:
+  - "/fundamentals/ssh-advanced"
+learning_objectives:
+  - "`openssh-server` o'rnatish"
+  - "Key authentication"
+  - "Config hardening"
+  - "Port forwarding, ProxyJump"
+  - "fail2ban va `sshguard`"
+tags: ["ubuntu", "ssh", "openssh", "security"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "OpenSSH Documentation"
+    url: "https://www.openssh.com/manual.html"
+  - title: "Ubuntu OpenSSH"
+    url: "https://ubuntu.com/server/docs/service-openssh"
+---
+
+**OpenSSH Server** — Linux'ning standart remote access vositasi. Ubuntu Server'da default o'rnatilgan emas — install kerak. Hardening — production muhim.[¹](https://www.openssh.com/manual.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `openssh-server` o'rnatish.
+- SSH key generatsiya va install.
+- `sshd_config` hardening.
+- Port forwarding (local, remote, dynamic).
+- ProxyJump (bastion host).
+- fail2ban brute-force himoyasi.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+sudo apt update
+sudo apt install -y openssh-server
+
+# Tekshirish
+sudo systemctl status ssh
+# Active: active (running)
+
+# Boot'da yoqilgan
+sudo systemctl is-enabled ssh
+# enabled
+```
+
+UFW:
+
+```bash
+sudo ufw allow ssh
+# yoki
+sudo ufw allow 22/tcp
+```
+
+## 2. Birinchi ulanish (parol bilan)
+
+Mijoz mashinadan:
+
+```bash
+ssh user@SERVER_IP
+# Yes (host key)
+# Parol kiriting
+```
+
+## 3. SSH key generatsiya
+
+Mijozda (Linux/macOS):
+
+```bash
+ssh-keygen -t ed25519 -C "diyor@laptop"
+# Default ~/.ssh/id_ed25519 va ~/.ssh/id_ed25519.pub
+# Passphrase: tavsiya etiladi
+
+ls -la ~/.ssh/
+# id_ed25519       (private, 600)
+# id_ed25519.pub   (public, 644)
+```
+
+Windows (PowerShell):
+
+```powershell
+ssh-keygen -t ed25519
+```
+
+## 4. Public key serverga
+
+```bash
+# Eng oson
+ssh-copy-id user@SERVER_IP
+
+# Yoki qo'lda
+cat ~/.ssh/id_ed25519.pub | ssh user@SERVER_IP \
+    "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+```
+
+Endi:
+
+```bash
+ssh user@SERVER_IP
+# Passphrase (key uchun, agar bor bo'lsa)
+```
+
+## 5. Config hardening — `/etc/ssh/sshd_config`
+
+```
+# Port (opsional)
+Port 22
+
+# Listen
+ListenAddress 0.0.0.0
+
+# Root login o'chirish
+PermitRootLogin no
+
+# Parol o'chirish (faqat key)
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+UsePAM yes
+
+# Public key
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+
+# Foydalanuvchilar
+AllowUsers diyor admin
+# yoki guruh
+AllowGroups ssh-users
+
+# Forwarding
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding yes      # tunnel uchun kerak
+PermitTunnel no
+
+# Idle timeout
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Banner
+Banner /etc/ssh/banner
+
+# Login attempts
+MaxAuthTries 3
+MaxSessions 5
+LoginGraceTime 30
+
+# Strong ciphers (Mozilla intermediate)
+KexAlgorithms curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com
+```
+
+Test va apply:
+
+```bash
+sudo sshd -t           # sintaksis test
+sudo systemctl restart ssh
+
+# **MUHIM**: yangi terminal ochib ulanib ko'ring, eski connection'ni yopmang!
+```
+
+## 6. Banner
+
+```bash
+sudo tee /etc/ssh/banner <<EOF
+***************************************************************************
+                            AUTHORIZED USE ONLY
+This is a private system. All connections are monitored and recorded.
+Disconnect IMMEDIATELY if you are not an authorized user.
+***************************************************************************
+EOF
+```
+
+## 7. Port forwarding
+
+### Local forward (mijoz → server orqali boshqa host)
+
+```bash
+# Lokal :8080 → server'dagi :5432 (boshqa DB host)
+ssh -L 8080:db.internal:5432 user@bastion
+
+# Endi mijozda
+psql -h localhost -p 8080
+```
+
+### Remote forward (server → mijoz)
+
+```bash
+# Server'dagi :9000 → mijoz'dagi :3000
+ssh -R 9000:localhost:3000 user@server
+
+# Boshqa'lar server'ga 9000'ga ulansa, mijoz'dagi 3000'ga keladi
+```
+
+### Dynamic (SOCKS proxy)
+
+```bash
+ssh -D 1080 user@server
+
+# Brauzer SOCKS5: 127.0.0.1:1080
+```
+
+## 8. ProxyJump (bastion)
+
+Internal host'larga bastion orqali ulanish:
+
+```bash
+ssh -J bastion@bastion.example.com user@internal-server
+```
+
+`~/.ssh/config`:
+
+```
+Host bastion
+    HostName bastion.example.com
+    User admin
+
+Host internal-*
+    User user
+    ProxyJump bastion
+```
+
+```bash
+ssh internal-db
+```
+
+## 9. SSH agent
+
+Key passphrase'ni xotirada saqlash:
+
+```bash
+eval $(ssh-agent)
+ssh-add ~/.ssh/id_ed25519
+# Passphrase
+
+# Endi `ssh` passphrase so'ramaydi
+ssh user@server
+```
+
+Agent forwarding (xavfli, ehtiyot):
+
+```bash
+ssh -A user@server
+# Server'dan boshqa SSH ulanish — mijoz key'ni ishlatadi
+```
+
+## 10. Restricted SSH (rsync only)
+
+`~/.ssh/authorized_keys`:
+
+```
+command="rsync --server -e.iLsfxC . /backup/",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding ssh-ed25519 AAAA... backup@ci
+```
+
+Faqat backup script'i ishlatadi.
+
+## 11. fail2ban
+
+```bash
+sudo apt install -y fail2ban
+
+sudo tee /etc/fail2ban/jail.local <<EOF
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+banaction = ufw
+
+[sshd]
+enabled = true
+EOF
+
+sudo systemctl restart fail2ban
+
+# Holatlar
+sudo fail2ban-client status sshd
+sudo fail2ban-client unban 1.2.3.4
+```
+
+## 12. SSH client config
+
+`~/.ssh/config`:
+
+```
+Host myserver
+    HostName 192.168.1.50
+    User diyor
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519
+
+Host *.internal
+    User admin
+    ProxyJump bastion
+
+Host github.com
+    User git
+    IdentityFile ~/.ssh/github_ed25519
+```
+
+```bash
+ssh myserver        # = ssh diyor@192.168.1.50
+```
+
+## 13. SFTP va SCP
+
+```bash
+# SCP
+scp file.txt user@server:/tmp/
+scp -r mydir user@server:/tmp/
+scp user@server:/etc/hosts ./
+
+# SFTP
+sftp user@server
+sftp> put file.txt
+sftp> get /etc/hosts
+sftp> ls
+sftp> exit
+
+# rsync (eng yaxshi)
+rsync -avh --progress mydir/ user@server:/dest/
+```
+
+## 14. SFTP chroot (cheklov)
+
+`/etc/ssh/sshd_config`:
+
+```
+Match Group sftp-only
+    ChrootDirectory /home/%u
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+```
+
+```bash
+sudo groupadd sftp-only
+sudo useradd -m -g sftp-only -s /sbin/nologin uploader
+sudo passwd uploader
+sudo chown root:root /home/uploader
+sudo mkdir /home/uploader/files
+sudo chown uploader:sftp-only /home/uploader/files
+```
+
+`uploader` faqat SFTP qila oladi, `/home/uploader` ichida.
+
+## 15. SSH key types
+
+| Type | Tavsif |
+|---|---|
+| `rsa` | Eski, ko'p qo'llanadi (3072+ bit) |
+| `ed25519` | Zamonaviy, eng tezroq, kichik |
+| `ecdsa` | NIST curve'lar |
+| `dsa` | Eskirgan (ishlatmang) |
+
+Tavsiya: **`ed25519`**.
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **`PasswordAuthentication no` key sinashsiz** — qoladi.
+- **`authorized_keys` ruxsat noto'g'ri** — `600` bo'lishi kerak.
+- **`.ssh` papka ruxsat noto'g'ri** — `700`.
+- **Root login default** — Ubuntu'da `PermitRootLogin prohibit-password` (key OK, parol no).
+- **fail2ban siz** — brute force tugamaydi.
+
+## 17. Eng yaxshi amaliyot
+
+- **Key authentication** — parol o'chirilgan.
+- **Strong key** — `ed25519`.
+- **`AllowUsers`** — faqat aniq foydalanuvchilar.
+- **fail2ban + UFW** — qatlamli himoya.
+- **`~/.ssh/config`** — alias va proxy jump.
+- **SSH agent** — passphrase kesh.
+
+## 18. Mashqlar
+
+1. **Key:** `ed25519` generatsiya va serverga install.
+2. **`PasswordAuthentication no`** — key sinab keyin.
+3. **`AllowUsers`** — faqat o'zingiz.
+4. **ProxyJump:** Bastion orqali internal host.
+5. **fail2ban:** Brute force test.
+
+## 19. Bilim sinovi
+
+**Savol 1.** SSH key tavsiya turi:
+
+- a) DSA
+- b) RSA 1024
+- c) ed25519
+- d) MD5
+
+<Callout type="success" title="Javob">
+**(c)** Zamonaviy, tez, kichik — eng yaxshi tanlov.[¹](https://www.openssh.com/manual.html)
+</Callout>
+
+**Savol 2.** `authorized_keys` ruxsat:
+
+- a) 777
+- b) 644
+- c) 600
+- d) 700
+
+<Callout type="success" title="Javob">
+**(c)** Faqat owner o'qiy oladi. `.ssh/` esa `700`.
+</Callout>
+
+**Savol 3.** `PasswordAuthentication no`:
+
+- a) Faqat key authentication
+- b) Hech narsa o'zgarmaydi
+- c) Parol majburiy
+- d) GUI ochiladi
+
+<Callout type="success" title="Javob">
+**(a)** Faqat SSH key'lar bilan kirish mumkin.
+</Callout>
+
+**Savol 4.** ProxyJump nima uchun?
+
+- a) Tezroq SSH
+- b) Bastion host orqali internal host'larga ulanish
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Public bastion → private network internal host'lar.
+</Callout>
+
+**Savol 5.** fail2ban nima qiladi?
+
+- a) Antivirus
+- b) Brute-force urinishlardan IP'ni vaqtinchalik bloklash
+- c) Backup
+- d) Firewall
+
+<Callout type="success" title="Javob">
+**(b)** Log'larda failed login ko'rsa, IP'ni ban qiladi.
+</Callout>
+
+## Manbalar
+
+1. OpenSSH Documentation. [https://www.openssh.com/manual.html](https://www.openssh.com/manual.html)
+2. Ubuntu OpenSSH. [https://ubuntu.com/server/docs/service-openssh](https://ubuntu.com/server/docs/service-openssh)
+
+## Keyingi qadam
+
+👉 [Ubuntu Apparmor — MAC security](/ubuntu/apparmor)

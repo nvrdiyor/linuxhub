@@ -1,0 +1,375 @@
+---
+title: "AppArmor Ubuntu'da"
+description: "AppArmor — Ubuntu'ning Mandatory Access Control."
+order: 17
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/fundamentals/permissions"
+learning_objectives:
+  - "AppArmor Ubuntu'da default"
+  - "Profile holatlari"
+  - "Custom profile"
+  - "Log'lar va debugging"
+tags: ["ubuntu", "apparmor", "security", "mac"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu AppArmor"
+    url: "https://ubuntu.com/server/docs/security-apparmor"
+  - title: "AppArmor"
+    url: "https://gitlab.com/apparmor/apparmor/-/wikis/home"
+---
+
+**AppArmor** — Ubuntu'da default Mandatory Access Control system. Path-based profile bilan har dasturning fayl, network, capability ruxsatlarini cheklab beradi.[¹](https://ubuntu.com/server/docs/security-apparmor)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Ubuntu'da AppArmor default.
+- Profile holatlari va boshqaruv.
+- Custom profile yaratish.
+- Snap va Docker bilan AppArmor.
+- Log'lar.
+</Callout>
+
+## 1. Holat tekshirish
+
+```bash
+sudo aa-status
+
+# apparmor module is loaded.
+# 25 profiles are loaded.
+# 20 profiles are in enforce mode.
+# 5 profiles are in complain mode.
+# 0 profiles are in unconfined mode but have a profile defined.
+```
+
+## 2. Profile holati o'zgartirish
+
+```bash
+sudo apt install -y apparmor-utils
+
+# Enforce
+sudo aa-enforce /etc/apparmor.d/usr.sbin.nginx
+
+# Complain (test)
+sudo aa-complain /etc/apparmor.d/usr.sbin.nginx
+
+# Disable
+sudo aa-disable /etc/apparmor.d/usr.sbin.nginx
+
+# Yangi profile yaratish
+sudo aa-genprof /usr/local/bin/myapp
+```
+
+## 3. Profile fayllari
+
+```
+/etc/apparmor.d/
+├── usr.sbin.nginx
+├── usr.bin.firefox
+├── usr.sbin.tcpdump
+├── snap.firefox
+├── abstractions/
+│   ├── base
+│   ├── nameservice
+│   └── openssl
+└── tunables/
+```
+
+## 4. Profile struktura
+
+`/etc/apparmor.d/usr.sbin.nginx` (qisqartirilgan):
+
+```
+#include <tunables/global>
+
+/usr/sbin/nginx flags=(complain) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+
+  capability dac_override,
+  capability net_bind_service,
+  capability setuid, setgid,
+
+  /usr/sbin/nginx mr,
+  /etc/nginx/** r,
+  /var/log/nginx/*.log w,
+  /var/www/** r,
+  /run/nginx.pid w,
+  /var/lib/nginx/** rw,
+
+  /etc/ssl/certs/ r,
+  /etc/ssl/certs/*.pem r,
+
+  owner /etc/letsencrypt/live/** r,
+  owner /etc/letsencrypt/archive/** r,
+
+  network inet stream,
+  network inet6 stream,
+
+  # Denied
+  deny /etc/shadow r,
+  deny /root/** rw,
+  deny /home/*/.* rw,
+}
+```
+
+`flags=(complain)` — global complain mode.
+
+## 5. Snap va AppArmor
+
+Snap paketlar avtomatik AppArmor confinement:
+
+```bash
+# Snap profile'lari
+ls /var/lib/snapd/apparmor/profiles/
+
+# Holatini ko'rish
+sudo aa-status | grep snap
+
+# Snap interfaces ham AppArmor orqali
+snap connections firefox
+```
+
+## 6. Docker va AppArmor
+
+Docker container'lar default `docker-default` profile:
+
+```bash
+# Profile
+cat /etc/apparmor.d/docker
+
+# Container'da custom profile
+docker run --security-opt apparmor=my-profile myimage
+
+# Profile'siz (xavfli)
+docker run --security-opt apparmor=unconfined myimage
+```
+
+Custom Docker profile yaratish:
+
+```
+#include <tunables/global>
+
+profile docker-myapp flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  network,
+  capability,
+  file,
+  umount,
+
+  deny /sys/[^f]*/** wklx,
+  deny /sys/f[^s]*/** wklx,
+  deny /sys/fs/[^c]*/** wklx,
+  deny /sys/fs/c[^g]*/** wklx,
+  deny /sys/fs/cg[^r]*/** wklx,
+}
+```
+
+```bash
+sudo apparmor_parser -r /etc/apparmor.d/docker-myapp
+docker run --security-opt apparmor=docker-myapp myapp
+```
+
+## 7. Log'lar
+
+```bash
+# DENIED xabarlar
+sudo dmesg | grep DENIED
+sudo journalctl | grep DENIED
+
+# Sample:
+# apparmor="DENIED" operation="open" profile="/usr/sbin/nginx" \
+#   name="/etc/shadow" pid=1234 comm="nginx" \
+#   requested_mask="r" denied_mask="r"
+
+# audit log (auditd yoqilgan bo'lsa)
+sudo ausearch -m AVC
+```
+
+## 8. `aa-logprof` — log'dan profile yangilash
+
+```bash
+# 1. Complain mode
+sudo aa-complain /etc/apparmor.d/usr.local.bin.myapp
+
+# 2. Dasturni ishlatib ko'ring
+/usr/local/bin/myapp
+
+# 3. Log'lardan profile yangilash
+sudo aa-logprof
+# Har DENIED uchun Allow/Deny so'raydi
+
+# 4. Enforce'ga qaytish
+sudo aa-enforce /etc/apparmor.d/usr.local.bin.myapp
+```
+
+## 9. `aa-genprof` — yangi profile yaratish
+
+```bash
+# Terminal 1
+sudo aa-genprof /usr/local/bin/myapp
+
+# Terminal 2 — dasturni ishlatib ko'ring
+/usr/local/bin/myapp
+
+# Terminal 1'ga qaytib S (Scan) bosing
+# Har syscall uchun Allow/Deny
+# F (Finish) — saqlash
+```
+
+## 10. Profile'ni yuklash
+
+```bash
+# Reload
+sudo apparmor_parser -r /etc/apparmor.d/usr.local.bin.myapp
+
+# Yoki to'liq
+sudo systemctl reload apparmor
+```
+
+## 11. Misol — custom Python app
+
+`/etc/apparmor.d/usr.local.bin.myapp`:
+
+```
+#include <tunables/global>
+
+/usr/local/bin/myapp {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/python>
+
+  /usr/local/bin/myapp mr,
+  /usr/bin/python3 ix,
+  /usr/bin/python3.* ix,
+  /usr/lib/python3/** r,
+  /usr/local/lib/python3.*/dist-packages/** r,
+
+  /etc/myapp/** r,
+  /var/log/myapp/** w,
+  /var/lib/myapp/** rw,
+  /tmp/myapp-*.tmp rw,
+
+  network inet stream,
+  network inet6 stream,
+
+  deny /etc/shadow r,
+  deny /root/** rw,
+  deny capability sys_admin,
+}
+```
+
+```bash
+sudo apparmor_parser -r /etc/apparmor.d/usr.local.bin.myapp
+sudo aa-enforce /etc/apparmor.d/usr.local.bin.myapp
+```
+
+## 12. AppArmor parameter'lari
+
+`#include <tunables/global>` keladi:
+
+```
+@{HOME}=/home/*/ /root/
+@{PROC}=/proc/
+@{PID}=[0-9]*
+@{TID}=@{PID}
+```
+
+Profile'larda:
+
+```
+@{HOME}/.config/myapp/** rw,
+```
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **Path noto'g'ri** — `/usr/sbin/nginx` o'rniga `usr.sbin.nginx`.
+- **Reload qilmaslik** — `apparmor_parser -r` shart.
+- **`deny` explicit bo'lmagan** — default deny, ruxsat berilmagan = denied.
+- **Snap profile'larini o'zgartirish** — qayta o'rnatishda yo'qoladi.
+- **Docker profile'da `network` yo'q** — internet ishlamaydi.
+
+## 14. Eng yaxshi amaliyot
+
+- **Complain → enforce** — log'lardan profile yangilang.
+- **`#include <abstractions/base>`** — default zarur ruxsatlar.
+- **Explicit deny** — `/etc/shadow`, `/root/**` deny qiling.
+- **Snap profile'larni override qilmaslik** — snap o'zi boshqaradi.
+- **Profile Git'da** — `/etc/apparmor.d/` versiya nazorat.
+
+## 15. Mashqlar
+
+1. **Status:** `sudo aa-status`.
+2. **Complain:** Bitta profile'ni `aa-complain` qiling, log'larni kuzating.
+3. **Custom profile:** Bash script uchun profile.
+4. **`aa-logprof`:** Log'lardan profile yangilash.
+5. **Snap profile:** Firefox profile ko'rish.
+
+## 16. Bilim sinovi
+
+**Savol 1.** Ubuntu'da AppArmor:
+
+- a) Default yo'q
+- b) Default yoqilgan
+- c) Faqat server'da
+- d) Faqat snap'da
+
+<Callout type="success" title="Javob">
+**(b)** Ubuntu 7.10'dan boshlab default yoqilgan.[¹](https://ubuntu.com/server/docs/security-apparmor)
+</Callout>
+
+**Savol 2.** Profile complain mode:
+
+- a) To'liq blok
+- b) Log'lanadi, lekin ruxsat beriladi
+- c) Faqat root uchun
+- d) O'chirilgan
+
+<Callout type="success" title="Javob">
+**(b)** Test rejimi — production'ga o'tishdan oldin.
+</Callout>
+
+**Savol 3.** DENIED log qaerda?
+
+- a) `/var/log/wtmp`
+- b) `dmesg`, `journalctl`
+- c) `/etc/passwd`
+- d) Hech qaerda
+
+<Callout type="success" title="Javob">
+**(b)** Kernel log — `dmesg | grep DENIED`.
+</Callout>
+
+**Savol 4.** Snap va AppArmor:
+
+- a) Aloqasi yo'q
+- b) Snap paketlar avtomatik AppArmor confinement
+- c) Snap AppArmor'siz
+- d) Faqat snap server'da
+
+<Callout type="success" title="Javob">
+**(b)** snapd har snap uchun profile yaratadi.
+</Callout>
+
+**Savol 5.** Custom profile yuklash:
+
+- a) `apt update`
+- b) `sudo apparmor_parser -r /etc/apparmor.d/<profile>`
+- c) Reboot
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Yangi yoki o'zgartirilgan profile uchun reload.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu AppArmor. [https://ubuntu.com/server/docs/security-apparmor](https://ubuntu.com/server/docs/security-apparmor)
+2. AppArmor Wiki. [https://gitlab.com/apparmor/apparmor/-/wikis/home](https://gitlab.com/apparmor/apparmor/-/wikis/home)
+
+## Keyingi qadam
+
+👉 [Ubuntu unattended-upgrades](/ubuntu/unattended-upgrades)

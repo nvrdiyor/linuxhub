@@ -1,0 +1,302 @@
+---
+title: "Ubuntu PPA — Personal Package Archives"
+description: "PPA — Ubuntu uchun rasmiy bo'lmagan, lekin tasdiqlangan paketlar."
+order: 13
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/ubuntu/apt-basics"
+learning_objectives:
+  - "PPA nima va u qaerdan keladi"
+  - "PPA qo'shish va o'chirish"
+  - "PPA priority"
+  - "PPA xavfsizligi"
+tags: ["ubuntu", "ppa", "launchpad", "apt"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Launchpad PPA"
+    url: "https://help.launchpad.net/Packaging/PPA"
+  - title: "Ubuntu PPA"
+    url: "https://launchpad.net/ubuntu/+ppas"
+---
+
+**PPA (Personal Package Archive)** — Canonical'ning Launchpad'idagi rasmiy bo'lmagan paket repository. Dasturchilar o'z paketlarini Ubuntu foydalanuvchilarga taqdim etadi.[¹](https://help.launchpad.net/Packaging/PPA)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- PPA nima va Launchpad nima.
+- `add-apt-repository ppa:...` qo'shish.
+- PPA priority sozlash.
+- PPA o'chirish.
+- Xavfsizlik — qaysi PPA'larga ishonish.
+</Callout>
+
+## 1. PPA nima?
+
+Launchpad.net'da har foydalanuvchi/jamoa o'z paket repository'sini olishi mumkin. Misol:
+
+- `ppa:graphics-drivers/ppa` — NVIDIA drivers
+- `ppa:libreoffice/ppa` — LibreOffice yangi versiya
+- `ppa:deadsnakes/ppa` — Python eski/yangi versiyalar
+- `ppa:obsproject/obs-studio` — OBS Studio
+
+## 2. PPA qo'shish
+
+```bash
+# software-properties-common bo'lishi kerak
+sudo apt install -y software-properties-common
+
+# PPA
+sudo add-apt-repository ppa:deadsnakes/ppa
+
+# Avtomatik apt update
+sudo apt update
+
+# Paket
+sudo apt install python3.12
+```
+
+`add-apt-repository` quyidagilarni qiladi:
+
+1. PPA URL'ini `/etc/apt/sources.list.d/` ga qo'shadi.
+2. GPG key'ni `/etc/apt/trusted.gpg.d/` ga import qiladi.
+3. `apt update` ishga tushiradi.
+
+## 3. Qo'shilgan PPA'lar
+
+```bash
+# Sources
+ls /etc/apt/sources.list.d/
+
+# Trust keys
+ls /etc/apt/trusted.gpg.d/
+
+# Yoki
+apt-cache policy | grep -A 2 launchpad
+```
+
+## 4. PPA o'chirish
+
+```bash
+sudo add-apt-repository --remove ppa:deadsnakes/ppa
+
+# Yoki
+sudo rm /etc/apt/sources.list.d/deadsnakes-ubuntu-ppa-jammy.list
+sudo apt update
+```
+
+## 5. PPA paketlarini downgrade
+
+PPA'dagi paketlarni rasmiy versiya'ga qaytarish:
+
+```bash
+sudo apt install -y ppa-purge
+sudo ppa-purge ppa:deadsnakes/ppa
+```
+
+`ppa-purge` PPA'ni o'chirib, undagi paketlarni rasmiy repository'dagi versiya'ga downgrade qiladi.
+
+## 6. PPA priority
+
+`apt pinning` orqali PPA priority sozlash:
+
+`/etc/apt/preferences.d/ppa-pin`:
+
+```
+Package: *
+Pin: release o=LP-PPA-deadsnakes
+Pin-Priority: 1001
+```
+
+`1001` — doim PPA'dan (hatto downgrade).
+
+Yoki past priority:
+
+```
+Package: *
+Pin: release o=LP-PPA-deadsnakes
+Pin-Priority: 100
+```
+
+`apt install -t ppa-deadsnakes paket` bilan o'rnatish.
+
+## 7. PPA versiya tekshirish
+
+```bash
+apt-cache policy python3.12
+# python3.12:
+#   Installed: 3.12.5-1+jammy
+#   Candidate: 3.12.5-1+jammy
+#   Version table:
+#  *** 3.12.5-1+jammy 500
+#         500 http://ppa.launchpad.net/deadsnakes/ppa/ubuntu jammy/main amd64 Packages
+#         100 /var/lib/dpkg/status
+```
+
+## 8. Xavfsizlik
+
+PPA — rasmiy bo'lmagan paketlar. Risklar:
+
+- **Malware** — paket yomon niyatli kod bilan.
+- **Backdoor** — root access.
+- **Bug** — sinab tekshirilmagan.
+- **Conflict** — boshqa paketlar bilan.
+
+**Ishonchli PPA'lar:**
+
+- `ppa:graphics-drivers/ppa` — Canonical bilan birga.
+- `ppa:deadsnakes/ppa` — taniqli Python maintainer.
+- `ppa:libreoffice/ppa` — rasmiy LibreOffice jamoasi.
+- `ppa:certbot/certbot` — EFF rasmiy.
+
+**Ishonchsiz PPA'lar:**
+
+- Yangi yaratilgan, oz follower.
+- Reviewers yo'q.
+- Owner notanish.
+
+## 9. PPA tekshirish
+
+PPA o'rnatishdan oldin Launchpad'da tekshiring:
+
+- `https://launchpad.net/~<user>/+archive/ubuntu/<ppa-name>`
+- Followers soni
+- Paketlar ro'yxati
+- Owner kim
+
+## 10. Misol — Certbot PPA
+
+EFF rasmiy SSL certbot:
+
+```bash
+sudo add-apt-repository ppa:certbot/certbot
+sudo apt update
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+## 11. Misol — Graphics drivers
+
+NVIDIA yangi versiya:
+
+```bash
+sudo add-apt-repository ppa:graphics-drivers/ppa
+sudo apt update
+sudo apt install -y nvidia-driver-550
+```
+
+## 12. Misol — Python versiya
+
+```bash
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+
+# Eski versiyalar
+sudo apt install -y python3.7 python3.7-venv python3.7-dev
+sudo apt install -y python3.8
+
+# Yangi
+sudo apt install -y python3.12 python3.13
+```
+
+## 13. PPA'lar ro'yxati
+
+```bash
+# Manual
+ls /etc/apt/sources.list.d/
+
+# Format yaxshiroq
+grep -h "^deb http://ppa" /etc/apt/sources.list.d/*.list | sort -u
+
+# yoki
+apt policy | grep -A 1 ppa.launchpad
+```
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **PPA'ni o'chirib, paketlarni qoldirish** — security update kelmaydi.
+- **Bir nechta PPA bir paketga** — qaysi'sidan o'rnatilganini bilmaslik.
+- **`ppa-purge`'siz o'chirish** — paketlar PPA versiyada qoladi.
+- **PPA xavfsizligi tekshirilmagan** — malware risk.
+- **EOL Ubuntu uchun PPA** — paketlar yo'q.
+
+## 15. Eng yaxshi amaliyot
+
+- **Ishonchli PPA'lar** — Launchpad'da tekshirish.
+- **`ppa-purge` o'chirish** — paketlar qaytariladi.
+- **PPA minimum** — kerak bo'lmasa qo'shmang.
+- **Production'da PPA?** — ehtiyot bilan, security update yo'qoladi.
+- **Pinning** — agar bir paket'ni majburiy PPA'dan kerak.
+
+## 16. Mashqlar
+
+1. **Joriy PPA'lar:** `ls /etc/apt/sources.list.d/`.
+2. **PPA qo'shish:** `deadsnakes/ppa` qo'shing.
+3. **Python 3.12:** O'rnatib, versiya tekshirib ko'ring.
+4. **`ppa-purge`:** O'chirish'dan keyin tekshiring.
+5. **Pinning:** PPA priority `1001` sozlang.
+
+## 17. Bilim sinovi
+
+**Savol 1.** PPA qaerda joylashgan?
+
+- a) Debian.org
+- b) Launchpad.net (Canonical)
+- c) GitHub
+- d) Hech qaerda
+
+<Callout type="success" title="Javob">
+**(b)** Launchpad — Canonical'ning open-source hosting platformasi.[¹](https://help.launchpad.net/Packaging/PPA)
+</Callout>
+
+**Savol 2.** PPA qo'shish buyrug'i:
+
+- a) `apt add-repo ppa:...`
+- b) `sudo add-apt-repository ppa:...`
+- c) `sudo apt install ppa:...`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Avtomatik GPG key + sources.list + apt update.
+</Callout>
+
+**Savol 3.** PPA paketlarini downgrade:
+
+- a) `apt downgrade`
+- b) `ppa-purge`
+- c) `apt purge`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** `ppa-purge` PPA'ni o'chirib, paketlarni rasmiy versiya'ga qaytaradi.
+</Callout>
+
+**Savol 4.** PPA xavfsiz emasligi sababli:
+
+- a) Rasmiy bo'lmagan, malware risk
+- b) Sekin
+- c) Katta hajm
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** Har kim PPA yaratishi mumkin — kontrol yo'q.
+</Callout>
+
+**Savol 5.** PPA paketi default priority:
+
+- a) 1001
+- b) 500
+- c) 100
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Stable repository kabi `500` — agar yangi versiya bo'lsa o'rnatiladi.
+</Callout>
+
+## Manbalar
+
+1. Launchpad PPA. [https://help.launchpad.net/Packaging/PPA](https://help.launchpad.net/Packaging/PPA)
+2. Ubuntu PPA Search. [https://launchpad.net/ubuntu/+ppas](https://launchpad.net/ubuntu/+ppas)
+
+## Keyingi qadam
+
+👉 [Ubuntu Service Management](/ubuntu/services)

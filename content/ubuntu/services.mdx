@@ -1,0 +1,444 @@
+---
+title: "Ubuntu Service Management — systemd"
+description: "Ubuntu'da service'larni boshqarish, custom unit yaratish."
+order: 14
+level: "beginner"
+estimated_minutes: 7
+prerequisites:
+  - "/fundamentals/systemd-deep"
+learning_objectives:
+  - "`systemctl` asoslari"
+  - "Service start/stop/enable"
+  - "Custom unit yaratish"
+  - "Logs (`journalctl`)"
+  - "Service troubleshooting"
+tags: ["ubuntu", "systemd", "services"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "systemctl(1) Ubuntu"
+    url: "https://manpages.ubuntu.com/manpages/jammy/en/man1/systemctl.1.html"
+  - title: "systemd.service(5)"
+    url: "https://manpages.ubuntu.com/manpages/jammy/en/man5/systemd.service.5.html"
+---
+
+**Ubuntu Service Management** — systemd asoslida. Service'larni boshlash/to'xtatish/enable, custom service yaratish, log'larni o'qish — har Ubuntu admin'i bilishi shart.[¹](https://manpages.ubuntu.com/manpages/jammy/en/man1/systemctl.1.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `systemctl` asosiy buyruq'lar.
+- Service status va log.
+- Boot'da yoqish/o'chirish.
+- Custom `.service` fayl yaratish.
+- Timer (cron alternativi).
+</Callout>
+
+## 1. Service holatini ko'rish
+
+```bash
+# Holat
+systemctl status nginx
+
+# Faqat aktiv?
+systemctl is-active nginx
+# active
+
+# Boot'da yoqilgan?
+systemctl is-enabled nginx
+# enabled
+
+# Failed?
+systemctl is-failed nginx
+```
+
+## 2. Boshqaruv
+
+```bash
+sudo systemctl start nginx
+sudo systemctl stop nginx
+sudo systemctl restart nginx
+sudo systemctl reload nginx       # config qayta o'qish (downtime'siz)
+sudo systemctl reload-or-restart nginx
+```
+
+## 3. Boot'da yoqish
+
+```bash
+sudo systemctl enable nginx       # boot'da ishga tushadi
+sudo systemctl disable nginx      # ishga tushmaydi
+
+# Enable + darhol start
+sudo systemctl enable --now nginx
+
+# Disable + darhol stop
+sudo systemctl disable --now nginx
+```
+
+## 4. Ro'yxat
+
+```bash
+# Aktiv service'lar
+systemctl list-units --type=service
+
+# Hammasi (failed ham)
+systemctl list-units --type=service --all
+
+# Failed
+systemctl list-units --type=service --state=failed
+
+# Enabled service'lar
+systemctl list-unit-files --type=service --state=enabled
+```
+
+## 5. Log'lar
+
+```bash
+# Service log
+sudo journalctl -u nginx
+
+# Real-time
+sudo journalctl -u nginx -f
+
+# Oxirgi 50
+sudo journalctl -u nginx -n 50
+
+# Bugun
+sudo journalctl -u nginx --since today
+
+# Error darajada
+sudo journalctl -u nginx -p err
+```
+
+## 6. Custom service yaratish
+
+`/etc/systemd/system/myapp.service`:
+
+```ini
+[Unit]
+Description=My Application
+After=network.target
+Requires=network.target
+
+[Service]
+Type=simple
+User=myapp
+Group=myapp
+WorkingDirectory=/opt/myapp
+ExecStart=/usr/bin/node /opt/myapp/server.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/myapp
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Start
+sudo systemctl start myapp
+sudo systemctl enable myapp
+
+# Log
+sudo journalctl -u myapp -f
+```
+
+## 7. Type turlari
+
+| Type | Tavsif |
+|---|---|
+| `simple` | Default — main process daemonize qilmaydi |
+| `forking` | Daemon fork'lab background'da |
+| `oneshot` | Bir martalik — script |
+| `notify` | systemd'ga signal yuboradi |
+| `idle` | Boshqa job'lar tugaganda |
+
+## 8. Environment va EnvironmentFile
+
+```ini
+[Service]
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Yoki fayldan
+EnvironmentFile=/etc/myapp/env
+```
+
+`/etc/myapp/env`:
+
+```
+NODE_ENV=production
+PORT=3000
+DATABASE_URL=postgres://...
+```
+
+## 9. ExecStart variations
+
+```ini
+# Oddiy
+ExecStart=/usr/bin/myapp
+
+# Bash bilan
+ExecStart=/bin/bash -c "echo Starting && exec /usr/bin/myapp"
+
+# Bir nechta (yoqilgandan keyin)
+ExecStartPre=/usr/bin/myapp --pre-check
+ExecStart=/usr/bin/myapp
+ExecStartPost=/usr/bin/myapp --post-init
+
+# Stop
+ExecStop=/usr/bin/myapp --shutdown
+ExecStopPost=/usr/bin/myapp --cleanup
+```
+
+## 10. Restart policy
+
+```ini
+[Service]
+Restart=always              # har vaqt qayta boshlash
+# Restart=on-failure        # faqat xatolik'da
+# Restart=on-abnormal       # abnormal exit
+# Restart=no                # qayta boshlamaslik
+RestartSec=5                # 5 soniya kutish
+StartLimitBurst=3
+StartLimitIntervalSec=60
+```
+
+## 11. Security hardening
+
+```ini
+[Service]
+NoNewPrivileges=true        # setuid/setgid ishlatmaydi
+PrivateTmp=true             # /tmp izolyatsiya
+PrivateDevices=true         # /dev cheklov
+ProtectSystem=strict        # /usr, /boot, /etc read-only
+ProtectHome=true            # /home ko'rinmaydi
+ReadOnlyPaths=/etc
+ReadWritePaths=/var/log/myapp
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+RestrictAddressFamilies=AF_INET AF_INET6
+SystemCallFilter=@system-service
+```
+
+## 12. Timer (cron alternativi)
+
+`/etc/systemd/system/backup.service`:
+
+```ini
+[Unit]
+Description=Daily backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup.sh
+```
+
+`/etc/systemd/system/backup.timer`:
+
+```ini
+[Unit]
+Description=Daily backup timer
+Requires=backup.service
+
+[Timer]
+OnCalendar=daily
+Persistent=true              # missed run'larni o'tkazib yubormaslik
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now backup.timer
+
+# Timer ro'yxati
+systemctl list-timers
+```
+
+## 13. Override (drop-in)
+
+Rasmiy paket service'ini o'zgartirish:
+
+```bash
+sudo systemctl edit nginx
+# Editor ochiladi
+```
+
+`/etc/systemd/system/nginx.service.d/override.conf`:
+
+```ini
+[Service]
+LimitNOFILE=65535
+Restart=always
+```
+
+Reload va restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart nginx
+```
+
+## 14. Dependency
+
+```ini
+[Unit]
+After=network.target postgresql.service
+Requires=postgresql.service
+Wants=redis.service
+Conflicts=apache2.service
+```
+
+- `After` — bu service'dan keyin start.
+- `Requires` — agar boshqa service to'xtasa, bu ham to'xtaydi.
+- `Wants` — agar mavjud bo'lsa start qiladi.
+- `Conflicts` — bir vaqtda ishlamaydi.
+
+## 15. Misol — Python Flask
+
+```ini
+[Unit]
+Description=My Flask App
+After=network.target
+
+[Service]
+Type=simple
+User=flask
+Group=flask
+WorkingDirectory=/opt/flask-app
+Environment=PATH=/opt/flask-app/venv/bin
+Environment=FLASK_ENV=production
+ExecStart=/opt/flask-app/venv/bin/gunicorn \
+    --workers 4 --bind 127.0.0.1:8000 wsgi:app
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## 16. Debug — service ishlamayotgan
+
+```bash
+# 1. Status
+sudo systemctl status myapp
+
+# 2. Log
+sudo journalctl -u myapp -n 50
+
+# 3. Real-time
+sudo journalctl -u myapp -f
+# Boshqa terminal
+sudo systemctl restart myapp
+
+# 4. Config tekshirish
+sudo systemd-analyze verify /etc/systemd/system/myapp.service
+
+# 5. Manual ishga tushirish
+sudo -u myapp /usr/bin/myapp
+```
+
+## 17. Eng tez-tez uchraydigan xatolar
+
+- **`daemon-reload` qilmaslik** — yangi unit fayl ko'rinmaydi.
+- **`User=root` default** — security risk, alohida user yarating.
+- **`Type=` noto'g'ri** — `forking` daemon uchun, `simple` foreground uchun.
+- **`PIDFile=` `forking` Type uchun zarur**.
+- **`ExecStart` shell'ni ishlatmaydi** — `bash -c` kerak shell expansion uchun.
+
+## 18. Eng yaxshi amaliyot
+
+- **`Type=simple`** — agar dastur fork qilmasa.
+- **`Restart=always`** — production service'lar.
+- **Security flag'lar** — `NoNewPrivileges`, `PrivateTmp`.
+- **`journalctl -u` debug** — printlar journal'da.
+- **Drop-in override** — paket service'ini o'zgartirish.
+
+## 19. Mashqlar
+
+1. **Status:** `systemctl status sshd`.
+2. **Custom service:** Python yoki Node.js dastur uchun.
+3. **Timer:** Har soatda script ishga tushirish.
+4. **Override:** Nginx restart policy o'zgartirish.
+5. **Security:** Service'ga `NoNewPrivileges=true`.
+
+## 20. Bilim sinovi
+
+**Savol 1.** Service yoqish + start:
+
+- a) `systemctl start enable nginx`
+- b) `sudo systemctl enable --now nginx`
+- c) `systemctl run nginx`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** `--now` flag — enable va start birga.[¹](https://manpages.ubuntu.com/manpages/jammy/en/man1/systemctl.1.html)
+</Callout>
+
+**Savol 2.** Custom service o'qishi uchun:
+
+- a) `systemctl restart`
+- b) `sudo systemctl daemon-reload`
+- c) `apt update`
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Yangi yoki o'zgartirilgan unit fayl uchun.
+</Callout>
+
+**Savol 3.** Service log'lar:
+
+- a) `/var/log/syslog`
+- b) `journalctl -u <service>`
+- c) `/var/log/<service>.log`
+- d) `dmesg`
+
+<Callout type="success" title="Javob">
+**(b)** systemd journal'da.
+</Callout>
+
+**Savol 4.** Timer — cron alternativi:
+
+- a) Mavjud emas
+- b) `.timer` unit `.service` bilan birga
+- c) `systemd-cron`
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Native systemd — `OnCalendar=daily` kabi.
+</Callout>
+
+**Savol 5.** `Type=simple` vs `forking`:
+
+- a) Bir xil
+- b) `simple` — main process foreground, `forking` — daemon fork
+- c) `forking` tezroq
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `simple` default — `node`, `gunicorn` foreground. `forking` — `apache`, eski daemon'lar.
+</Callout>
+
+## Manbalar
+
+1. systemctl(1) Ubuntu. [https://manpages.ubuntu.com/manpages/jammy/en/man1/systemctl.1.html](https://manpages.ubuntu.com/manpages/jammy/en/man1/systemctl.1.html)
+2. systemd.service(5). [https://manpages.ubuntu.com/manpages/jammy/en/man5/systemd.service.5.html](https://manpages.ubuntu.com/manpages/jammy/en/man5/systemd.service.5.html)
+
+## Keyingi qadam
+
+👉 [Ubuntu Network Manager](/ubuntu/network-manager)

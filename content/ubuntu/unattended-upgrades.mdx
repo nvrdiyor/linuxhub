@@ -1,0 +1,333 @@
+---
+title: "unattended-upgrades — avtomatik update Ubuntu"
+description: "Ubuntu'da avtomatik xavfsizlik update'lari."
+order: 18
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/ubuntu/apt-basics"
+learning_objectives:
+  - "`unattended-upgrades` o'rnatish"
+  - "Config — qaysi update'lar"
+  - "Email notification"
+  - "Reboot avtomatik (yoki yo'q)"
+  - "Livepatch alternativi"
+tags: ["ubuntu", "security", "updates"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu unattended-upgrades"
+    url: "https://help.ubuntu.com/community/AutomaticSecurityUpdates"
+  - title: "Ubuntu Livepatch"
+    url: "https://ubuntu.com/security/livepatch"
+---
+
+**unattended-upgrades** — Ubuntu va Debian'da avtomatik xavfsizlik update'lari. Production server'lar uchun zarur — admin'siz security fix'lar o'rnatiladi.[¹](https://help.ubuntu.com/community/AutomaticSecurityUpdates)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `unattended-upgrades` o'rnatish.
+- Config — qaysi repo'lardan.
+- Email/Slack notification.
+- Reboot avtomatik.
+- Livepatch — reboot'siz kernel update.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+sudo apt update
+sudo apt install -y unattended-upgrades apt-listchanges
+```
+
+`apt-listchanges` — yangilanish oldidan changelog ko'rsatadi.
+
+## 2. Yoqish
+
+```bash
+sudo dpkg-reconfigure -plow unattended-upgrades
+# "Automatically download and install stable updates?" → Yes
+```
+
+Yoki manual:
+
+```bash
+sudo tee /etc/apt/apt.conf.d/20auto-upgrades <<EOF
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+EOF
+```
+
+## 3. Asosiy config
+
+`/etc/apt/apt.conf.d/50unattended-upgrades`:
+
+```
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}";
+    "${distro_id}:${distro_codename}-security";
+    "${distro_id}ESMApps:${distro_codename}-apps-security";
+    "${distro_id}ESM:${distro_codename}-infra-security";
+//  "${distro_id}:${distro_codename}-updates";
+//  "${distro_id}:${distro_codename}-proposed";
+//  "${distro_id}:${distro_codename}-backports";
+};
+
+Unattended-Upgrade::Package-Blacklist {
+//  "nginx";
+//  "mysql-server";
+};
+
+Unattended-Upgrade::DevRelease "auto";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "false";
+
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "false";
+Unattended-Upgrade::Automatic-Reboot-Time "02:00";
+
+Unattended-Upgrade::Mail "admin@example.com";
+Unattended-Upgrade::MailReport "only-on-error";
+
+Unattended-Upgrade::SyslogEnable "true";
+```
+
+## 4. Allowed-Origins — qaysi update'lar
+
+Default — faqat `security`. Boshqalarni qo'shish:
+
+```
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}";              // main
+    "${distro_id}:${distro_codename}-security";     // security
+    "${distro_id}:${distro_codename}-updates";      // bug fix
+};
+```
+
+## 5. Email notification
+
+`Postfix` o'rnatilgan bo'lishi kerak:
+
+```bash
+sudo apt install -y postfix mailutils
+# Internet Site / Local only
+```
+
+Config'da:
+
+```
+Unattended-Upgrade::Mail "admin@example.com";
+Unattended-Upgrade::MailReport "always";   // always, on-change, only-on-error
+```
+
+## 6. Reboot avtomatik
+
+Kernel update'dan keyin reboot kerak. Avtomatik:
+
+```
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+```
+
+Yoki faqat foydalanuvchi yo'q bo'lsa:
+
+```
+Unattended-Upgrade::Automatic-Reboot-WithUsers "false";
+```
+
+`/var/run/reboot-required` mavjud bo'lsa — reboot kerak.
+
+## 7. Package blacklist
+
+Ba'zi paketlarni update qilmaslik:
+
+```
+Unattended-Upgrade::Package-Blacklist {
+    "nginx";
+    "mysql-server";
+    "postgresql-.*";    // regex
+};
+```
+
+## 8. Tekshirish
+
+```bash
+# Dry-run
+sudo unattended-upgrade --dry-run --debug
+
+# Manual ishga tushirish
+sudo unattended-upgrade -d
+
+# Log
+sudo tail -f /var/log/unattended-upgrades/unattended-upgrades.log
+```
+
+## 9. Vaqt rejimi
+
+systemd timer:
+
+```bash
+systemctl list-timers | grep apt
+# apt-daily.timer       — paket list yangilanishi
+# apt-daily-upgrade.timer — upgrade
+```
+
+`/lib/systemd/system/apt-daily.timer`:
+
+```ini
+[Timer]
+OnCalendar=*-*-* 6,18:00
+RandomizedDelaySec=12h
+Persistent=true
+```
+
+## 10. Livepatch (Ubuntu Pro)
+
+Reboot'siz kernel security update — Ubuntu Pro (bepul shaxsiy, 5 mashina):
+
+```bash
+sudo pro attach <TOKEN>
+sudo pro enable livepatch
+
+# Status
+sudo canonical-livepatch status
+```
+
+Livepatch — kernel security fix'lar memory'da, reboot kerak emas.
+
+## 11. ESM (Expanded Security Maintenance)
+
+Ubuntu LTS'dan keyin (10 yil security):
+
+```bash
+sudo pro enable esm-infra
+sudo pro enable esm-apps
+```
+
+Ko'p paketlar uchun security 5 yildan keyin ham.
+
+## 12. Slack notification
+
+Custom skript:
+
+`/etc/apt/apt.conf.d/99-slack-notify`:
+
+```
+DPkg::Post-Invoke {
+    "if [ -e /var/run/reboot-required ]; then /usr/local/bin/slack-notify.sh 'Reboot required'; fi";
+};
+```
+
+`/usr/local/bin/slack-notify.sh`:
+
+```bash
+#!/bin/bash
+curl -X POST -H 'Content-type: application/json' \
+    --data "{\"text\":\"$1\"}" \
+    https://hooks.slack.com/services/T00.../B00.../...
+```
+
+## 13. Backup oldindan
+
+```bash
+# /etc/backup-before-upgrade.sh
+#!/bin/bash
+tar czf /var/backups/etc-$(date +%Y%m%d).tar.gz /etc
+```
+
+`/etc/apt/apt.conf.d/00-backup`:
+
+```
+DPkg::Pre-Invoke { "/etc/backup-before-upgrade.sh"; };
+```
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Faqat `security` repo** — bug fix kelmaydi.
+- **`Automatic-Reboot true` production'da** — random'da reboot bo'lishi mumkin.
+- **Mail server yo'q** — notification yo'q.
+- **Log'larni tekshirmaslik** — failed update sezilmaydi.
+- **Blacklist regex noto'g'ri** — barchasini bloklab qo'yish.
+
+## 15. Eng yaxshi amaliyot
+
+- **Security + updates** — bug fix muhim.
+- **Mail notification** — `only-on-error`.
+- **Reboot vaqti** — past traffic.
+- **Livepatch Ubuntu Pro** — reboot'siz.
+- **Test virtual mashina** — config sinash.
+
+## 16. Mashqlar
+
+1. **O'rnatish:** `unattended-upgrades` va `apt-listchanges`.
+2. **Config:** `security + updates` yoqing.
+3. **Dry-run:** `unattended-upgrade --dry-run --debug`.
+4. **Email:** Postfix sozlash va test.
+5. **Livepatch:** Ubuntu Pro account ulanish.
+
+## 17. Bilim sinovi
+
+**Savol 1.** `unattended-upgrades` default:
+
+- a) Hammasini update qiladi
+- b) Faqat security repository
+- c) Hech narsa
+- d) Faqat kernel
+
+<Callout type="success" title="Javob">
+**(b)** Default — faqat `-security` repo. Bug fix uchun `-updates` qo'shish kerak.[¹](https://help.ubuntu.com/community/AutomaticSecurityUpdates)
+</Callout>
+
+**Savol 2.** Reboot kerakligini bilish:
+
+- a) `dmesg`
+- b) `/var/run/reboot-required` fayli
+- c) `apt`
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Bu fayl mavjud bo'lsa — reboot kerak.
+</Callout>
+
+**Savol 3.** Livepatch:
+
+- a) Tezroq update
+- b) Reboot'siz kernel security update (Ubuntu Pro)
+- c) Backup
+- d) Antivirus
+
+<Callout type="success" title="Javob">
+**(b)** Memory'da kernel patch — production downtime'siz.
+</Callout>
+
+**Savol 4.** Log fayli:
+
+- a) `/var/log/syslog`
+- b) `/var/log/unattended-upgrades/unattended-upgrades.log`
+- c) `/var/log/apt.log`
+- d) Hech qaerda
+
+<Callout type="success" title="Javob">
+**(b)** Aniq unattended-upgrades log.
+</Callout>
+
+**Savol 5.** Blacklist nima qiladi?
+
+- a) IP'larni bloklaydi
+- b) Aniq paketlarni update'dan istisno qiladi
+- c) Foydalanuvchilarni
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `Package-Blacklist` — `nginx`, `mysql` kabi paketlar manual update.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Automatic Security Updates. [https://help.ubuntu.com/community/AutomaticSecurityUpdates](https://help.ubuntu.com/community/AutomaticSecurityUpdates)
+2. Ubuntu Livepatch. [https://ubuntu.com/security/livepatch](https://ubuntu.com/security/livepatch)
+
+## Keyingi qadam
+
+👉 [Ubuntu Backup strategies](/ubuntu/backup)

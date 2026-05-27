@@ -1,0 +1,418 @@
+---
+title: "Snap Store — Ubuntu paketlari"
+description: "Snap packages — Canonical'ning universal paket formati va Snap Store."
+order: 11
+level: "beginner"
+estimated_minutes: 7
+prerequisites:
+  - "/ubuntu/snap"
+learning_objectives:
+  - "Snap nima va u qanday ishlaydi"
+  - "Snap Store CLI va GUI"
+  - "Channel (stable/beta/edge)"
+  - "Confinement (strict/classic)"
+  - "Snap vs deb"
+tags: ["ubuntu", "snap", "packages"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Snapcraft Documentation"
+    url: "https://snapcraft.io/docs"
+  - title: "Snap Store"
+    url: "https://snapcraft.io/store"
+---
+
+**Snap** — Canonical'ning universal Linux paket formati. Self-contained (barcha dependency'lar ichida), avtomatik update, sandboxing. Ubuntu 16.04+'da default.[¹](https://snapcraft.io/docs)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Snap arxitekturasi.
+- `snap install`, `snap list`, `snap remove`.
+- Channels — stable, candidate, beta, edge.
+- Confinement — strict, classic, devmode.
+- Snap vs deb va Flatpak.
+</Callout>
+
+## 1. Snap nima?
+
+Snap paketlar:
+
+- **Self-contained** — barcha dependency'lar ichida.
+- **Read-only squashfs** — `/snap/<name>/<rev>/`.
+- **Avtomatik update** — har 6 soatda.
+- **Sandboxed** — AppArmor + seccomp.
+- **Channels** — stable, beta, edge.
+
+## 2. snapd
+
+```bash
+# Tekshirish
+snap version
+# snap    2.x.x
+# snapd   2.x.x
+# ubuntu  24.04
+
+# Ishlash
+systemctl status snapd
+```
+
+Ubuntu'da default o'rnatilgan. Boshqa distro'larda:
+
+```bash
+# Debian
+sudo apt install -y snapd
+
+# Fedora
+sudo dnf install -y snapd
+sudo ln -s /var/lib/snapd/snap /snap
+```
+
+## 3. Paket o'rnatish
+
+```bash
+# Mavjud
+snap find browser
+snap find code
+
+# O'rnatish
+sudo snap install firefox
+sudo snap install code --classic
+sudo snap install discord
+
+# Versiya
+sudo snap install hello-world
+
+# Ro'yxat
+snap list
+
+# Info
+snap info code
+```
+
+## 4. Channels
+
+| Channel | Tavsif |
+|---|---|
+| `stable` | Default — sinab tekshirilgan |
+| `candidate` | Stable kandidat (release pre-test) |
+| `beta` | Yangi xususiyatlar |
+| `edge` | Eng yangi (development) |
+
+```bash
+# Tanlash
+sudo snap install code --classic --channel=beta
+sudo snap install hello --edge
+
+# O'zgartirish
+sudo snap refresh code --channel=stable
+
+# Track (versiya)
+sudo snap install kubectl --channel=1.30/stable
+```
+
+## 5. Update
+
+```bash
+# Avtomatik (default har 6 soatda)
+snap refresh
+
+# Manual
+sudo snap refresh
+sudo snap refresh code
+
+# Tekshirish
+snap refresh --list
+
+# Hold (vaqtinchalik to'xtatish)
+sudo snap refresh --hold=24h code
+```
+
+## 6. Confinement
+
+| Mode | Tavsif |
+|---|---|
+| `strict` | Sandboxed (default) — faqat ruxsat etilgan resurs'lar |
+| `classic` | To'liq host access (VSCode, IDE'lar) |
+| `devmode` | Strict, lekin warning'lar (development) |
+
+Tekshirish:
+
+```bash
+snap info code
+# confinement: classic
+```
+
+Classic snap'lar `--classic` flag bilan o'rnatiladi:
+
+```bash
+sudo snap install code --classic
+```
+
+## 7. Interfaces
+
+Strict snap'lar resurs'larga interface orqali ulanadi:
+
+```bash
+# Interfaces ro'yxati
+snap interfaces
+# yoki
+snap connections firefox
+
+# Connect
+sudo snap connect firefox:camera
+
+# Disconnect
+sudo snap disconnect firefox:camera
+```
+
+Asosiy interfaces:
+
+- `home` — `~/` access
+- `network` — internet
+- `camera`, `audio-playback`, `audio-record`
+- `removable-media` — USB/SD
+- `system-files` — `/etc/...`
+
+## 8. Snap Store (GUI)
+
+```bash
+sudo snap install snap-store
+snap-store
+```
+
+Yoki desktop'da "Software" / "Ubuntu Software".
+
+## 9. Snap o'chirish
+
+```bash
+sudo snap remove firefox
+sudo snap remove --purge firefox     # snapshot olmasdan
+```
+
+Snap o'chirilganda snapshot saqlanadi (30 kun). Manual o'chirish:
+
+```bash
+snap saved
+sudo snap forget <set-id>
+```
+
+## 10. Snap'larga manual revert
+
+```bash
+# Tarix
+snap list --all
+
+# Avvalgi versiya'ga
+sudo snap revert code
+
+# Aniq revision
+sudo snap refresh code --revision=158
+```
+
+## 11. Service'lar
+
+Ko'p snap'lar service'lar:
+
+```bash
+snap services
+# Service                  Startup   Current   Notes
+# nextcloud.apache         enabled   active    -
+
+# Boshqaruv
+sudo snap start nextcloud.apache
+sudo snap stop nextcloud.apache
+sudo snap restart nextcloud.apache
+
+# Log'lar
+sudo snap logs nextcloud -f
+```
+
+## 12. Aliases
+
+```bash
+sudo snap alias kubectl k
+k get pods    # = kubectl get pods
+
+# Disable
+sudo snap unalias k
+
+# Ro'yxat
+snap aliases
+```
+
+## 13. Snap vs deb vs Flatpak
+
+| Xususiyat | Snap | deb | Flatpak |
+|---|---|---|---|
+| Format | squashfs | tar | OSTree |
+| Source | Canonical | Distro repo | Flathub |
+| Sandboxed | Ha (strict) | Yo'q | Ha |
+| Dependency | Ichida | Shared | Runtime |
+| Auto-update | Ha | Manual | Manual |
+| Hajm | Katta | Kichik | O'rta |
+| Speed (start) | Sekin (mount) | Tez | O'rta |
+
+## 14. Misol — Kubernetes CLI
+
+```bash
+sudo snap install kubectl --classic
+sudo snap install kubectx
+sudo snap install helm --classic
+sudo snap install k9s
+
+# Versiya o'zgartirish
+sudo snap refresh kubectl --channel=1.30/stable
+```
+
+## 15. Misol — IDE
+
+```bash
+sudo snap install code --classic
+sudo snap install pycharm-community --classic
+sudo snap install intellij-idea-community --classic
+sudo snap install android-studio --classic
+```
+
+## 16. Snap fayl tizimi
+
+```
+/snap/                # snap'lar
+  firefox/
+    current → 1234     # symlink
+    1234/              # squashfs
+      meta/
+      bin/
+  bin/                 # CLI binaries
+
+/var/snap/             # writable data
+  firefox/
+    1234/              # version
+    current → 1234
+
+~/snap/                # user data
+  firefox/
+    1234/
+    current → 1234
+```
+
+## 17. Snap qurish (advanced)
+
+`snapcraft.yaml`:
+
+```yaml
+name: hello-world
+version: '1.0'
+summary: Hello world
+description: |
+  Simple hello-world app
+
+base: core22
+grade: stable
+confinement: strict
+
+parts:
+  hello:
+    plugin: dump
+    source: ./src
+
+apps:
+  hello:
+    command: hello.sh
+```
+
+```bash
+sudo snap install snapcraft --classic
+snapcraft
+# my-app_1.0_amd64.snap
+
+sudo snap install --dangerous my-app_1.0_amd64.snap
+```
+
+## 18. Eng tez-tez uchraydigan xatolar
+
+- **`code` sudo'siz** — `--classic` faqat sudo.
+- **Snap update'ni to'xtatish** — `hold` 60 kundan ortiq imkonsiz.
+- **Snap startup sekin** — squashfs mount.
+- **Disk hajmi katta** — har snap'da kernel/runtime ichida.
+- **Service snap'lar** — `snap services`'da emas `systemctl`'da.
+
+## 19. Eng yaxshi amaliyot
+
+- **Stable channel default** — boshqa'lari faqat zarurda.
+- **Classic faqat IDE/dev tools** — sandboxing yo'q.
+- **Interfaces tekshirish** — `snap connections`.
+- **Snap update kontrol** — `--hold` bilan.
+- **deb afzal asosiy paketlar** — snap qo'shimcha.
+
+## 20. Mashqlar
+
+1. **Snap install:** `firefox` va `code --classic`.
+2. **Channel switch:** `code` ni `beta`'ga.
+3. **Interfaces:** `firefox` qaysi resurs'larga ulangan?
+4. **Service:** Snap service log'larini ko'rish.
+5. **Snapshot:** Snap o'chirib snapshot ko'rish.
+
+## 21. Bilim sinovi
+
+**Savol 1.** Snap qaysi tarqatuvchidan?
+
+- a) Red Hat
+- b) Canonical (Ubuntu)
+- c) Debian
+- d) Arch
+
+<Callout type="success" title="Javob">
+**(b)** Canonical — Ubuntu sotuvchisi.[¹](https://snapcraft.io/docs)
+</Callout>
+
+**Savol 2.** Default channel:
+
+- a) edge
+- b) stable
+- c) beta
+- d) candidate
+
+<Callout type="success" title="Javob">
+**(b)** Stable — production tayyor.
+</Callout>
+
+**Savol 3.** `--classic` flag:
+
+- a) Eski versiya
+- b) Sandboxing yo'q — host'ga to'liq access
+- c) GUI snap
+- d) Service
+
+<Callout type="success" title="Javob">
+**(b)** VSCode, IDE'lar kabi sandboxing'ga sig'maydigan dasturlar uchun.
+</Callout>
+
+**Savol 4.** Snap update:
+
+- a) Manual faqat
+- b) Avtomatik default har 6 soatda
+- c) Hech qachon
+- d) Faqat reboot'da
+
+<Callout type="success" title="Javob">
+**(b)** snapd avtomatik. `--hold` bilan to'xtatish mumkin.
+</Callout>
+
+**Savol 5.** Snap fayl tizimi joyi:
+
+- a) `/usr/local/`
+- b) `/snap/` (squashfs)
+- c) `/opt/`
+- d) `~/`
+
+<Callout type="success" title="Javob">
+**(b)** `/snap/<name>/<revision>/` — read-only squashfs.
+</Callout>
+
+## Manbalar
+
+1. Snapcraft Documentation. [https://snapcraft.io/docs](https://snapcraft.io/docs)
+2. Snap Store. [https://snapcraft.io/store](https://snapcraft.io/store)
+
+## Keyingi qadam
+
+👉 [Ubuntu Flatpak](/ubuntu/flatpak)

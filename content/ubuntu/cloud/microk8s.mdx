@@ -1,0 +1,412 @@
+---
+title: "MicroK8s — Canonical Kubernetes"
+description: "MicroK8s — yengil, production-ready Kubernetes Ubuntu'da."
+order: 5
+level: "intermediate"
+estimated_minutes: 9
+prerequisites:
+  - "/ubuntu/cloud/minikube"
+learning_objectives:
+  - "MicroK8s o'rnatish (snap)"
+  - "Addon'lar (dns, ingress, storage)"
+  - "Single-node va multi-node"
+  - "MicroK8s vs Minikube vs k3s"
+tags: ["ubuntu", "microk8s", "kubernetes", "canonical"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "MicroK8s Documentation"
+    url: "https://microk8s.io/docs"
+  - title: "Canonical MicroK8s"
+    url: "https://ubuntu.com/kubernetes/install"
+---
+
+**MicroK8s** — Canonical'ning yengil, production-grade Kubernetes distrosi. Snap orqali bir buyruq bilan o'rnatiladi. IoT, edge, dev va kichik production uchun ideal.[¹](https://microk8s.io/docs)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- MicroK8s snap orqali o'rnatish.
+- Addon ekosistemasi (`microk8s enable ...`).
+- Cluster (multi-node) qurish.
+- HA — 3 node'dan.
+- MicroK8s vs Minikube vs k3s.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+sudo snap install microk8s --classic
+
+# User'ni `microk8s` guruhga
+sudo usermod -aG microk8s $USER
+sudo chown -R $USER ~/.kube
+newgrp microk8s
+
+# Status (1-2 daqiqa kuting)
+microk8s status --wait-ready
+```
+
+## 2. kubectl alias
+
+```bash
+# microk8s ichidagi kubectl
+microk8s kubectl get nodes
+
+# Alias
+sudo snap alias microk8s.kubectl kubectl
+
+# Endi
+kubectl get nodes
+```
+
+Yoki kubeconfig export:
+
+```bash
+microk8s config > ~/.kube/config
+chmod 600 ~/.kube/config
+kubectl get nodes
+```
+
+## 3. Addon'lar
+
+Eng foydali — addon ekosistemasi:
+
+```bash
+microk8s status
+
+# Yoqish
+microk8s enable dns
+microk8s enable storage
+microk8s enable ingress
+microk8s enable dashboard
+microk8s enable registry
+microk8s enable metallb:10.64.140.43-10.64.140.49
+microk8s enable cert-manager
+microk8s enable observability    # Prometheus + Grafana
+microk8s enable helm3
+
+# O'chirish
+microk8s disable dashboard
+```
+
+To'liq ro'yxat: `microk8s status` yoki rasmiy docs.
+
+## 4. Cluster (multi-node)
+
+### Master
+
+```bash
+# Master node
+microk8s add-node
+# Quyidagi token chiqadi:
+# microk8s join 10.0.0.10:25000/abc.../xxx
+```
+
+### Worker
+
+```bash
+# Worker node — masterdagi tokenni ishlating
+microk8s join 10.0.0.10:25000/abc.../xxx
+```
+
+Tekshirish:
+
+```bash
+microk8s kubectl get nodes
+# NAME       STATUS   ROLES                  AGE
+# master     Ready    control-plane,master   10m
+# worker-1   Ready    worker                 1m
+```
+
+## 5. HA — High Availability
+
+3 ta master node (etcd quorum):
+
+```bash
+# 1-master
+microk8s enable ha-cluster
+
+# 2 va 3-master
+microk8s add-node          # masterdan
+microk8s join ...
+```
+
+3 node'dan ko'p — HA avtomatik ishlaydi.
+
+```bash
+microk8s status
+# high-availability: yes
+# datastore master nodes: 3
+```
+
+## 6. Storage
+
+```bash
+microk8s enable hostpath-storage    # local
+# yoki
+microk8s enable mayastor            # production storage
+```
+
+PVC yaratish:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: microk8s-hostpath
+```
+
+## 7. Ingress
+
+```bash
+microk8s enable ingress
+
+# Test
+kubectl create deployment nginx --image=nginx
+kubectl expose deployment nginx --port=80
+```
+
+`ingress.yaml`:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ing
+spec:
+  rules:
+  - host: nginx.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx
+            port:
+              number: 80
+```
+
+```bash
+kubectl apply -f ingress.yaml
+echo "$(hostname -I | awk '{print $1}') nginx.local" | sudo tee -a /etc/hosts
+curl http://nginx.local
+```
+
+## 8. Registry
+
+```bash
+microk8s enable registry
+
+# Image push
+docker tag myapp:1.0 localhost:32000/myapp:1.0
+docker push localhost:32000/myapp:1.0
+
+# Pod'da
+kubectl create deployment myapp --image=localhost:32000/myapp:1.0
+```
+
+## 9. Dashboard
+
+```bash
+microk8s enable dashboard
+
+# Token
+microk8s kubectl -n kube-system get secret \
+    $(microk8s kubectl -n kube-system get sa kubernetes-dashboard -o jsonpath='{.secrets[0].name}') \
+    -o jsonpath='{.data.token}' | base64 -d
+echo
+
+# Proxy
+microk8s dashboard-proxy
+# https://127.0.0.1:10443
+```
+
+## 10. Helm 3
+
+```bash
+microk8s enable helm3
+microk8s helm3 repo add bitnami https://charts.bitnami.com/bitnami
+microk8s helm3 install my-release bitnami/wordpress
+```
+
+## 11. Observability — Prometheus + Grafana
+
+```bash
+microk8s enable observability
+
+# Tekshirish
+kubectl get pods -n observability
+kubectl get svc -n observability
+
+# Grafana — port-forward
+kubectl port-forward -n observability svc/kube-prom-stack-grafana 3000:80
+
+# Brauzer: http://localhost:3000
+# admin / prom-operator
+```
+
+## 12. Stop/Start/Reset
+
+```bash
+# Stop
+microk8s stop
+
+# Start
+microk8s start
+
+# Reset (hammasini o'chiradi, addon'lar saqlanadi)
+microk8s reset
+
+# Snap o'chirish
+sudo snap remove microk8s --purge
+```
+
+## 13. MicroK8s vs Minikube vs k3s
+
+| Xususiyat | MicroK8s | Minikube | k3s |
+|---|---|---|---|
+| Sotuvchi | Canonical | Kubernetes SIG | Rancher |
+| Boot | Snap | Binary | Curl + sh |
+| Versiya | Multiple channels | Versiya tanlash | Latest stable |
+| Resurs | O'rta | O'rta | Eng kichik |
+| Multi-node | Ha | Ha (eksperimental) | Ha |
+| Production | Edge/IoT | Faqat dev | Production edge |
+| Addons | `enable ...` | `addons enable` | Helm orqali |
+
+## 14. Misol — to'liq web app
+
+```bash
+# Stack o'rnatish
+microk8s enable dns ingress storage
+
+# WordPress
+microk8s helm3 install wp bitnami/wordpress \
+    --set service.type=ClusterIP \
+    --set ingress.enabled=true \
+    --set ingress.hostname=wp.local
+
+# /etc/hosts
+echo "$(hostname -I | awk '{print $1}') wp.local" | sudo tee -a /etc/hosts
+
+# Brauzer: http://wp.local
+```
+
+## 15. Update va channel
+
+```bash
+# Joriy channel
+snap info microk8s
+
+# Stable'ga
+sudo snap refresh microk8s --channel=stable
+
+# 1.30
+sudo snap refresh microk8s --channel=1.30/stable
+```
+
+## 16. Backup va restore
+
+```bash
+# etcd backup (HA cluster'da)
+microk8s kubectl get all --all-namespaces -o yaml > all-resources.yaml
+
+# Velero (production)
+# https://velero.io/
+```
+
+## 17. Eng tez-tez uchraydigan xatolar
+
+- **`microk8s` guruhga qo'shilmasdan** — har vaqt `sudo`.
+- **DNS yoqilmagan** — Service ishlamaydi.
+- **Storage yo'q** — PVC `Pending` qoladi.
+- **MetalLB pool noto'g'ri IP range** — LoadBalancer mavjud emas.
+- **`microk8s.kubectl` va `kubectl` farqi** — alias yoki kubeconfig export.
+
+## 18. Eng yaxshi amaliyot
+
+- **Addon'lar bosqichma-bosqich** — bir martda kerakli'lari.
+- **HA 3 node'dan** — quorum uchun.
+- **Helm3 paketlar** — production paketlar.
+- **Observability** — boshlanishidan monitoring.
+- **`kubectl` alias** — `microk8s.kubectl` har vaqt yozmasdan.
+
+## 19. Mashqlar
+
+1. **O'rnatish:** `sudo snap install microk8s --classic`.
+2. **Addon'lar:** `dns`, `storage`, `ingress`, `dashboard`.
+3. **Deployment:** Nginx 3 replica.
+4. **Ingress:** `nginx.local` orqali kirish.
+5. **Helm:** WordPress yoki MariaDB chart o'rnatish.
+
+## 20. Bilim sinovi
+
+**Savol 1.** MicroK8s qaysi tarqatuvchidan?
+
+- a) Google
+- b) Canonical (Ubuntu)
+- c) Red Hat
+- d) SUSE
+
+<Callout type="success" title="Javob">
+**(b)** Canonical — Ubuntu sotuvchisi.[¹](https://microk8s.io/docs)
+</Callout>
+
+**Savol 2.** Addon yoqish:
+
+- a) `microk8s install <addon>`
+- b) `microk8s enable <addon>`
+- c) `kubectl enable <addon>`
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `microk8s enable dns ingress storage ...`.
+</Callout>
+
+**Savol 3.** HA cluster kerakli minimum:
+
+- a) 1 node
+- b) 2 node
+- c) 3 node (etcd quorum)
+- d) 5 node
+
+<Callout type="success" title="Javob">
+**(c)** 3 node — etcd Raft quorum.
+</Callout>
+
+**Savol 4.** MicroK8s eng kichik:
+
+- a) Ha
+- b) Yo'q — k3s kichikroq, MicroK8s ko'proq feature
+- c) Bir xil
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** k3s eng yengil, MicroK8s feature'lar ko'p, snap'da boshqarish oson.
+</Callout>
+
+**Savol 5.** `microk8s reset`:
+
+- a) Hammasini o'chiradi
+- b) Resurs'larni o'chiradi (addon'lar saqlanadi)
+- c) Restart
+- d) Update
+
+<Callout type="success" title="Javob">
+**(b)** Cluster'dagi resource'lar yo'qoladi, lekin addons saqlanadi.
+</Callout>
+
+## Manbalar
+
+1. MicroK8s Documentation. [https://microk8s.io/docs](https://microk8s.io/docs)
+2. Canonical Kubernetes. [https://ubuntu.com/kubernetes/install](https://ubuntu.com/kubernetes/install)
+
+## Keyingi qadam
+
+👉 [Ubuntu cloud-init](/ubuntu/cloud/cloud-init)

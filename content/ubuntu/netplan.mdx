@@ -1,0 +1,398 @@
+---
+title: "Netplan — Ubuntu Network konfiguratsiya"
+description: "Netplan YAML format bilan Ubuntu tarmoqni sozlash."
+order: 15
+level: "intermediate"
+estimated_minutes: 8
+prerequisites:
+  - "/fundamentals/networking-basics"
+learning_objectives:
+  - "Netplan YAML sintaksis"
+  - "systemd-networkd vs NetworkManager backend"
+  - "Static IP, DHCP, VLAN, bond"
+  - "Wi-Fi konfiguratsiya"
+tags: ["ubuntu", "netplan", "network"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Netplan Documentation"
+    url: "https://netplan.io/"
+  - title: "Ubuntu Server Networking"
+    url: "https://ubuntu.com/server/docs/network-configuration"
+---
+
+**Netplan** — Ubuntu 18.04+ default network konfiguratsiya. YAML format orqali `systemd-networkd` (server) yoki `NetworkManager` (desktop) backend'iga generatsiya qiladi.[¹](https://netplan.io/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Netplan YAML format.
+- `netplan apply` va `netplan try`.
+- Static IP, DHCP.
+- VLAN, bond, bridge.
+- Wi-Fi.
+- systemd-networkd vs NetworkManager backend.
+</Callout>
+
+## 1. Fayl joylashuvi
+
+```
+/etc/netplan/
+├── 50-cloud-init.yaml      # cloud-init tomonidan
+├── 01-netcfg.yaml          # custom
+└── 99-disable-network-config.cfg  # cloud-init o'chirish
+```
+
+Faylllar `00-` dan boshlab `99-` gacha sortlanadi.
+
+## 2. Asosiy YAML
+
+`/etc/netplan/01-netcfg.yaml`:
+
+```yaml
+network:
+  version: 2
+  renderer: networkd       # yoki NetworkManager
+  ethernets:
+    enp1s0:
+      dhcp4: true
+```
+
+## 3. Qo'llash
+
+```bash
+# Test sintaksis
+sudo netplan generate
+
+# Try (timeout, agar muvaffaqiyatli bo'lmasa qaytadi)
+sudo netplan try
+
+# Apply
+sudo netplan apply
+
+# Debug
+sudo netplan --debug apply
+```
+
+`netplan try` — yangi sozlamani sinab, 120 soniya ichida tasdiqlamasa, eski'siga qaytadi.
+
+## 4. Static IP
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp1s0:
+      dhcp4: false
+      addresses:
+        - 192.168.1.100/24
+        - 2001:db8::100/64
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses:
+          - 1.1.1.1
+          - 8.8.8.8
+        search:
+          - example.local
+```
+
+## 5. DHCP + static route
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp1s0:
+      dhcp4: true
+      dhcp4-overrides:
+        use-dns: false
+      nameservers:
+        addresses: [1.1.1.1, 8.8.8.8]
+      routes:
+        - to: 10.0.0.0/8
+          via: 192.168.1.254
+```
+
+## 6. VLAN
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp1s0:
+      dhcp4: no
+  vlans:
+    vlan10:
+      id: 10
+      link: enp1s0
+      addresses: [192.168.10.10/24]
+    vlan20:
+      id: 20
+      link: enp1s0
+      addresses: [192.168.20.20/24]
+      routes:
+        - to: default
+          via: 192.168.20.1
+```
+
+## 7. Bond (LACP)
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp1s0: {}
+    enp2s0: {}
+  bonds:
+    bond0:
+      interfaces: [enp1s0, enp2s0]
+      addresses: [10.0.1.100/24]
+      routes:
+        - to: default
+          via: 10.0.1.1
+      parameters:
+        mode: 802.3ad
+        lacp-rate: fast
+        mii-monitor-interval: 100
+```
+
+## 8. Bridge (KVM/Docker uchun)
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp1s0:
+      dhcp4: no
+  bridges:
+    br0:
+      interfaces: [enp1s0]
+      dhcp4: yes
+      parameters:
+        stp: no
+        forward-delay: 0
+```
+
+## 9. Wi-Fi
+
+```yaml
+network:
+  version: 2
+  renderer: NetworkManager
+  wifis:
+    wlan0:
+      dhcp4: yes
+      access-points:
+        "MyHome-WiFi":
+          password: "MyPassword123"
+        "Office-WiFi":
+          password: "OfficePass"
+          auth:
+            key-management: psk
+```
+
+WPA2 Enterprise:
+
+```yaml
+"Enterprise-WiFi":
+  auth:
+    key-management: eap
+    method: peap
+    identity: "diyor@company.com"
+    password: "..."
+    ca-certificate: /etc/ssl/certs/company-ca.pem
+```
+
+## 10. Renderer
+
+| Renderer | Tavsif | Default |
+|---|---|---|
+| `networkd` | systemd-networkd (server) | Ubuntu Server |
+| `NetworkManager` | NetworkManager (desktop) | Ubuntu Desktop |
+
+```yaml
+network:
+  renderer: networkd       # yoki NetworkManager
+```
+
+## 11. Tarmoq holatini ko'rish
+
+```bash
+# Joriy interfeyslar
+ip addr
+
+# Routing
+ip route
+
+# Netplan tomonidan generatsiya qilingan config (networkd)
+ls /run/systemd/network/
+
+# NetworkManager
+nmcli connection show
+```
+
+## 12. Misol — to'liq server
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    # Management interface (DHCP)
+    enp1s0:
+      dhcp4: true
+
+    # Backup interface (static)
+    enp2s0:
+      addresses:
+        - 10.0.0.10/24
+      routes:
+        - to: 10.0.1.0/24
+          via: 10.0.0.1
+      mtu: 9000
+
+  vlans:
+    enp1s0.100:
+      id: 100
+      link: enp1s0
+      addresses: [192.168.100.10/24]
+```
+
+## 13. Multiple gateway (metric)
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp1s0:
+      addresses: [192.168.1.10/24]
+      routes:
+        - to: default
+          via: 192.168.1.1
+          metric: 100
+    enp2s0:
+      addresses: [10.0.0.10/24]
+      routes:
+        - to: default
+          via: 10.0.0.1
+          metric: 200
+```
+
+`enp1s0` priority yuqori (metric past).
+
+## 14. NetworkManager bilan ishlatish
+
+Desktop'da:
+
+```yaml
+network:
+  version: 2
+  renderer: NetworkManager
+```
+
+`netplan apply` keyin `nmcli` orqali boshqarish.
+
+## 15. cloud-init va Netplan
+
+Cloud Image'da `/etc/netplan/50-cloud-init.yaml` cloud-init tomonidan. Custom config'ni qo'shish:
+
+```bash
+# Cloud-init network'ini o'chirish
+sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg <<EOF
+network: {config: disabled}
+EOF
+
+# Custom config
+sudo nano /etc/netplan/01-netcfg.yaml
+```
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **YAML indent** — 2 space, tab ishlatmang.
+- **`addresses:` list** — `[1.1.1.1, 8.8.8.8]` yoki `- 1.1.1.1`.
+- **`dhcp4: true` + `addresses:`** — konflikt.
+- **`netplan apply` SSH'da** — agar config xato bo'lsa, ulanishingiz uziladi. `try` ishlating.
+- **Renderer aralashtirish** — bitta interface bitta renderer.
+
+## 17. Eng yaxshi amaliyot
+
+- **`netplan try`** — SSH'da `apply` o'rniga.
+- **YAML validation** — `netplan generate` avval.
+- **600 permissions** — `chmod 600 /etc/netplan/*.yaml` (parol bo'lsa).
+- **Renderer aniq tanlash** — server `networkd`, desktop `NetworkManager`.
+- **Comment'lar** — har bo'limni izohlash.
+
+## 18. Mashqlar
+
+1. **Joriy config:** `cat /etc/netplan/*.yaml`.
+2. **Static IP:** DHCP'dan static'ga o'tkazing.
+3. **`netplan try`:** Sinab, agar yomon bo'lsa qaytadi.
+4. **VLAN:** `enp1s0.10` qo'shing.
+5. **Wi-Fi (Desktop):** WPA2 ulanish.
+
+## 19. Bilim sinovi
+
+**Savol 1.** Netplan fayl joyi:
+
+- a) `/etc/network/interfaces`
+- b) `/etc/netplan/*.yaml`
+- c) `/etc/sysconfig/network/`
+- d) `/etc/systemd/network/`
+
+<Callout type="success" title="Javob">
+**(b)** `/etc/netplan/*.yaml` — sortlanadi alphabetical.[¹](https://netplan.io/)
+</Callout>
+
+**Savol 2.** `netplan try` farqi:
+
+- a) Tezroq
+- b) Sinab, agar tasdiqlanmasa eski'siga qaytadi (SSH'da xavfsiz)
+- c) Faqat test
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** 120 soniya timeout — yangi config buzilsa, eski qaytadi.
+</Callout>
+
+**Savol 3.** Server uchun renderer:
+
+- a) NetworkManager
+- b) `networkd` (systemd-networkd)
+- c) ifupdown
+- d) wicd
+
+<Callout type="success" title="Javob">
+**(b)** Headless server uchun `systemd-networkd` engil va kuchli.
+</Callout>
+
+**Savol 4.** YAML format:
+
+- a) Tab indent
+- b) 2 space indent
+- c) Hech qaysi
+- d) Tab yoki space
+
+<Callout type="success" title="Javob">
+**(b)** YAML — strict — 2 space tavsiya etiladi.
+</Callout>
+
+**Savol 5.** `netplan apply` keyin:
+
+- a) Reboot kerak
+- b) Hech narsa (avtomatik renderer reload)
+- c) `systemctl restart networking`
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Netplan renderer'ga ko'rsatma beradi va darhol qo'llaydi.
+</Callout>
+
+## Manbalar
+
+1. Netplan Documentation. [https://netplan.io/](https://netplan.io/)
+2. Ubuntu Server Networking. [https://ubuntu.com/server/docs/network-configuration](https://ubuntu.com/server/docs/network-configuration)
+
+## Keyingi qadam
+
+👉 [Ubuntu OpenSSH server](/ubuntu/openssh-server)

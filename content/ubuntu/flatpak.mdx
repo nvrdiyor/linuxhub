@@ -1,0 +1,292 @@
+---
+title: "Flatpak Ubuntu'da"
+description: "Flatpak — universal Linux paket format va Flathub."
+order: 12
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/ubuntu/snap"
+learning_objectives:
+  - "Flatpak o'rnatish"
+  - "Flathub repository"
+  - "Flatpak vs Snap"
+  - "Permissions va sandboxing"
+tags: ["ubuntu", "flatpak", "packages"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Flatpak Documentation"
+    url: "https://docs.flatpak.org/"
+  - title: "Flathub"
+    url: "https://flathub.org/"
+---
+
+**Flatpak** — sandboxed Linux desktop ilovalari uchun universal paket format. GNOME tomonidan boshlangan. Flathub — eng katta Flatpak repository.[¹](https://docs.flatpak.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Flatpak o'rnatish.
+- Flathub remote qo'shish.
+- Ilova o'rnatish, update, o'chirish.
+- Permissions tahrirlash.
+- Snap bilan farqi.
+</Callout>
+
+## 1. O'rnatish
+
+Ubuntu Desktop'da:
+
+```bash
+sudo apt update
+sudo apt install -y flatpak gnome-software-plugin-flatpak
+
+# Flathub remote
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+# Reboot tavsiya etiladi
+sudo reboot
+```
+
+## 2. Ilova qidirish va o'rnatish
+
+```bash
+# Qidirish
+flatpak search gimp
+flatpak search blender
+
+# O'rnatish
+flatpak install flathub org.gimp.GIMP
+flatpak install flathub org.blender.Blender
+flatpak install flathub com.spotify.Client
+
+# Yoki GUI'da
+gnome-software
+```
+
+## 3. Ilovani ishga tushirish
+
+```bash
+flatpak run org.gimp.GIMP
+
+# Yoki Application menu'dan
+```
+
+## 4. Ro'yxat va info
+
+```bash
+# O'rnatilgan
+flatpak list
+
+# Faqat ilovalar (runtime'larsiz)
+flatpak list --app
+
+# Info
+flatpak info org.gimp.GIMP
+```
+
+## 5. Update
+
+```bash
+flatpak update              # hammasini
+flatpak update org.gimp.GIMP
+```
+
+GNOME Software avtomatik update qiladi.
+
+## 6. O'chirish
+
+```bash
+flatpak uninstall org.gimp.GIMP
+
+# Foydalanilmagan runtime'larni o'chirish
+flatpak uninstall --unused
+```
+
+## 7. Remote (repository)
+
+```bash
+# Ro'yxat
+flatpak remotes
+
+# Qo'shish
+flatpak remote-add fedora https://registry.fedoraproject.org/
+
+# O'chirish
+flatpak remote-delete fedora
+```
+
+Flathub default — eng katta katalog.
+
+## 8. Permissions
+
+Flatpak ilovalar sandboxed:
+
+```bash
+# Mavjud permission'lar
+flatpak info -m org.gimp.GIMP
+
+# O'zgartirish
+sudo flatpak override --filesystem=home org.gimp.GIMP
+sudo flatpak override --nofilesystem=home org.gimp.GIMP
+
+# Reset
+sudo flatpak override --reset org.gimp.GIMP
+```
+
+GUI: **Flatseal** (Flatpak permissions manager):
+
+```bash
+flatpak install flathub com.github.tchx84.Flatseal
+flatpak run com.github.tchx84.Flatseal
+```
+
+## 9. Runtime va SDK
+
+Ilovalar runtime'lar bilan keladi (`org.gnome.Platform`, `org.kde.Platform`):
+
+```bash
+flatpak list --runtime
+# org.gnome.Platform/x86_64/45
+# org.kde.Platform/x86_64/5.15-22.08
+```
+
+Ko'p ilova bitta runtime ishlatadi — disk hajmi tejaladi.
+
+## 10. Flatpak vs Snap vs deb
+
+| Xususiyat | Flatpak | Snap | deb |
+|---|---|---|---|
+| Sotuvchi | GNOME/Flatpak community | Canonical | Distro |
+| Sandboxing | Ha | Ha (strict) | Yo'q |
+| Auto-update | Yo'q (default) | Ha | Manual |
+| Server apps | Yo'q | Ha | Ha |
+| Desktop apps | Eng yaxshi | Ha | Ha |
+| Runtime | Ha (shared) | Yo'q (har snap o'zida) | Yo'q (shared deb) |
+| Hajm | O'rta | Katta | Kichik |
+
+**Flatpak:** desktop ilovalar (GIMP, Blender, Spotify).
+**Snap:** desktop + server (kubectl, nextcloud).
+**deb:** OS asosiy paketlar (kernel, libc, nginx).
+
+## 11. Misol — ko'p ilova
+
+```bash
+flatpak install flathub com.spotify.Client
+flatpak install flathub org.telegram.desktop
+flatpak install flathub com.discordapp.Discord
+flatpak install flathub org.libreoffice.LibreOffice
+flatpak install flathub org.videolan.VLC
+flatpak install flathub com.obsproject.Studio
+flatpak install flathub com.github.tchx84.Flatseal
+```
+
+## 12. User vs system install
+
+```bash
+# System (sudo kerak)
+sudo flatpak install --system flathub org.gimp.GIMP
+
+# User faqat (per-user)
+flatpak install --user flathub org.gimp.GIMP
+```
+
+User mode `~/.local/share/flatpak/`'ga o'rnatadi — boshqalar uchun ko'rinmaydi.
+
+## 13. CLI'dan launcher
+
+```bash
+# Hammasi
+flatpak list --columns=application,name
+
+# Aniq ilova ishga tushirish
+flatpak run --branch=stable org.gimp.GIMP
+```
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Flathub remote yo'q** — `remote-add` qiling.
+- **Reboot'siz GUI ilova ko'rinmaydi** — XDG_DATA_DIRS yangilanishi.
+- **Permissions cheklangan** — `flatpak override` yoki Flatseal.
+- **Auto-update yo'q** — Snap'dan farqi.
+- **Server uchun** — Flatpak desktop-faqat.
+
+## 15. Eng yaxshi amaliyot
+
+- **Flathub remote** — eng katta katalog.
+- **Flatseal** — permissions GUI.
+- **`--user` install** — sudo'siz dev workstation.
+- **Runtime'larni saqlash** — `--unused` o'chirish.
+- **GIMP, Blender, Spotify, Discord** — Flatpak versiyalari yangiroq.
+
+## 16. Mashqlar
+
+1. **O'rnatish:** Flatpak va Flathub.
+2. **Ilova:** GIMP yoki Blender o'rnatish.
+3. **Flatseal:** Permissions tahrirlash.
+4. **Update:** `flatpak update`.
+5. **Cleanup:** `--unused` runtime'lar o'chirish.
+
+## 17. Bilim sinovi
+
+**Savol 1.** Flatpak qaysi resurs'larga focus?
+
+- a) Server
+- b) Desktop ilovalar
+- c) Embedded
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** GNOME ekosistemasi — desktop ilovalar.[¹](https://docs.flatpak.org/)
+</Callout>
+
+**Savol 2.** Flathub:
+
+- a) Linux distribution
+- b) Flatpak ilovalar repository
+- c) Container engine
+- d) Package manager
+
+<Callout type="success" title="Javob">
+**(b)** Eng katta Flatpak paketlari katalogi.
+</Callout>
+
+**Savol 3.** Permissions tahrirlash GUI:
+
+- a) Snap Store
+- b) Flatseal
+- c) GNOME Software
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Flatseal — Flatpak permissions manager.
+</Callout>
+
+**Savol 4.** Flatpak vs Snap auto-update:
+
+- a) Flatpak default ha
+- b) Snap default ha, Flatpak yo'q
+- c) Ikkalasi yo'q
+- d) Ikkalasi ha
+
+<Callout type="success" title="Javob">
+**(b)** Snap har 6 soatda, Flatpak manual yoki GNOME Software orqali.
+</Callout>
+
+**Savol 5.** Runtime'lar:
+
+- a) Har Flatpak o'zida
+- b) Shared — ko'p ilova bitta runtime
+- c) Yo'q
+- d) Faqat snap'da
+
+<Callout type="success" title="Javob">
+**(b)** Disk hajmi tejaladi — `org.gnome.Platform`, `org.kde.Platform`.
+</Callout>
+
+## Manbalar
+
+1. Flatpak Documentation. [https://docs.flatpak.org/](https://docs.flatpak.org/)
+2. Flathub. [https://flathub.org/](https://flathub.org/)
+
+## Keyingi qadam
+
+👉 [Ubuntu PPA — Personal Package Archive](/ubuntu/ppa)

@@ -1,0 +1,502 @@
+---
+title: "cloud-init — Ubuntu Cloud konfiguratsiya"
+description: "cloud-init bilan VM/Cloud Ubuntu instance'larni avtomatlashtirish."
+order: 6
+level: "advanced"
+estimated_minutes: 9
+prerequisites:
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "cloud-init nima va u qachon ishlaydi"
+  - "user-data va meta-data"
+  - "Foydalanuvchi, SSH key, paketlar"
+  - "runcmd, write_files, bootcmd"
+  - "Cloud Image va NoCloud datasource"
+tags: ["ubuntu", "cloud-init", "cloud", "automation"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "cloud-init Documentation"
+    url: "https://cloudinit.readthedocs.io/"
+  - title: "Ubuntu Cloud Images"
+    url: "https://cloud-images.ubuntu.com/"
+---
+
+**cloud-init** — VM/cloud instance birinchi boot'da avtomatik sozlash standartti. AWS, GCP, Azure, OpenStack, va lokal NoCloud bilan ishlaydi. Ubuntu Cloud Image'da default.[¹](https://cloudinit.readthedocs.io/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- cloud-init nima qiladi va qachon.
+- user-data YAML format.
+- Foydalanuvchi, SSH key, parol.
+- Paketlar, fayllar yozish, buyruq'lar.
+- NoCloud datasource (lokal VM).
+- Debugging.
+</Callout>
+
+## 1. cloud-init nima?
+
+VM birinchi boot'da:
+
+1. **Metadata olish** — cloud provider'dan (instance ID, IP, hostname).
+2. **User-data o'qib** — foydalanuvchi konfiguratsiya.
+3. **Sozlash** — locale, network, foydalanuvchi, paketlar.
+4. **runcmd ishga tushirish** — user buyruq'lari.
+
+cloud-init bo'lmasidan har VM qo'lda sozlanardi.
+
+## 2. user-data YAML
+
+`#cloud-config` header muhim:
+
+```yaml
+#cloud-config
+hostname: webserver
+manage_etc_hosts: true
+timezone: Asia/Tashkent
+
+users:
+  - name: diyor
+    groups: [sudo, docker]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA... diyor@laptop
+
+package_update: true
+package_upgrade: true
+packages:
+  - nginx
+  - docker.io
+  - git
+  - htop
+
+write_files:
+  - path: /etc/nginx/sites-available/default
+    content: |
+      server {
+        listen 80;
+        root /var/www/html;
+        index index.html;
+      }
+
+runcmd:
+  - systemctl enable nginx
+  - systemctl start nginx
+  - usermod -aG docker diyor
+  - echo "Server ready: $(date)" > /etc/motd
+
+final_message: "Setup complete after $UPTIME"
+```
+
+## 3. Foydalanuvchi va parol
+
+```yaml
+#cloud-config
+users:
+  - name: admin
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: $6$saltsalt$hash...    # mkpasswd -m sha-512
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA...
+
+# default `ubuntu` foydalanuvchini o'chirish
+disable_root: true
+ssh_pwauth: false
+```
+
+Parol hash yaratish:
+
+```bash
+mkpasswd -m sha-512 'YourPassword'
+```
+
+## 4. SSH key
+
+```yaml
+#cloud-config
+ssh_authorized_keys:
+  - ssh-ed25519 AAAA... key1
+  - ssh-rsa AAAAB3... key2
+
+# Yoki per-user
+users:
+  - name: diyor
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA...
+```
+
+## 5. Paketlar
+
+```yaml
+#cloud-config
+apt:
+  sources:
+    docker:
+      source: "deb [signed-by=$KEY_FILE] https://download.docker.com/linux/ubuntu $RELEASE stable"
+      keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+packages:
+  - nginx
+  - postgresql
+  - python3-pip
+  - docker-ce
+  - docker-ce-cli
+```
+
+## 6. Fayllar yozish
+
+```yaml
+#cloud-config
+write_files:
+  - path: /etc/myapp/config.yml
+    content: |
+      app:
+        name: myapp
+        port: 8080
+        env: production
+    owner: app:app
+    permissions: '0640'
+
+  - path: /etc/systemd/system/myapp.service
+    content: |
+      [Unit]
+      Description=My App
+      After=network.target
+
+      [Service]
+      ExecStart=/usr/local/bin/myapp
+      Restart=always
+      User=app
+
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+
+  - path: /etc/cron.d/myapp-backup
+    content: "0 3 * * * root /usr/local/bin/backup.sh\n"
+```
+
+## 7. Buyruq'lar
+
+```yaml
+#cloud-config
+bootcmd:
+  - echo "Boot started at $(date)" > /var/log/boot.log
+  # bootcmd har boot'da ishlaydi
+
+runcmd:
+  - [systemctl, enable, --now, nginx]
+  - [systemctl, enable, --now, docker]
+  - usermod -aG docker ubuntu
+  - curl -fsSL https://get.docker.com | sh
+  - reboot
+  # runcmd faqat birinchi boot'da
+```
+
+## 8. Network
+
+```yaml
+#cloud-config
+network:
+  version: 2
+  ethernets:
+    eth0:
+      addresses:
+        - 192.168.1.50/24
+      gateway4: 192.168.1.1
+      nameservers:
+        addresses:
+          - 1.1.1.1
+          - 8.8.8.8
+```
+
+## 9. NoCloud datasource (lokal VM)
+
+Cloud provider yo'q — lokal VM'da cloud-init ishlatish.
+
+ISO yaratish:
+
+```bash
+mkdir cloud-init
+cd cloud-init
+
+# user-data
+cat > user-data <<EOF
+#cloud-config
+hostname: testvm
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - $(cat ~/.ssh/id_ed25519.pub)
+EOF
+
+# meta-data
+cat > meta-data <<EOF
+instance-id: testvm-01
+local-hostname: testvm
+EOF
+
+# ISO
+sudo apt install -y cloud-image-utils
+cloud-localds seed.iso user-data meta-data
+
+# Ubuntu Cloud Image
+wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+
+# QEMU
+qemu-system-x86_64 \
+    -hda jammy-server-cloudimg-amd64.img \
+    -cdrom seed.iso \
+    -m 2G -smp 2 \
+    -net user,hostfwd=tcp::2222-:22 -net nic
+```
+
+```bash
+# SSH
+ssh -p 2222 ubuntu@localhost
+```
+
+## 10. Multipass + cloud-init
+
+```bash
+# Multipass'da cloud-init
+multipass launch --name webserver \
+    --cpus 2 --memory 4G --disk 20G \
+    --cloud-init user-data.yaml
+```
+
+## 11. AWS EC2 user-data
+
+EC2 instance launch'da User Data fields:
+
+```yaml
+#cloud-config
+users:
+  - default
+  - name: admin
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA...
+
+packages:
+  - docker.io
+
+runcmd:
+  - systemctl enable --now docker
+  - usermod -aG docker ubuntu
+```
+
+## 12. Debug — log'lar
+
+```bash
+# Status
+cloud-init status
+cloud-init status --long
+
+# Log'lar
+cat /var/log/cloud-init.log
+cat /var/log/cloud-init-output.log
+
+# Reset (test uchun)
+sudo cloud-init clean --logs
+sudo cloud-init init --local
+sudo cloud-init init
+sudo cloud-init modules --mode=config
+sudo cloud-init modules --mode=final
+```
+
+## 13. Tekshirish — `cloud-init query`
+
+```bash
+# Instance metadata
+cloud-init query --all
+
+# Aniq field
+cloud-init query ds.meta_data.instance_id
+cloud-init query userdata
+```
+
+## 14. SSH key dinamik
+
+EC2 instance metadata'dan:
+
+```yaml
+#cloud-config
+users:
+  - default
+
+# EC2 keypair avtomatik qo'shiladi
+```
+
+## 15. Schema validation
+
+```bash
+sudo cloud-init schema --config-file user-data.yaml
+```
+
+YAML sintaksis va cloud-init schema tekshiradi.
+
+## 16. Misol — to'liq web server
+
+```yaml
+#cloud-config
+hostname: web-prod-01
+timezone: Asia/Tashkent
+
+users:
+  - name: deploy
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA... deploy@ci
+
+apt:
+  sources:
+    docker:
+      source: "deb [arch=amd64 signed-by=$KEY_FILE] https://download.docker.com/linux/ubuntu $RELEASE stable"
+      keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+package_update: true
+package_upgrade: true
+packages:
+  - nginx
+  - docker-ce
+  - docker-ce-cli
+  - certbot
+  - python3-certbot-nginx
+  - fail2ban
+  - ufw
+
+write_files:
+  - path: /etc/nginx/sites-available/default
+    content: |
+      server {
+        listen 80 default_server;
+        server_name _;
+        return 444;
+      }
+
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [sshd]
+      enabled = true
+      bantime = 1h
+      maxretry = 5
+
+runcmd:
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow ssh
+  - ufw allow 'Nginx Full'
+  - ufw --force enable
+
+  - systemctl enable --now nginx
+  - systemctl enable --now docker
+  - systemctl enable --now fail2ban
+
+  - usermod -aG docker deploy
+
+  - echo "Provisioned: $(date)" > /etc/motd
+
+power_state:
+  mode: reboot
+  message: "Rebooting after provisioning"
+  timeout: 30
+```
+
+## 17. Eng tez-tez uchraydigan xatolar
+
+- **`#cloud-config` header yo'q** — cloud-init o'qimaydi.
+- **YAML indent xato** — tab/space aralashish.
+- **`runcmd` har boot'da ishlamaydi** — faqat birinchi boot.
+- **Cleartext parol** — `passwd` hash bilan.
+- **NoCloud ISO format** — `cloud-localds` ishlatish.
+
+## 18. Eng yaxshi amaliyot
+
+- **`schema --config-file` validatsiya** — har vaqt.
+- **Parol hash** — `mkpasswd`.
+- **`final_message`** — provisioning tugagani.
+- **Log'lar tekshirish** — `/var/log/cloud-init-output.log`.
+- **Idempotent** — qayta ishlash'da xato bo'lmaydi.
+
+## 19. Mashqlar
+
+1. **NoCloud ISO:** `seed.iso` yaratib, QEMU'da test.
+2. **AWS:** EC2 launch'da User Data.
+3. **Foydalanuvchi:** `admin` SSH key bilan.
+4. **Paketlar:** Nginx + Docker o'rnatish.
+5. **Debug:** `cloud-init status --long` ko'ring.
+
+## 20. Bilim sinovi
+
+**Savol 1.** cloud-init qachon ishlaydi?
+
+- a) Har boot'da
+- b) Birinchi boot'da asosan (`runcmd`)
+- c) Hech qachon
+- d) Faqat shutdown
+
+<Callout type="success" title="Javob">
+**(b)** Birinchi boot. `bootcmd` har boot'da ishlaydi, `runcmd` faqat birinchi.[¹](https://cloudinit.readthedocs.io/)
+</Callout>
+
+**Savol 2.** `#cloud-config` nima?
+
+- a) Comment
+- b) MIME type indicator — cloud-init formati
+- c) Hech narsa
+- d) YAML tag
+
+<Callout type="success" title="Javob">
+**(b)** Magic header — `#cloud-config` yo'q bo'lsa cloud-init shell script deb o'qiydi.
+</Callout>
+
+**Savol 3.** Parol cleartext xavfli — alternativ:
+
+- a) `passwd: hash` (`mkpasswd -m sha-512`)
+- b) Hech narsa
+- c) Base64
+- d) Plain text OK
+
+<Callout type="success" title="Javob">
+**(a)** SHA-512 hash bilan.
+</Callout>
+
+**Savol 4.** NoCloud datasource — lokal VM uchun:
+
+- a) Imkonsiz
+- b) ISO yoki VFAT bilan `user-data` + `meta-data`
+- c) Faqat cloud
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `cloud-localds seed.iso user-data meta-data`.
+</Callout>
+
+**Savol 5.** Debug log'lar qaerda?
+
+- a) `/var/log/syslog`
+- b) `/var/log/cloud-init.log` va `/var/log/cloud-init-output.log`
+- c) `/etc/cloud/`
+- d) Hech qaerda
+
+<Callout type="success" title="Javob">
+**(b)** Cloud-init log'lari va modul output.
+</Callout>
+
+## Manbalar
+
+1. cloud-init Documentation. [https://cloudinit.readthedocs.io/](https://cloudinit.readthedocs.io/)
+2. Ubuntu Cloud Images. [https://cloud-images.ubuntu.com/](https://cloud-images.ubuntu.com/)
+
+## Keyingi qadam
+
+👉 [Ubuntu Snap Store](/ubuntu/snap-store)
