@@ -1,0 +1,321 @@
+---
+title: "TimeShift Manjaro'da — backup va snapshot"
+description: "TimeShift orqali tizim snapshot va restore."
+order: 6
+level: "beginner"
+estimated_minutes: 7
+prerequisites:
+  - "/manjaro/rolling-release"
+learning_objectives:
+  - "TimeShift nima va u qanday ishlaydi"
+  - "RSYNC vs BTRFS snapshot"
+  - "Schedule (hourly, daily, weekly)"
+  - "Restore va boot menu integration"
+tags: ["manjaro", "timeshift", "backup", "snapshot"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "TimeShift GitHub"
+    url: "https://github.com/teejee2008/timeshift"
+  - title: "Manjaro Wiki — TimeShift"
+    url: "https://wiki.manjaro.org/index.php/Backups_with_Timeshift"
+---
+
+**TimeShift** — Manjaro'da default'da o'rnatilgan snapshot vositasi. Rolling release update sinmaganida — bir necha bosish bilan restore qilish imkonini beradi.[¹](https://github.com/teejee2008/timeshift)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- TimeShift GUI va CLI.
+- RSYNC vs BTRFS snapshot.
+- Avtomatik schedule.
+- Snapshot saqlash joyi.
+- Boot menu'dan restore.
+- Foydalanuvchi `/home` snapshot.
+</Callout>
+
+## 1. TimeShift turlari
+
+| Tur | Tavsif | Manjaro Default |
+|---|---|---|
+| **RSYNC** | rsync + hardlink — har FS ishlaydi | Ext4'da default |
+| **BTRFS** | BTRFS native snapshot — tezroq, kichikroq | BTRFS'da default |
+
+BTRFS sigma fayl tizimi bo'lsa — BTRFS snapshot tavsiya etiladi.
+
+## 2. GUI
+
+```bash
+timeshift-gtk
+```
+
+Birinchi marta:
+
+1. Snapshot Type — RSYNC yoki BTRFS.
+2. Snapshot Location — odatda `/run/timeshift/backup` (default `/`).
+3. Schedule — Daily 5, Weekly 3, Monthly 2 (default).
+4. Include `/home` — odatda **NO** (foydalanuvchi fayllari katta).
+
+## 3. CLI
+
+```bash
+# Snapshot yaratish
+sudo timeshift --create --comments "Before kernel update"
+
+# Ro'yxat
+sudo timeshift --list
+# Snapshot                Tags  Description
+# ------------------------------------------------
+# 2026-05-26_10-00-00     O     Pre-update
+# 2026-05-25_09-00-00     D     Daily
+
+# Restore
+sudo timeshift --restore --snapshot '2026-05-26_10-00-00'
+
+# Delete
+sudo timeshift --delete --snapshot '2026-05-26_10-00-00'
+
+# Delete all
+sudo timeshift --delete-all
+```
+
+Tag'lar:
+
+- `O` — On-demand
+- `H` — Hourly
+- `D` — Daily
+- `W` — Weekly
+- `M` — Monthly
+- `B` — Boot
+
+## 4. Konfiguratsiya
+
+`/etc/timeshift/timeshift.json`:
+
+```json
+{
+  "backup_device_uuid": "abc123-...",
+  "snapshot_type": "rsync",
+  "schedule_monthly": "false",
+  "schedule_weekly": "false",
+  "schedule_daily": "true",
+  "schedule_hourly": "false",
+  "schedule_boot": "true",
+  "count_daily": "5",
+  "count_weekly": "3",
+  "count_monthly": "2",
+  "exclude": [
+    "+ /root/**",
+    "+ /home/**/.bashrc"
+  ]
+}
+```
+
+## 5. Snapshot joy
+
+Default — `/run/timeshift/backup/timeshift/snapshots/`.
+
+```bash
+sudo ls /run/timeshift/backup/timeshift/snapshots/
+# 2026-05-26_10-00-00/
+# 2026-05-25_09-00-00/
+```
+
+Ko'p disk ishlatadi — RSYNC hardlink bilan tejaydi.
+
+## 6. Schedule
+
+```bash
+# /etc/cron.d/timeshift-hourly
+0 * * * * root /usr/bin/timeshift --check --scripted
+
+# Yoki systemd timer
+systemctl list-timers | grep timeshift
+```
+
+Manjaro'da default'da yoqilgan.
+
+## 7. Snapshot oldidan
+
+`pacman` hook bilan — har update'dan oldin avtomatik:
+
+```
+sudo pacman -S timeshift-autosnap-manjaro
+```
+
+Endi `pacman -Syu` — snapshot keyin update.
+
+## 8. `/home` snapshot — ehtiyot
+
+Default'da **`/home` snapshot'siz** — sabab:
+
+- Foydalanuvchi fayllari katta (videolar, rasmlar).
+- Snapshot orqali restore — yangi fayllarni yo'qotadi.
+
+Yaxshi yondashuv:
+
+- **TimeShift** — system (`/`).
+- **Backup tool** — `/home` (`rsync`, `borg`, `restic`).
+
+Agar `/home` ham xohlasangiz:
+
+```
+Settings → Filters → Include @home + exclude .cache, .local/share/Trash
+```
+
+## 9. Boot'dan restore
+
+Tizim boot bo'lmaydi — boot disk'dan TimeShift bilan restore:
+
+1. Live USB Manjaro'dan boot.
+2. `sudo timeshift-gtk`.
+3. Snapshot tanlang.
+4. Restore.
+
+Yoki BTRFS GRUB integration:
+
+```bash
+sudo pacman -S grub-btrfs
+
+# GRUB menu'da Snapshots submenu paydo bo'ladi
+```
+
+## 10. Misol — to'liq workflow
+
+```bash
+# 1. Manual snapshot (kritik o'zgartirishdan oldin)
+sudo timeshift --create --comments "Before nginx config change"
+
+# 2. O'zgartirish qiling
+sudo nano /etc/nginx/nginx.conf
+sudo systemctl restart nginx
+
+# 3. Hammasi yaxshi?
+curl http://localhost
+# Agar yo'q — restore:
+sudo timeshift --restore --snapshot '2026-05-26_10-00-00'
+
+# 4. Eski snapshot'larni tozalash
+sudo timeshift --list
+sudo timeshift --delete --snapshot 'OLD_DATE'
+```
+
+## 11. Snapshot hajmi tahlili
+
+```bash
+sudo du -sh /run/timeshift/backup/timeshift/snapshots/*
+# 4.2G  2026-05-26_10-00-00
+# 250M  2026-05-25_09-00-00     # hardlink — kichik
+
+# Umumiy
+sudo du -sh /run/timeshift/backup/
+```
+
+Hardlink — bir xil fayllar bir marta saqlanadi.
+
+## 12. Alternativ — Snapper (BTRFS)
+
+BTRFS'da Snapper alternativ:
+
+```bash
+sudo pacman -S snapper snap-pac
+
+# Config
+sudo snapper -c root create-config /
+
+# Snapshot
+sudo snapper -c root create -d "manual"
+
+# Ro'yxat
+sudo snapper -c root list
+```
+
+`snap-pac` — pacman hook (TimeShift-autosnap kabi).
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`/home` snapshot katta** — disk to'lib qoladi.
+- **Snapshot disk va system disk bir xil** — restore'da muammo.
+- **Restore'dan keyin yangi fayllar yo'qoladi** — `/home` snapshot'siz xavfsiz.
+- **BTRFS device degraded** — snapshot ham buzilishi mumkin.
+- **External disk yo'q bo'lsa** — snapshot ishlamaydi.
+
+## 14. Eng yaxshi amaliyot
+
+- **Har update'dan oldin snapshot** — `timeshift-autosnap-manjaro`.
+- **`/home`'ni alohida backup** — `borg`, `restic`.
+- **External disk** — bir disk buzilsa, ikkinchisi qoladi.
+- **Restore test** — kuniga bir marta sinab ko'ring.
+- **Snapshot retention** — Daily 5, Weekly 3, Monthly 2 default.
+
+## 15. Mashqlar
+
+1. **Birinchi snapshot:** `sudo timeshift --create --comments "Initial"`.
+2. **List:** `sudo timeshift --list`.
+3. **Auto-snap:** `timeshift-autosnap-manjaro` o'rnatish.
+4. **Restore test:** Bir snapshot'ni restore qilib ko'ring (lab VM).
+5. **`/home` backup:** `borg` yoki `restic` bilan alohida.
+
+## 16. Bilim sinovi
+
+**Savol 1.** TimeShift maqsadi:
+
+- a) Faqat fayl backup
+- b) Tizim snapshot (sinish'dan restore)
+- c) Antivirus
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Update yoki konfiguratsiya buzilsa — snapshot'ga qaytish.[¹](https://github.com/teejee2008/timeshift)
+</Callout>
+
+**Savol 2.** `/home` default'da snapshot'da:
+
+- a) Ha
+- b) Yo'q — alohida backup tavsiya etiladi
+- c) Faqat root user
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Sababi — katta hajm va restore'da yangi fayllar yo'qoladi.
+</Callout>
+
+**Savol 3.** RSYNC vs BTRFS snapshot:
+
+- a) Bir xil
+- b) BTRFS — tezroq, kichikroq (native), faqat BTRFS FS'da
+- c) RSYNC tezroq
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** BTRFS COW snapshot — millisoniyada.
+</Callout>
+
+**Savol 4.** `timeshift-autosnap-manjaro`:
+
+- a) Cron job
+- b) Pacman hook — har update'dan oldin avtomatik
+- c) Schedule
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `pacman -Syu` qachon — avval snapshot.
+</Callout>
+
+**Savol 5.** Disk hajmini tejash:
+
+- a) Hech narsa
+- b) RSYNC hardlink — bir xil fayllar bir marta saqlanadi
+- c) Compression
+- d) Encryption
+
+<Callout type="success" title="Javob">
+**(b)** RSYNC `--link-dest` — incremental snapshot.
+</Callout>
+
+## Manbalar
+
+1. TimeShift GitHub. [https://github.com/teejee2008/timeshift](https://github.com/teejee2008/timeshift)
+2. Manjaro Wiki — TimeShift. [https://wiki.manjaro.org/index.php/Backups_with_Timeshift](https://wiki.manjaro.org/index.php/Backups_with_Timeshift)
+
+## Keyingi qadam
+
+👉 [Manjaro Settings Manager](/manjaro/settings-manager)

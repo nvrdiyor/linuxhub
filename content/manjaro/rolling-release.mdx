@@ -1,0 +1,344 @@
+---
+title: "Manjaro Rolling Release model"
+description: "Rolling release nima va Manjaro'da qanday ishlaydi."
+order: 3
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/manjaro/arch-vs-manjaro"
+learning_objectives:
+  - "Rolling vs fixed release"
+  - "Manjaro branch'lari (stable/testing/unstable)"
+  - "Update tartibi va xavfi"
+  - "TimeShift snapshot"
+tags: ["manjaro", "rolling-release", "updates"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Wiki — Update"
+    url: "https://wiki.manjaro.org/index.php/Pacman_Overview"
+  - title: "Manjaro Forum"
+    url: "https://forum.manjaro.org/"
+---
+
+**Manjaro** — rolling release distro. Ubuntu/Debian'dan farqli — har vaqt eng yangi paketlar. Lekin bu — afzallik va kamchilik birga.[¹](https://wiki.manjaro.org/index.php/Pacman_Overview)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Rolling release vs fixed release.
+- Manjaro Stable / Testing / Unstable.
+- Update tartibi va `pacman -Syu`.
+- TimeShift — snapshot.
+- Risk va eng yaxshi amaliyot.
+</Callout>
+
+## 1. Rolling vs Fixed Release
+
+| Model | Misol | Tavsif |
+|---|---|---|
+| **Fixed** | Ubuntu 24.04, Debian 12 | Aniq versiya, 2-5 yil bir xil paket'lar |
+| **Rolling** | Arch, Manjaro, openSUSE Tumbleweed | Doimiy update, "versiya" yo'q |
+
+**Fixed:** stabil, eski paketlar.
+**Rolling:** har vaqt yangi, lekin buzilish ehtimoli.
+
+## 2. Manjaro branch'lari
+
+Arch'dan paketlar avval Unstable'ga, keyin sinab Testing'ga, oxirida Stable'ga ko'chiriladi:
+
+```
+Arch repo → Manjaro Unstable → Testing → Stable
+                (kunlik)      (haftalik)  (har 2-3 hafta)
+```
+
+| Branch | Yangilik | Risk | Tavsiya |
+|---|---|---|---|
+| **Stable** | 2-3 hafta orqada | Past | Default — barchaga |
+| **Testing** | 1-2 hafta orqada | O'rta | Power-user |
+| **Unstable** | Bir necha kun orqada | Yuqori | Developer |
+
+```bash
+# Joriy branch
+cat /etc/pacman-mirrors.conf | grep Branch
+# Branch=stable
+
+# O'zgartirish
+sudo pacman-mirrors --api --set-branch testing
+sudo pacman -Syyu
+
+# Yoki
+sudo pacman-mirrors --api --set-branch stable
+```
+
+## 3. Update tartibi
+
+```bash
+# Pacman update
+sudo pacman -Syu
+
+# Pamac (GUI yoki CLI)
+pamac update
+
+# AUR ham
+yay -Syu
+paru -Syu
+```
+
+`-Syu` — `Sync, refresh, upgrade`.
+
+## 4. Partial upgrade — XAVFLI
+
+```bash
+# YOMON
+sudo pacman -S nginx       # faqat nginx
+# Bog'liq paketlar eski qoladi → buzilish
+
+# YAXSHI
+sudo pacman -Syu nginx     # tizimni ham yangilash
+```
+
+Rolling release'da har vaqt to'liq update. Faqat aniq paket update — broken system.
+
+## 5. Update'dan oldin — snapshot
+
+**TimeShift** — Manjaro default'da o'rnatilgan:
+
+```bash
+# GUI
+timeshift-gtk
+
+# CLI
+sudo timeshift --create --comments "Before update $(date)"
+sudo timeshift --list
+
+# Restore
+sudo timeshift --restore --snapshot '2026-05-26_10-00-00'
+```
+
+Update sinmaganida — boot'dan snapshot tanlash va restore.
+
+## 6. Update'dan keyin — tekshirish
+
+```bash
+# Eng oxirgi update
+grep -i "starting full system upgrade" /var/log/pacman.log | tail -5
+
+# Paketlar
+pacman -Q | wc -l        # umumiy son
+pacman -Qe | wc -l       # explicitly o'rnatilgan
+
+# .pacnew fayllar (config o'zgarganida)
+sudo pacdiff
+```
+
+`.pacnew` — yangi konfiguratsiya fayl maintainer'dan. Sizning'i bilan birlashtirish kerak.
+
+## 7. Update jurnal
+
+```bash
+# Manjaro forum'ida har stable update e'lon qilinadi
+# https://forum.manjaro.org/c/announcements/stable-updates/12
+
+# CLI'da changelog
+pacman -Qi linux | grep -A 1 "Version"
+
+# Aniq paket changelog
+pacman -Ql linux | grep changelog
+```
+
+## 8. Eng tez-tez muammolar
+
+### Paket conflict
+
+```bash
+# error: failed to commit transaction (conflicting files)
+sudo pacman -Syu --overwrite '*'
+```
+
+### GPG key
+
+```bash
+sudo pacman-key --refresh-keys
+sudo pacman -S archlinux-keyring manjaro-keyring
+sudo pacman -Syu
+```
+
+### Database lock
+
+```bash
+# pacman ishlamayotgan bo'lsa
+sudo rm /var/lib/pacman/db.lck
+```
+
+### Mirror sekin
+
+```bash
+sudo pacman-mirrors --fasttrack
+sudo pacman -Syyu
+```
+
+## 9. Risk vs reward
+
+**Afzalliklar:**
+
+- Eng yangi software.
+- Yangi hardware support tezroq.
+- Yangi xususiyatlar darhol.
+- Reinstall kerak emas — tizim doimiy yangi.
+
+**Kamchiliklar:**
+
+- Update sinishi mumkin.
+- ABI o'zgarish — boshqa software ishlamasligi.
+- Manual aralashish kerak ba'zan.
+- Production'da xavfli.
+
+## 10. Production'da Manjaro?
+
+**Tavsiya etilmaydi:**
+
+- Web server uchun → Debian Stable yoki Ubuntu LTS.
+- Mission-critical → Stable distro.
+
+**Yaxshi:**
+
+- Developer workstation.
+- Desktop daily driver.
+- Home server (snapshot bilan).
+
+## 11. Pacman log
+
+```bash
+sudo tail -f /var/log/pacman.log
+# [2026-05-26T14:00:00+0500] [PACMAN] Running 'pacman -Syu'
+# [2026-05-26T14:00:01+0500] [ALPM] starting full system upgrade
+# [2026-05-26T14:00:30+0500] [ALPM] upgraded linux (6.6.30-1 -> 6.6.32-1)
+```
+
+## 12. Reflector — eng tez mirror
+
+```bash
+sudo pacman -S reflector
+
+# Eng tez 20 ta
+sudo reflector --latest 20 --sort rate --save /etc/pacman.d/mirrorlist
+
+sudo pacman -Syyu
+```
+
+## 13. Pamac GUI
+
+Manjaro default GUI paket manager:
+
+```bash
+pamac-manager        # GUI
+pamac update
+pamac install nginx
+pamac remove nginx
+pamac search firefox
+```
+
+AUR yoqish (`Preferences → Third Party → AUR Support`).
+
+## 14. Eng yaxshi amaliyot
+
+- **TimeShift** — har update'dan oldin snapshot.
+- **`pacman -Syu` har vaqt** — partial yo'q.
+- **Forum changelog o'qish** — break-changes oldindan.
+- **Stable branch** — agar power-user emassiz.
+- **`.pacnew` tekshirish** — `pacdiff`.
+
+## 15. Misol — xavfsiz update workflow
+
+```bash
+# 1. Snapshot
+sudo timeshift --create --comments "Pre-update $(date +%Y%m%d)"
+
+# 2. Forum tekshirish
+# https://forum.manjaro.org/c/announcements/stable-updates/12
+
+# 3. Mirror yangilash (opsional)
+sudo pacman-mirrors --fasttrack
+
+# 4. Update
+sudo pacman -Syu
+
+# 5. .pacnew faqat
+sudo pacdiff
+
+# 6. Reboot agar kernel update
+sudo reboot
+```
+
+## 16. Mashqlar
+
+1. **Branch:** Joriy branch'ingiz nima?
+2. **TimeShift:** Snapshot yarating va list ko'ring.
+3. **Update:** `pacman -Syu` — qancha paket?
+4. **`.pacnew`:** `pacdiff` ishga tushiring.
+5. **Reflector:** Eng tez mirror'lar.
+
+## 17. Bilim sinovi
+
+**Savol 1.** Rolling release nima?
+
+- a) Aniq versiya har 6 oyda
+- b) Doimiy update, "versiya" yo'q
+- c) Faqat security update
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Manjaro, Arch, openSUSE Tumbleweed — har vaqt yangi.[¹](https://wiki.manjaro.org/index.php/Pacman_Overview)
+</Callout>
+
+**Savol 2.** Partial upgrade:
+
+- a) Xavfsiz
+- b) XAVFLI — broken system risk
+- c) Tezroq
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Rolling'da `pacman -S paket` to'g'risida — bog'liq paketlar eski qoladi.
+</Callout>
+
+**Savol 3.** TimeShift nima?
+
+- a) Backup
+- b) Snapshot — boot'dan restore mumkin
+- c) Antivirus
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Btrfs/Rsync snapshot — sinishi mumkin update'dan oldin.
+</Callout>
+
+**Savol 4.** Production'da Manjaro:
+
+- a) Tavsiya etiladi
+- b) Tavsiya etilmaydi — Stable distro yaxshiroq
+- c) Faqat lab
+- d) OK
+
+<Callout type="success" title="Javob">
+**(b)** Update sinishi ehtimoli yuqori — production uchun Debian/Ubuntu LTS.
+</Callout>
+
+**Savol 5.** Stable branch update tartibi:
+
+- a) Har kuni
+- b) Har 2-3 haftada
+- c) Har yarim yilda
+- d) Hech qachon
+
+<Callout type="success" title="Javob">
+**(b)** Testing'dan stabil bo'lganda Stable'ga keladi.
+</Callout>
+
+## Manbalar
+
+1. Manjaro Wiki — Pacman. [https://wiki.manjaro.org/index.php/Pacman_Overview](https://wiki.manjaro.org/index.php/Pacman_Overview)
+2. Manjaro Forum. [https://forum.manjaro.org/](https://forum.manjaro.org/)
+
+## Keyingi qadam
+
+👉 [Manjaro Hardware Detection (mhwd)](/manjaro/mhwd)

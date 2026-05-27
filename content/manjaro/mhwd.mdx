@@ -1,0 +1,326 @@
+---
+title: "Manjaro Hardware Detection (mhwd)"
+description: "mhwd — Manjaro'ning hardware va driver boshqaruv tizimi."
+order: 4
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/manjaro/introduction"
+learning_objectives:
+  - "mhwd nima qiladi"
+  - "NVIDIA, AMD, Intel driver"
+  - "Free vs non-free drivers"
+  - "Kernel boshqaruvi (`mhwd-kernel`)"
+tags: ["manjaro", "mhwd", "hardware", "drivers"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Wiki — MHWD"
+    url: "https://wiki.manjaro.org/index.php/Manjaro_Hardware_Detection_Overview"
+---
+
+**MHWD (Manjaro Hardware Detection)** — Manjaro'da hardware va driver'larni avtomatik boshqaruv tizimi. NVIDIA, AMD, kernel — bir buyruq bilan.[¹](https://wiki.manjaro.org/index.php/Manjaro_Hardware_Detection_Overview)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `mhwd` asoslari.
+- Video driver — `nvidia`, `amd`, `intel`.
+- Free vs non-free.
+- `mhwd-kernel` — kernel boshqaruv.
+- Hybrid Graphics (Optimus).
+</Callout>
+
+## 1. mhwd — asoslar
+
+```bash
+# Hardware aniqlash
+mhwd -l                         # mavjud drivers
+mhwd -li                        # o'rnatilgan
+mhwd -lh                        # hardware ID'lar
+
+# Auto-install (tavsiya etilgan)
+sudo mhwd -a pci nonfree 0300   # video card
+
+# Manual
+sudo mhwd -i pci video-nvidia
+sudo mhwd -i pci video-amd
+
+# Remove
+sudo mhwd -r pci video-nvidia
+```
+
+`pci nonfree 0300` — PCI, nonfree, video card class (0300).
+
+## 2. NVIDIA driver
+
+```bash
+# Mavjud
+mhwd -l | grep nvidia
+
+# Avtomatik tanlash
+sudo mhwd -a pci nonfree 0300
+
+# Manual aniq versiya
+sudo mhwd -i pci video-nvidia
+sudo mhwd -i pci video-nvidia-470xx     # eski card uchun
+sudo mhwd -i pci video-nvidia-390xx
+```
+
+Reboot:
+
+```bash
+sudo reboot
+```
+
+Tekshirish:
+
+```bash
+nvidia-smi
+glxinfo | grep "OpenGL renderer"
+```
+
+## 3. AMD driver
+
+AMD'da default `amdgpu` (opensource) — yaxshi. Lekin proprietary:
+
+```bash
+# Open-source (default)
+sudo mhwd -i pci video-amdgpu
+
+# Yoki eski card uchun
+sudo mhwd -i pci video-ati
+```
+
+## 4. Intel
+
+Intel iGPU — driver `i915` kernel'da. Mhwd kerak emas.
+
+```bash
+glxinfo | grep "OpenGL renderer"
+# Mesa Intel(R) Graphics
+```
+
+## 5. Hybrid graphics (Optimus)
+
+Laptop'larda Intel + NVIDIA bir vaqtda:
+
+```bash
+sudo mhwd -i pci video-hybrid-intel-nvidia-prime
+# yoki
+sudo mhwd -i pci video-hybrid-intel-nvidia-bumblebee
+```
+
+**PRIME:** zamonaviy, performance yaxshi.
+**Bumblebee:** eski, `optirun` bilan ishga tushirish.
+
+```bash
+# PRIME ishlatish
+glxinfo | grep "OpenGL renderer"      # Intel
+prime-run glxinfo | grep "OpenGL renderer"  # NVIDIA
+```
+
+## 6. mhwd-kernel — kernel boshqaruv
+
+```bash
+# Mavjud kernel'lar
+mhwd-kernel -l
+
+# O'rnatilgan
+mhwd-kernel -li
+
+# O'rnatish
+sudo mhwd-kernel -i linux66        # 6.6 LTS
+sudo mhwd-kernel -i linux-rt       # real-time
+
+# O'chirish
+sudo mhwd-kernel -r linux515
+```
+
+Manjaro ko'p kernel'larni bir vaqtda saqlay oladi. Boot'da tanlanadi.
+
+## 7. Kernel turlari
+
+| Kernel | Tavsif |
+|---|---|
+| `linux` | Joriy stable |
+| `linuxXX` | Aniq versiya (`linux66`) |
+| `linux-lts` | Long-Term Support |
+| `linux-rt` | Real-Time (audio, robotika) |
+| `linux-zen` | Optimized for desktop |
+| `linux-hardened` | Security focused |
+
+## 8. Hardware info
+
+```bash
+# CPU
+lscpu
+
+# GPU
+lspci | grep -i vga
+glxinfo | head
+
+# RAM
+free -h
+sudo dmidecode -t memory
+
+# Storage
+lsblk
+sudo smartctl -a /dev/sda
+
+# USB
+lsusb
+
+# PCI
+lspci -v | head -50
+
+# Yoki GUI
+hardinfo
+inxi -Fxz
+```
+
+## 9. inxi — to'liq tahlil
+
+```bash
+inxi -Fxz
+# System, Machine, CPU, Memory, Graphics, Audio, Network, Drives, Partition, Sensors, ...
+```
+
+`inxi` — eng yaxshi hardware info.
+
+## 10. Misol — yangi NVIDIA driver
+
+Yangi laptop, hozir Intel ishlaydi, NVIDIA o'rnatish kerak:
+
+```bash
+# 1. Mavjud aniqlash
+mhwd -li
+# > video-linux
+# > video-modesetting
+
+# 2. Mavjud variantlar
+mhwd -l
+# nvidia-dkms (proprietary)
+# hybrid-intel-nvidia-prime
+
+# 3. Hybrid o'rnatish
+sudo mhwd -i pci video-hybrid-intel-nvidia-prime
+
+# 4. Reboot
+sudo reboot
+
+# 5. Tekshirish
+nvidia-smi
+prime-run glxinfo | grep "OpenGL renderer"
+```
+
+## 11. Mavjud bo'lmagan driver
+
+```bash
+# Foydalanuvchi'ga sotib olingan PCI card driver kerak:
+lspci -nn | grep VGA
+# 01:00.0 VGA compatible controller [0300]: NVIDIA Corporation TU117 [GeForce GTX 1650] [10de:1f82] (rev a1)
+
+# 10de = NVIDIA vendor ID
+# 1f82 = device ID
+
+# Mhwd database'da bormi?
+mhwd -l | grep nvidia
+```
+
+## 12. mhwd config
+
+```bash
+ls /var/lib/mhwd/db/pci/
+# graphic_drivers/
+# input_drivers/
+
+# Configuration
+cat /var/lib/mhwd/db/pci/graphic_drivers/nvidia-dkms/MHWDCONFIG
+```
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **Eski NVIDIA card, yangi driver** — `nvidia-390xx` yoki `nvidia-470xx` kerak.
+- **Kernel update'da NVIDIA driver buzilishi** — DKMS auto-rebuild bo'lishi kerak.
+- **Hybrid noto'g'ri tanlash** — Optimus laptop'da PRIME tanlang.
+- **`mhwd -r` bo'lmasdan boshqasini install** — konflikt.
+
+## 14. Eng yaxshi amaliyot
+
+- **`sudo mhwd -a pci nonfree 0300`** — avtomatik tanlash.
+- **DKMS driver'lar** — kernel update'da auto-rebuild.
+- **Bir nechta kernel** — backup uchun (`linux-lts` ham).
+- **`inxi -Fxz`** — debug'da.
+- **NVIDIA `prime-run`** — energiya tejash.
+
+## 15. Mashqlar
+
+1. **Hardware:** `inxi -Fxz` ko'rib chiqing.
+2. **Joriy driver:** `mhwd -li`.
+3. **Kernel:** `mhwd-kernel -l` — qaysi'lar mavjud?
+4. **LTS kernel:** `linux-lts` o'rnatish (backup).
+5. **NVIDIA test:** `nvidia-smi` ishlaydimi?
+
+## 16. Bilim sinovi
+
+**Savol 1.** mhwd nima qiladi?
+
+- a) Paket manager
+- b) Hardware aniqlash va driver boshqaruvi
+- c) Backup
+- d) Firewall
+
+<Callout type="success" title="Javob">
+**(b)** Manjaro'ning maxsus hardware/driver auto-detection tizimi.[¹](https://wiki.manjaro.org/index.php/Manjaro_Hardware_Detection_Overview)
+</Callout>
+
+**Savol 2.** PRIME va Bumblebee:
+
+- a) Bir xil
+- b) Hybrid graphics turli yondashuv — PRIME zamonaviy
+- c) PRIME yo'q
+- d) Bumblebee yangi
+
+<Callout type="success" title="Javob">
+**(b)** PRIME — zamonaviy, performance yaxshi.
+</Callout>
+
+**Savol 3.** Kernel boshqaruv:
+
+- a) `mhwd`
+- b) `mhwd-kernel`
+- c) `pacman`
+- d) `systemctl`
+
+<Callout type="success" title="Javob">
+**(b)** Manjaro'ning ko'p kernel parallel boshqaruvchisi.
+</Callout>
+
+**Savol 4.** NVIDIA driver update'da buzilmasligi uchun:
+
+- a) Static driver
+- b) DKMS driver — kernel update'da auto-rebuild
+- c) Hech narsa
+- d) Reboot
+
+<Callout type="success" title="Javob">
+**(b)** Dynamic Kernel Module Support — har kernel uchun avtomatik build.
+</Callout>
+
+**Savol 5.** `nvidia-smi` ishlamadi:
+
+- a) Driver yo'q
+- b) Reboot kerak yoki driver noto'g'ri o'rnatildi
+- c) NVIDIA card yo'q
+- d) Hammasi yuqorisi mumkin
+
+<Callout type="success" title="Javob">
+**(d)** Debug: `lspci | grep -i nvidia` (card bormi), `mhwd -li` (driver), reboot.
+</Callout>
+
+## Manbalar
+
+1. Manjaro Wiki — MHWD. [https://wiki.manjaro.org/index.php/Manjaro_Hardware_Detection_Overview](https://wiki.manjaro.org/index.php/Manjaro_Hardware_Detection_Overview)
+
+## Keyingi qadam
+
+👉 [Manjaro Kernel Manager](/manjaro/kernel-manager)

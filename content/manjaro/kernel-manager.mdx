@@ -1,0 +1,337 @@
+---
+title: "Manjaro Kernel Manager"
+description: "Bir nechta kernel'larni boshqarish va switch qilish."
+order: 5
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/manjaro/mhwd"
+  - "/fundamentals/kernel-modules"
+learning_objectives:
+  - "Manjaro kernel'lar tartibi"
+  - "LTS vs Stable vs RT vs Hardened"
+  - "Bir nechta kernel parallel"
+  - "Boot loader'dan tanlash"
+tags: ["manjaro", "kernel", "linux-lts"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Wiki — Kernels"
+    url: "https://wiki.manjaro.org/index.php/Manjaro_Kernels"
+---
+
+**Manjaro** — ko'p Linux kernel versiyalarini parallel saqlash imkonini beradi. Yangi kernel sinish'da — eski'ga qaytish.[¹](https://wiki.manjaro.org/index.php/Manjaro_Kernels)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `mhwd-kernel` boshqaruvi.
+- Kernel turlari (Stable, LTS, RT, Zen, Hardened).
+- Bir nechta kernel parallel.
+- GRUB'dan tanlash.
+- Joriy va default kernel.
+</Callout>
+
+## 1. Joriy kernel
+
+```bash
+uname -r
+# 6.6.32-1-MANJARO
+
+# Manjaro paket nomi
+mhwd-kernel -li
+# Currently running: 6.6.32-1-MANJARO
+# The following kernels are installed in your system:
+#   * linux66
+#   * linux515
+```
+
+## 2. Mavjud kernel'lar
+
+```bash
+mhwd-kernel -l
+
+# Available kernels:
+#    * linux515       (5.15 LTS)
+#    * linux61        (6.1 LTS)
+#    * linux66        (6.6 stable)
+#    * linux67        (6.7)
+#    * linux68        (6.8)
+#    * linux-rt       (real-time)
+#    * linux-rt-lts   (real-time LTS)
+#    * linux-lts      (latest LTS)
+```
+
+## 3. Kernel o'rnatish
+
+```bash
+sudo mhwd-kernel -i linux66            # 6.6 LTS
+sudo mhwd-kernel -i linux-lts          # latest LTS
+sudo mhwd-kernel -i linux-rt           # real-time
+```
+
+Avtomatik GRUB yangilanadi.
+
+## 4. Kernel o'chirish
+
+```bash
+# Joriy ishlatilayotgan'ni o'chirib bo'lmaydi
+sudo mhwd-kernel -r linux515
+
+# Avval reboot qilib boshqasi'ga, keyin eski'ni o'chiring
+```
+
+## 5. Kernel turlari
+
+| Kernel | Tavsif | Foydalanuvchi |
+|---|---|---|
+| `linux` | Joriy stable | Default |
+| `linuxXX` | Aniq versiya (`linux66`) | Aniq versiya kerak |
+| `linux-lts` | Eng yangi LTS | Stabil server |
+| `linux-rt` | Real-time | Audio production, robotika |
+| `linux-rt-lts` | Real-time LTS | RT + stable |
+| `linux-zen` | Optimized for desktop | Gaming, responsive |
+| `linux-hardened` | Security focused | Paranoid |
+
+## 6. Boot'dan tanlash
+
+GRUB menu:
+
+```
+Manjaro Linux (Kernel: 6.6.32-1-MANJARO)
+> Advanced options for Manjaro Linux
+    * Manjaro Linux, with Linux 6.6.32-1-MANJARO
+    * Manjaro Linux, with Linux 6.6.32-1-MANJARO (fallback initramfs)
+    * Manjaro Linux, with Linux 5.15.158-1-MANJARO (LTS)
+    * Manjaro Linux, with Linux 5.15.158-1-MANJARO (LTS, fallback)
+```
+
+Yangi update sinmadi:
+
+1. Reboot.
+2. Advanced options → eski kernel.
+3. Boot va keyin yangi kernel'ni o'chirib qaytadan.
+
+## 7. Default kernel
+
+Default kernel — birinchi mavjud `mhwd-kernel`'da:
+
+```bash
+sudo nano /etc/default/grub
+# GRUB_DEFAULT=saved          # oxirgi tanlangan
+# GRUB_DEFAULT=0              # birinchi entry
+# GRUB_DEFAULT="Advanced options for Manjaro Linux>Manjaro Linux, with Linux 6.6.32-1-MANJARO"
+
+sudo update-grub
+```
+
+## 8. Tekshirish — kernel xususiyatlari
+
+```bash
+# Joriy
+uname -a
+# Linux manjaro 6.6.32-1-MANJARO #1 SMP PREEMPT_DYNAMIC ...
+
+# Konfiguratsiya
+zcat /proc/config.gz | grep CONFIG_PREEMPT
+# CONFIG_PREEMPT_DYNAMIC=y
+# CONFIG_PREEMPT=y
+
+# Modullar
+lsmod | head
+```
+
+## 9. Real-time kernel
+
+Audio production, hard real-time uchun:
+
+```bash
+sudo mhwd-kernel -i linux-rt
+# yoki LTS
+sudo mhwd-kernel -i linux-rt-lts
+
+sudo reboot
+# Advanced options → linux-rt
+```
+
+Test:
+
+```bash
+uname -v | grep PREEMPT_RT
+# # SMP PREEMPT_RT ...
+```
+
+## 10. Hardened kernel
+
+Security enhancements:
+
+```bash
+sudo mhwd-kernel -i linux-hardened
+```
+
+KSPP (Kernel Self Protection Project) patch'lar.
+
+## 11. Zen kernel
+
+Desktop performance:
+
+```bash
+sudo mhwd-kernel -i linux-zen
+```
+
+I/O scheduler tuning, CPU scheduling, latency.
+
+## 12. Custom kernel module
+
+NVIDIA, VirtualBox, va boshqa custom module'lar har kernel uchun build qilinadi:
+
+```bash
+# Joriy kernel uchun
+sudo pacman -S linux66-nvidia
+sudo pacman -S linux66-virtualbox-host-modules
+```
+
+DKMS bilan avtomatik (joriy kernel uchun har vaqt):
+
+```bash
+sudo pacman -S linux-headers nvidia-dkms
+```
+
+## 13. Boot vaqti — qaysi kernel
+
+```bash
+# Joriy
+uname -r
+
+# Boot vaqti
+systemd-analyze
+# Startup finished in 1.234s (kernel) + 2.345s (userspace) = 3.579s
+
+# Top boot consumers
+systemd-analyze blame | head
+```
+
+## 14. Kernel changelog
+
+```bash
+# Pacman
+pacman -Qi linux66
+# Description: The Linux66 kernel and modules
+
+# Online — kernel.org
+firefox https://www.kernel.org/
+```
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **Joriy kernel'ni o'chirish** — `mhwd-kernel -r` ruxsat bermaydi, lekin baribir bo'lmasligi mumkin.
+- **DKMS module yangilanmagan** — kernel update'dan keyin NVIDIA ishlamaydi.
+- **GRUB yangilanmagan** — yangi kernel boot'da ko'rinmaydi.
+- **Bir nechta LTS** — `linux-lts` har vaqt eng yangi LTS'ga ishora qiladi.
+- **`linux` paket** — har vaqt eng yangi stable.
+
+## 16. Eng yaxshi amaliyot
+
+- **Bir nechta kernel** — Stable + LTS.
+- **DKMS module'lar** — `nvidia-dkms`, `virtualbox-dkms`.
+- **LTS — fallback** — yangi kernel sinmasa, LTS ishlatasiz.
+- **`uname -r` har update'dan keyin** — kerakli kernel'damisiz?
+- **Real-time faqat zarurda** — Audio production yoki robotika.
+
+## 17. Misol — to'liq workflow
+
+```bash
+# Joriy
+uname -r
+# 6.6.32-1-MANJARO
+
+# LTS qo'shish (xavfsizlik uchun)
+sudo mhwd-kernel -i linux-lts
+
+# Tekshirish
+mhwd-kernel -li
+# * linux66 (running)
+# * linux-lts
+
+# Reboot va LTS tanlang
+sudo reboot
+
+# Test
+uname -r
+# 5.15.158-1-MANJARO
+
+# Hammasi ishlaydi? Demak LTS — ishonchli backup
+sudo reboot
+# Yangi kernel'ga qaytish
+```
+
+## 18. Mashqlar
+
+1. **Joriy:** `uname -r`.
+2. **LTS o'rnatish:** `linux-lts`.
+3. **Boot tanlash:** LTS'ga reboot.
+4. **DKMS module:** `nvidia-dkms` va `linux-headers`.
+5. **Eski kernel o'chirish:** Boshqa'siga reboot'dan keyin.
+
+## 19. Bilim sinovi
+
+**Savol 1.** `mhwd-kernel` qaysi distro'da?
+
+- a) Arch
+- b) Manjaro
+- c) Ubuntu
+- d) Hammasi
+
+<Callout type="success" title="Javob">
+**(b)** Manjaro'ning maxsus kernel boshqaruv vositasi.[¹](https://wiki.manjaro.org/index.php/Manjaro_Kernels)
+</Callout>
+
+**Savol 2.** Joriy kernel'ni o'chirish:
+
+- a) `mhwd-kernel -r linux66`
+- b) Imkonsiz — avval boshqasi'ga reboot
+- c) `pacman -Rns linux66`
+- d) `rm /boot/vmlinuz-linux66`
+
+<Callout type="success" title="Javob">
+**(b)** Boshqa kernel'ga reboot qilib, keyin o'chirish.
+</Callout>
+
+**Savol 3.** DKMS nima?
+
+- a) Backup
+- b) Dynamic Kernel Module Support — kernel update'da auto-rebuild
+- c) Faqat NVIDIA
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Custom kernel module'larni har kernel uchun avtomatik qayta yig'adi.
+</Callout>
+
+**Savol 4.** Real-time kernel:
+
+- a) Tezroq
+- b) Past latency — audio production, robotika
+- c) Internet uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** PREEMPT_RT patch'lar — deterministic latency.
+</Callout>
+
+**Savol 5.** LTS kernel maqsadi:
+
+- a) Eng yangi
+- b) Long-Term Support — stabil, uzoq vaqt qo'llab-quvvatlanadi
+- c) Kichik
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** 5-6 yil security update'lar.
+</Callout>
+
+## Manbalar
+
+1. Manjaro Wiki — Kernels. [https://wiki.manjaro.org/index.php/Manjaro_Kernels](https://wiki.manjaro.org/index.php/Manjaro_Kernels)
+
+## Keyingi qadam
+
+👉 [Manjaro Settings Manager](/manjaro/settings-manager)
