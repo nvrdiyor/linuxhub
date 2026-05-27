@@ -1,0 +1,332 @@
+---
+title: "AUR Helpers — yay va paru"
+description: "AUR paketlarini yaqincha pacman kabi boshqarish."
+order: 8
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/manjaro/packages/aur"
+learning_objectives:
+  - "yay va paru farqi"
+  - "AUR'dan paket o'rnatish"
+  - "PKGBUILD tahrirlash"
+  - "Build options"
+tags: ["manjaro", "aur", "yay", "paru"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "yay GitHub"
+    url: "https://github.com/Jguer/yay"
+  - title: "paru GitHub"
+    url: "https://github.com/Morganamilo/paru"
+---
+
+**AUR Helper** — Arch User Repository paketlarini `pacman` kabi qulay boshqaruv. **yay** va **paru** — eng mashhur.[¹](https://github.com/Jguer/yay)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- yay vs paru.
+- O'rnatish.
+- AUR'dan paket o'rnatish.
+- PKGBUILD ko'rish va tahrirlash.
+- Update tartibi.
+</Callout>
+
+## 1. yay
+
+Go'da yozilgan, eng mashhur AUR helper.
+
+```bash
+# Manjaro'da default
+sudo pacman -S yay
+
+# Yoki ChaoticAUR / manual build (Arch'da)
+git clone https://aur.archlinux.org/yay.git
+cd yay
+makepkg -si
+```
+
+## 2. paru
+
+Rust'da yozilgan, yay'ga muqobil. Yengilroq.
+
+```bash
+sudo pacman -S paru
+
+# Yoki manual
+git clone https://aur.archlinux.org/paru.git
+cd paru
+makepkg -si
+```
+
+## 3. Asosiy buyruq'lar (yay va paru deyarli bir xil)
+
+```bash
+# Paket qidirish
+yay -Ss visual-studio-code
+paru -Ss visual-studio-code
+
+# O'rnatish (pacman ham, AUR ham)
+yay -S visual-studio-code-bin
+
+# Update (system + AUR)
+yay -Syu
+paru -Syu
+
+# Faqat AUR update
+yay -Sua
+paru -Sua
+
+# Paket ma'lumoti
+yay -Si firefox
+
+# Local paketlar
+yay -Qua          # outdated AUR
+
+# Cleanup
+yay -Yc           # orphan + unneeded
+```
+
+## 4. AUR'dan o'rnatish — qadamlar
+
+1. **`yay -S paket`** — qidiradi.
+2. PKGBUILD ko'rsatadi (siz tasdiqlaysiz).
+3. Source download.
+4. Build.
+5. Paket o'rnatildi.
+
+```bash
+yay -S google-chrome
+
+# Output:
+# :: Resolving dependencies...
+# :: Calculating conflicts...
+# :: Calculating inner conflicts...
+#
+# Aur (1) google-chrome-127.0.6533.119-1
+#
+# :: Diffs to show?
+# [N]one [A]ll [Ab]ort [I]nstalled [No]tInstalled or (1 2 3, 1-3, ^4)
+# ==> N
+# :: PKGBUILDs are up to date -- skipping
+# :: Proceed with installation? [Y/n] Y
+# :: Building google-chrome...
+# ...
+# :: Installed google-chrome
+```
+
+## 5. PKGBUILD nima?
+
+AUR paket script:
+
+```bash
+# /var/cache/yay/google-chrome/PKGBUILD
+pkgname=google-chrome
+pkgver=127.0.6533.119
+pkgrel=1
+pkgdesc='The popular and trusted web browser'
+arch=('x86_64')
+url='https://www.google.com/chrome'
+license=('custom:chrome')
+depends=(...)
+source=('https://...')
+sha256sums=('...')
+
+package() {
+  ...
+}
+```
+
+PKGBUILD'ni o'qish — paket'ni o'rnatishdan oldin nima qilishini bilish.
+
+## 6. PKGBUILD tahrirlash
+
+```bash
+# Tahrirlash
+yay -S --editmenu paket
+# Build'dan oldin PKGBUILD'ni ochadi
+
+# Yoki har vaqt
+yay --editmenu
+```
+
+`/etc/yay.conf`:
+
+```
+editmenu = true
+diffmenu = true
+```
+
+## 7. yay vs paru tafsilot
+
+| Xususiyat | yay | paru |
+|---|---|---|
+| Til | Go | Rust |
+| Interface | Pacman-like | Pacman-like |
+| Auto-resolve | Ha | Ha |
+| News | Yo'q | Arch news ko'rsatadi |
+| Speed | Tez | Tezroq |
+| Hajm | O'rta | Kichikroq |
+
+Tanlov foydalanuvchi'ga — har ikkalasi yaxshi.
+
+## 8. Build cleanup
+
+AUR build files saqlanadi:
+
+```bash
+# Qaerda
+ls ~/.cache/yay/         # yay
+ls ~/.cache/paru/clone/  # paru
+
+# Cleanup
+yay -Sc                  # paket cache
+yay -Yc                  # orphan paketlar
+paru -Sc
+```
+
+## 9. AUR security
+
+PKGBUILD — har kim yuborishi mumkin. Ehtiyot:
+
+- **PKGBUILD'ni o'qing** — `--editmenu`.
+- **Source URL'ni tekshiring** — rasmiy joydan?
+- **`sha256sums`** — to'g'ri checksum?
+- **Vote/comments** — ko'p user ishlatadimi?
+
+```bash
+# AUR sahifasi
+firefox https://aur.archlinux.org/packages/google-chrome
+```
+
+## 10. Voting
+
+Foydalanuvchilar AUR paketlarni "votes" beradi. Ko'proq vote — ko'proq ishonchli (lekin majburiy emas).
+
+```bash
+yay -Ss firefox | head
+# aur/firefox-nightly 130.0a1.20240526.094258-1 (+45 0.32%)
+#                                                 votes  popularity
+```
+
+## 11. Misol — to'liq workflow
+
+```bash
+# 1. Qidirish
+yay -Ss obsidian
+
+# 2. Info ko'rish
+yay -Si obsidian
+
+# 3. AUR sahifasi
+firefox https://aur.archlinux.org/packages/obsidian-bin
+
+# 4. O'rnatish (PKGBUILD'ni ko'rib)
+yay -S --editmenu obsidian-bin
+
+# 5. Update keyinroq
+yay -Syu
+
+# 6. Cleanup
+yay -Yc
+```
+
+## 12. Bekor qilish
+
+```bash
+# Qisman o'rnatilgan AUR paket'ni
+yay -R paket
+
+# Cache cleanup
+yay -Sc
+yay -Yc           # orphan dependency
+```
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`makepkg -si` direct** — yay/paru qulayroq.
+- **PKGBUILD'ni o'qimasdan o'rnatish** — malicious risk.
+- **Partial upgrade** — system ham update bo'lishi kerak.
+- **`base-devel` yo'q** — `makepkg` ishlamaydi (`gcc`, `make`).
+- **Disk hajmi** — build files katta.
+
+## 14. Eng yaxshi amaliyot
+
+- **`base-devel` o'rnatilgan** — `sudo pacman -S base-devel`.
+- **PKGBUILD o'qish** — ishonchli paketlar.
+- **`yay -Syu`** — system + AUR birga update.
+- **`yay -Yc`** — orphan cleanup.
+- **Trusted AUR'lar** — ko'p vote, eski paket.
+
+## 15. Mashqlar
+
+1. **O'rnatish:** `yay` yoki `paru`.
+2. **Search:** `yay -Ss zoom`.
+3. **AUR'dan:** Obsidian, Discord, Spotify.
+4. **PKGBUILD:** `yay -G paket` — kod o'qish.
+5. **Update:** `yay -Syu`.
+
+## 16. Bilim sinovi
+
+**Savol 1.** AUR helper nima qiladi?
+
+- a) Pacman alternativi
+- b) AUR'ni `pacman` kabi qulay boshqarish
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** AUR'dan source download, build, install — bir buyruq.[¹](https://github.com/Jguer/yay)
+</Callout>
+
+**Savol 2.** yay vs paru:
+
+- a) yay yangi
+- b) Ikkalasi yaxshi — yay Go, paru Rust
+- c) paru eskirgan
+- d) Hech farqi yo'q
+
+<Callout type="success" title="Javob">
+**(b)** Funksiya o'xshash — preference.
+</Callout>
+
+**Savol 3.** PKGBUILD nima?
+
+- a) Backup
+- b) AUR paket build instruktsiya (bash script)
+- c) Binary
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Paket'ni qanday build qilishni aytadi.
+</Callout>
+
+**Savol 4.** AUR xavfsizligi:
+
+- a) Tasdiqlangan
+- b) Foydalanuvchi tomonidan — ehtiyot bilan, PKGBUILD o'qish
+- c) Avtomatik xavfsiz
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Har kim yuborishi mumkin — har vaqt tekshirish kerak.
+</Callout>
+
+**Savol 5.** `yay -Syu`:
+
+- a) Faqat AUR
+- b) System (pacman) + AUR birga update
+- c) Hech narsa
+- d) Rollback
+
+<Callout type="success" title="Javob">
+**(b)** To'liq update.
+</Callout>
+
+## Manbalar
+
+1. yay GitHub. [https://github.com/Jguer/yay](https://github.com/Jguer/yay)
+2. paru GitHub. [https://github.com/Morganamilo/paru](https://github.com/Morganamilo/paru)
+
+## Keyingi qadam
+
+👉 [Manjaro Gaming — Steam, Proton](/manjaro/gaming)

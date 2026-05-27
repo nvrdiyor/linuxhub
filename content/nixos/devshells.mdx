@@ -1,0 +1,448 @@
+---
+title: "Nix DevShells — project muhit"
+description: "Project'ga moslab dev environment Nix bilan."
+order: 34
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/nixos/flakes-deep"
+learning_objectives:
+  - "`nix-shell` va `nix develop`"
+  - "Multi-language devShell"
+  - "direnv integration"
+  - "shellHook"
+tags: ["nixos", "devshell", "nix-shell", "direnv"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nix devShell"
+    url: "https://nix.dev/tutorials/first-steps/dev-environment"
+---
+
+**Nix DevShell** — project'ga moslab reproducible dev environment. Bir buyruq bilan barcha bog'liq tool'larni aniq versiyada olish.[¹](https://nix.dev/tutorials/first-steps/dev-environment)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `nix-shell` (eski) va `nix develop` (flake).
+- Multi-language devShell.
+- direnv bilan avtomatik environment.
+- shellHook va environment.
+- Pinning va lock.
+</Callout>
+
+## 1. `shell.nix` (eski)
+
+Project root'da:
+
+```nix
+# shell.nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.mkShell {
+  buildInputs = with pkgs; [
+    nodejs_20
+    pnpm
+    typescript
+  ];
+
+  shellHook = ''
+    echo "Welcome to my-project!"
+    export NODE_ENV=development
+  '';
+}
+```
+
+```bash
+nix-shell
+# >>> Welcome to my-project!
+# (nix-shell) $ node --version
+# v20.x.x
+
+exit       # chiqish
+```
+
+## 2. Flake devShell (zamonaviy)
+
+`flake.nix`:
+
+```nix
+{
+  description = "My project";
+
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+
+  outputs = { self, nixpkgs }:
+    let
+      system = "x86_64-linux";
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      devShells.${system}.default = pkgs.mkShell {
+        packages = with pkgs; [
+          nodejs_20
+          pnpm
+          typescript
+          postgresql_16
+        ];
+
+        shellHook = ''
+          echo "DevShell active"
+          export DATABASE_URL=postgres://localhost/mydb
+        '';
+      };
+    };
+}
+```
+
+```bash
+nix develop
+# Yoki
+nix develop .#default
+```
+
+## 3. Multi-language
+
+```nix
+{
+  devShells.${system}.default = pkgs.mkShell {
+    packages = with pkgs; [
+      # Languages
+      nodejs_20
+      python311
+      rustup
+      go
+      jdk21
+
+      # Tools
+      git
+      docker
+      docker-compose
+      kubectl
+      terraform
+      awscli2
+    ];
+
+    PYTHONPATH = "./src";
+    GOPATH = "$HOME/go";
+  };
+}
+```
+
+## 4. direnv integration
+
+`.envrc`:
+
+```bash
+use flake
+```
+
+```bash
+direnv allow
+```
+
+Endi katalogga kirsangiz — avtomatik environment yoqiladi. Chiqsangiz — o'chadi.
+
+`direnv` o'rnatish:
+
+```bash
+# Ubuntu/Debian
+sudo apt install -y direnv
+
+# NixOS
+environment.systemPackages = [ pkgs.direnv ];
+
+# Shell hook (~/.bashrc yoki ~/.zshrc)
+eval "$(direnv hook bash)"
+```
+
+## 5. nix-direnv (kesh)
+
+Tezroq, kesh bilan:
+
+```bash
+# NixOS
+nix.extraOptions = ''
+  keep-outputs = true
+  keep-derivations = true
+'';
+
+environment.systemPackages = with pkgs; [
+  direnv
+  nix-direnv
+];
+```
+
+`.envrc`:
+
+```bash
+use flake
+```
+
+Birinchi `direnv allow` keyingi kirishlar tezroq.
+
+## 6. Python project
+
+`flake.nix`:
+
+```nix
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+
+  outputs = { self, nixpkgs }:
+    let
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      python = pkgs.python311.withPackages (ps: with ps; [
+        flask
+        sqlalchemy
+        pytest
+        black
+        mypy
+      ]);
+    in {
+      devShells.x86_64-linux.default = pkgs.mkShell {
+        packages = [ python pkgs.postgresql_16 ];
+
+        shellHook = ''
+          export FLASK_APP=app.py
+          export FLASK_ENV=development
+        '';
+      };
+    };
+}
+```
+
+```bash
+nix develop
+python -c "import flask; print(flask.__version__)"
+```
+
+## 7. Node.js + pnpm
+
+```nix
+{
+  outputs = { self, nixpkgs }:
+    let pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    in {
+      devShells.x86_64-linux.default = pkgs.mkShell {
+        packages = with pkgs; [
+          nodejs_20
+          pnpm
+          nodePackages.typescript
+          nodePackages.prettier
+          nodePackages.eslint
+        ];
+      };
+    };
+}
+```
+
+## 8. Rust project
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+  };
+
+  outputs = { self, nixpkgs, rust-overlay }:
+    let
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        overlays = [ rust-overlay.overlays.default ];
+      };
+      rust = pkgs.rust-bin.stable.latest.default.override {
+        extensions = [ "rust-src" "rust-analyzer" ];
+      };
+    in {
+      devShells.x86_64-linux.default = pkgs.mkShell {
+        packages = [ rust pkgs.cargo-watch pkgs.cargo-edit ];
+      };
+    };
+}
+```
+
+## 9. Multiple shells
+
+```nix
+{
+  devShells.x86_64-linux = {
+    default = pkgs.mkShell {
+      packages = with pkgs; [ nodejs_20 ];
+    };
+
+    backend = pkgs.mkShell {
+      packages = with pkgs; [ python311 postgresql_16 redis ];
+    };
+
+    frontend = pkgs.mkShell {
+      packages = with pkgs; [ nodejs_20 pnpm ];
+    };
+
+    deploy = pkgs.mkShell {
+      packages = with pkgs; [ kubectl helm terraform awscli2 ];
+    };
+  };
+}
+```
+
+```bash
+nix develop .#backend
+nix develop .#frontend
+nix develop .#deploy
+```
+
+## 10. PostgreSQL DevShell
+
+```nix
+{
+  devShells.x86_64-linux.default = pkgs.mkShell {
+    packages = [ pkgs.postgresql_16 ];
+
+    shellHook = ''
+      export PGDATA="$PWD/.postgres"
+      export PGHOST="$PGDATA"
+      export DATABASE_URL="postgres://localhost/mydb?host=$PGDATA"
+
+      if [ ! -d "$PGDATA" ]; then
+        initdb --auth=trust --no-locale --encoding=UTF8
+        echo "unix_socket_directories = '$PGDATA'" >> $PGDATA/postgresql.conf
+      fi
+
+      pg_ctl -D $PGDATA -l logfile start || true
+      createdb mydb 2>/dev/null || true
+    '';
+  };
+}
+```
+
+Project ichida — to'liq PostgreSQL.
+
+## 11. Docker bilan farqi
+
+| Xususiyat | Nix DevShell | Docker |
+|---|---|---|
+| Boshlash vaqti | Sekin (birinchi marta), tez keyin | O'rta |
+| Disk hajmi | Shared (Nix store) | Har image alohida |
+| Isolation | Minimal | Full container |
+| Tool'lar | Host'da to'g'ridan-to'g'ri | Container ichida |
+| Database service | shellHook | docker-compose |
+
+Nix DevShell — yengilroq, lokal dev uchun ideal.
+
+## 12. Lokal cache
+
+```nix
+nix.settings = {
+  substituters = [ "https://cache.nixos.org" "https://nix-community.cachix.org" ];
+  trusted-public-keys = [
+    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+  ];
+};
+```
+
+`cachix` — binary cache, tezroq dev shell.
+
+## 13. CI/CD bilan
+
+```yaml
+# GitHub Actions
+- uses: cachix/install-nix-action@v25
+- uses: cachix/cachix-action@v14
+  with:
+    name: my-project
+    authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+- name: Build
+  run: nix develop -c npm test
+```
+
+`-c <command>` — devShell ichida buyruq.
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Old `shell.nix` + flake bir vaqtda** — konflikt.
+- **`<nixpkgs>` channel'siz** — flake'da kerak emas.
+- **`direnv allow` qilmaslik** — envrc ishlamaydi.
+- **Katta paket'lar yangi build** — `cachix` ishlatish.
+- **`packages` vs `buildInputs`** — flake'da `packages`.
+
+## 15. Eng yaxshi amaliyot
+
+- **`flake.nix` Git'da** — versiya nazorat.
+- **`direnv` + `nix-direnv`** — har vaqt to'g'ri muhit.
+- **`shellHook`** — environment va init.
+- **Multiple shells** — backend, frontend alohida.
+- **Cachix CI'da** — build tezligi.
+
+## 16. Mashqlar
+
+1. **Birinchi `shell.nix`:** Node.js bilan.
+2. **Flake'ga ko'chirish:** `nix flake init`.
+3. **direnv:** `.envrc` va `direnv allow`.
+4. **Multi-shell:** Backend va frontend alohida.
+5. **PostgreSQL devShell:** Project ichida DB.
+
+## 17. Bilim sinovi
+
+**Savol 1.** Nix DevShell maqsadi:
+
+- a) Production
+- b) Project'ga moslab dev environment
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Reproducible developer environment.[¹](https://nix.dev/tutorials/first-steps/dev-environment)
+</Callout>
+
+**Savol 2.** `nix develop`:
+
+- a) Production
+- b) Flake'ning devShell'iga kirish
+- c) Build
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `flake.nix` `devShells.default`.
+</Callout>
+
+**Savol 3.** direnv afzalligi:
+
+- a) Tezlik
+- b) Katalogga kirganda avtomatik environment
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Manual `nix develop` har vaqt kerak emas.
+</Callout>
+
+**Savol 4.** `nix-direnv`:
+
+- a) direnv yangi versiya
+- b) direnv'ga kesh — Nix store'dan tezroq
+- c) Hech narsa
+- d) Faqat NixOS
+
+<Callout type="success" title="Javob">
+**(b)** Birinchi `direnv allow` keyin tez yoqiladi.
+</Callout>
+
+**Savol 5.** Multiple devShells:
+
+- a) Mavjud emas
+- b) `devShells.NAME` — `nix develop .#name`
+- c) Faqat bitta
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Backend, frontend, deploy alohida shell'lar.
+</Callout>
+
+## Manbalar
+
+1. Nix devShell. [https://nix.dev/tutorials/first-steps/dev-environment](https://nix.dev/tutorials/first-steps/dev-environment)
+
+## Keyingi qadam
+
+👉 [NixOS Overlays chuqur](/nixos/overlays-deep)

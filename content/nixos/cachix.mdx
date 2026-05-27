@@ -1,0 +1,323 @@
+---
+title: "Cachix — Nix binary cache"
+description: "Cachix bilan tezroq Nix build'lar."
+order: 36
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/nixos/flakes-deep"
+learning_objectives:
+  - "Binary cache nima"
+  - "Cachix.org foydalanish"
+  - "Public cache (nix-community)"
+  - "Private cache va CI/CD"
+tags: ["nixos", "cachix", "cache", "build"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Cachix"
+    url: "https://www.cachix.org/"
+  - title: "NixOS Cachix docs"
+    url: "https://docs.cachix.org/"
+---
+
+**Cachix** — Nix binary cache xizmati. Build'lar boshqa kompyuterlarda qayta build qilinmaydi — kesh'dan yuklanadi.[¹](https://www.cachix.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Binary cache asoslari.
+- Public va private cache.
+- nix-community cache.
+- Cachix.org account.
+- CI/CD bilan integratsiya.
+</Callout>
+
+## 1. Binary cache nima?
+
+Nix paketlar build hash bilan saqlanadi. Bir xil hash — bir xil natija. Binary cache:
+
+1. Birinchi marta — build (sekin).
+2. Cache'ga upload.
+3. Boshqa kompyuter'da — download (tez).
+
+Default cache: `cache.nixos.org` — nixpkgs paketlar.
+
+## 2. nix-community cache
+
+Bir necha mashhur paket'lar uchun:
+
+```nix
+{
+  nix.settings = {
+    substituters = [
+      "https://cache.nixos.org"
+      "https://nix-community.cachix.org"
+    ];
+    trusted-public-keys = [
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    ];
+  };
+}
+```
+
+## 3. Cachix.org account
+
+```bash
+# Account: https://cachix.org/
+
+# Cachix CLI
+nix-shell -p cachix
+cachix authtoken YOUR_TOKEN     # account'dan oling
+```
+
+## 4. Cache yaratish
+
+```bash
+# Web'da yaratish: https://app.cachix.org/
+
+# yoki CLI
+cachix generate-keypair my-cache
+```
+
+Public key — share qilinadi.
+Private key — secret.
+
+## 5. Build va push
+
+```bash
+# Build qilib darhol cache'ga push
+nix-build | cachix push my-cache
+
+# Yoki barcha cache'da yo'q paket'larni
+nix-store -q --references $(nix-store -q --requisites $(nix-build)) | cachix push my-cache
+```
+
+## 6. Foydalanish
+
+```bash
+# Custom cache yoqish
+cachix use my-cache
+
+# Endi
+nix-build
+# Cachix'dan tezroq olinadi
+```
+
+NixOS'da:
+
+```nix
+{
+  nix.settings = {
+    substituters = [ "https://my-cache.cachix.org" ];
+    trusted-public-keys = [
+      "my-cache.cachix.org-1:PUBLIC_KEY_HERE"
+    ];
+  };
+}
+```
+
+## 7. GitHub Actions
+
+```yaml
+# .github/workflows/build.yml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v25
+      - uses: cachix/cachix-action@v14
+        with:
+          name: my-cache
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix build
+      - run: nix flake check
+```
+
+Har commit'da build, push qilinadi.
+
+## 8. Devshell tezroq
+
+```nix
+{
+  description = "Project";
+
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+
+  outputs = { nixpkgs, ... }: {
+    devShells.x86_64-linux.default = nixpkgs.legacyPackages.x86_64-linux.mkShell {
+      packages = [ ... ];
+    };
+  };
+}
+```
+
+Birinchi `nix develop` — sekin (build). Cachix bilan keyingi'lar tezroq:
+
+```bash
+cachix use my-cache
+nix develop      # Cache'dan tezroq
+```
+
+## 9. Public vs Private
+
+| Type | Bepul limit | Foydalanuvchi |
+|---|---|---|
+| **Public** | Bepul, faqat public source | Open source |
+| **Private** | $5+/oy | Production, secret build |
+
+Public — har kim foydalanishi mumkin.
+
+## 10. Eng katta nix-community cache'lar
+
+```
+nix-community
+devenv
+nixos-config (cachix sertifikat)
+nixpkgs-update
+nix-output-monitor
+```
+
+Ko'p paket — birinchi build qilingan, cache'da.
+
+## 11. Local cache (alternativ)
+
+Cachix.org ishlatmasdan, o'z server'ingiz:
+
+```bash
+# nix-serve
+sudo nix-env -iA nixpkgs.nix-serve
+
+# Run
+nix-serve -p 8080 &
+
+# Boshqa mashinada
+nix-store --add-sub https://my-server:8080
+```
+
+NixOS module:
+
+```nix
+{
+  services.nix-serve = {
+    enable = true;
+    secretKeyFile = "/var/cache-priv-key.pem";
+  };
+}
+```
+
+## 12. Cache poison?
+
+Cachix — public key bilan signature. Public key:
+
+```
+my-cache.cachix.org-1:abc123...
+```
+
+Cache'dan har paket — signature bilan tasdiqlanadi. Yomon niyatli kod kira olmaydi.
+
+## 13. Misol — to'liq workflow
+
+```bash
+# 1. Account: https://cachix.org/
+# 2. CLI
+cachix authtoken YOUR_TOKEN
+cachix use my-cache
+
+# 3. Build va push
+nix build
+cachix push my-cache ./result
+
+# Yoki CI'da
+nix-build | cachix push my-cache
+```
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Public key noto'g'ri** — substitution ishlamaydi.
+- **`trusted-public-keys` qo'shilmagan** — Nix signature'ni tekshira olmaydi.
+- **Authtoken yo'q** — push qilolmaysiz.
+- **CI/CD timeout** — katta build sekin.
+- **Hajm limit** — bepul plan 1 GB.
+
+## 15. Eng yaxshi amaliyot
+
+- **nix-community cache** — har vaqt yoqilgan.
+- **Project cache** — o'z paketlar uchun.
+- **CI bilan auto-push** — har commit'dan keyin.
+- **`auto-optimise-store`** — disk hajmi.
+- **Public source uchun public cache** — bepul.
+
+## 16. Mashqlar
+
+1. **Account:** Cachix.org'da hisob.
+2. **Cache yaratish:** Project uchun.
+3. **Push:** Build natijasini upload.
+4. **NixOS:** Cache yoqish.
+5. **CI/CD:** GitHub Actions bilan.
+
+## 17. Bilim sinovi
+
+**Savol 1.** Binary cache nima?
+
+- a) Backup
+- b) Pre-built paket'lar — qayta build kerak emas
+- c) Tarmoq
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Boshqa mashina build qilgan — siz darhol foydalanasiz.[¹](https://www.cachix.org/)
+</Callout>
+
+**Savol 2.** Default Nix cache:
+
+- a) docker.io
+- b) cache.nixos.org
+- c) cachix.org
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Nixpkgs paketlar uchun rasmiy cache.
+</Callout>
+
+**Savol 3.** Public cache:
+
+- a) Pullik
+- b) Bepul, public source code uchun
+- c) Faqat private
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Open source — bepul.
+</Callout>
+
+**Savol 4.** Public key kerak:
+
+- a) Yo'q
+- b) Substitution xavfsizligi uchun — signature tekshirish
+- c) Tezroq
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Cache'dan kelgan paket'ni yomon niyatli kod ekanini tekshirish.
+</Callout>
+
+**Savol 5.** CI/CD'da cachix:
+
+- a) Hech foyda yo'q
+- b) Har commit'da build push — keyingi pull tez
+- c) Faqat test
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Build natijasini share qilish — keyingi build'lar tezroq.
+</Callout>
+
+## Manbalar
+
+1. Cachix. [https://www.cachix.org/](https://www.cachix.org/)
+2. NixOS Cachix docs. [https://docs.cachix.org/](https://docs.cachix.org/)
+
+## Keyingi qadam
+
+👉 [NixOS Disko — disk konfiguratsiya](/nixos/disko)

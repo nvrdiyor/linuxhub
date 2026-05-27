@@ -1,0 +1,374 @@
+---
+title: "NixOS Overlays chuqur"
+description: "Overlay'lar bilan nixpkgs'ni o'zgartirish."
+order: 35
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/nixos/concepts/nix-language"
+learning_objectives:
+  - "Overlay nima"
+  - "Custom paket overlay"
+  - "Mavjud paketni override"
+  - "Bir nechta overlay"
+  - "Flake bilan overlay"
+tags: ["nixos", "overlays", "nix"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Manual — Overlays"
+    url: "https://nixos.org/manual/nixpkgs/stable/#chap-overlays"
+---
+
+**Overlay** — `nixpkgs`'ga function bilan o'zgartirish kiritish. Yangi paket qo'shish, mavjud paketni modifikatsiya qilish, versiya override.[¹](https://nixos.org/manual/nixpkgs/stable/#chap-overlays)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Overlay function signature.
+- Custom paket qo'shish.
+- Mavjud paketni o'zgartirish.
+- Bir nechta overlay birga.
+- Flake'lar bilan overlay.
+</Callout>
+
+## 1. Overlay nima?
+
+Overlay — function:
+
+```nix
+final: prev: {
+  # qo'shimcha yoki o'zgartirish
+}
+```
+
+- `prev` — avvalgi pkgs.
+- `final` — keyingi pkgs (oxirgi natija).
+
+## 2. Yangi paket qo'shish
+
+```nix
+# overlay.nix
+final: prev: {
+  my-tool = prev.stdenv.mkDerivation {
+    name = "my-tool";
+    src = ./.;
+    installPhase = "mkdir -p $out/bin; cp ./my-tool $out/bin/";
+  };
+}
+```
+
+`configuration.nix`:
+
+```nix
+{
+  nixpkgs.overlays = [
+    (import ./overlay.nix)
+  ];
+
+  environment.systemPackages = with pkgs; [
+    my-tool        # overlay'dan
+  ];
+}
+```
+
+## 3. Mavjud paketni override
+
+Versiya o'zgartirish:
+
+```nix
+final: prev: {
+  nginx = prev.nginx.overrideAttrs (old: rec {
+    version = "1.27.0";
+    src = prev.fetchFromGitHub {
+      owner = "nginx";
+      repo = "nginx";
+      rev = "release-${version}";
+      sha256 = "sha256-xxx";
+    };
+  });
+}
+```
+
+Patch qo'shish:
+
+```nix
+final: prev: {
+  vim = prev.vim.overrideAttrs (old: {
+    patches = (old.patches or []) ++ [ ./my-patch.patch ];
+  });
+}
+```
+
+## 4. Build option o'zgartirish
+
+```nix
+final: prev: {
+  firefox = prev.firefox.override {
+    extraNativeMessagingHosts = [ prev.passff-host ];
+  };
+}
+```
+
+## 5. Bir nechta overlay
+
+```nix
+{
+  nixpkgs.overlays = [
+    (import ./overlays/my-tools.nix)
+    (import ./overlays/custom-vim.nix)
+    (import ./overlays/nginx-build.nix)
+  ];
+}
+```
+
+Tartibda qo'llaniladi — keyingi overlay avvalgi'sini ko'rishi mumkin.
+
+## 6. Inline overlay
+
+```nix
+{
+  nixpkgs.overlays = [
+    (final: prev: {
+      hello-custom = prev.hello.overrideAttrs (old: {
+        postInstall = ''
+          ln -s $out/bin/hello $out/bin/hi
+        '';
+      });
+    })
+  ];
+}
+```
+
+## 7. Yangi haqiqiy paket
+
+```nix
+# overlays/my-app.nix
+final: prev: {
+  my-app = prev.stdenv.mkDerivation rec {
+    pname = "my-app";
+    version = "1.0.0";
+
+    src = prev.fetchFromGitHub {
+      owner = "diyornv";
+      repo = "my-app";
+      rev = "v${version}";
+      sha256 = "sha256-...";
+    };
+
+    nativeBuildInputs = with prev; [ pkg-config ];
+    buildInputs = with prev; [ openssl ];
+
+    buildPhase = "make";
+    installPhase = ''
+      mkdir -p $out/bin
+      cp my-app $out/bin/
+    '';
+
+    meta = with prev.lib; {
+      description = "My custom application";
+      homepage = "https://github.com/diyornv/my-app";
+      license = licenses.mit;
+      platforms = platforms.linux;
+    };
+  };
+}
+```
+
+## 8. Flake bilan overlay
+
+`flake.nix`:
+
+```nix
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+
+  outputs = { self, nixpkgs }: {
+    overlays.default = final: prev: {
+      my-tool = final.callPackage ./pkgs/my-tool.nix {};
+    };
+
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ({ ... }: {
+          nixpkgs.overlays = [ self.overlays.default ];
+        })
+        ./configuration.nix
+      ];
+    };
+  };
+}
+```
+
+## 9. Boshqa flake'dan overlay
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nur.url = "github:nix-community/NUR";
+  };
+
+  outputs = { self, nixpkgs, nur }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        ({ ... }: {
+          nixpkgs.overlays = [ nur.overlays.default ];
+        })
+      ];
+    };
+  };
+}
+```
+
+NUR — Nix User Repository — community paketlar.
+
+## 10. Misol — node_modules without npm
+
+```nix
+final: prev: {
+  myNodeApp = prev.buildNpmPackage {
+    pname = "myapp";
+    version = "1.0.0";
+    src = ./.;
+    npmDepsHash = "sha256-...";
+    installPhase = ''
+      mkdir -p $out/bin
+      cp -r . $out/
+      makeWrapper ${prev.nodejs}/bin/node $out/bin/myapp \
+        --add-flags $out/server.js
+    '';
+  };
+}
+```
+
+## 11. Konflikt va order
+
+Bir nechta overlay bir xil paketni o'zgartirsa — oxirgi'si yutadi:
+
+```nix
+{
+  nixpkgs.overlays = [
+    (final: prev: { foo = "version-1"; })
+    (final: prev: { foo = "version-2"; })       # yutadi
+  ];
+}
+```
+
+Yoki birga ishlatish:
+
+```nix
+{
+  nixpkgs.overlays = [
+    (final: prev: {
+      foo = prev.foo.overrideAttrs (old: { ... });
+    })
+    (final: prev: {
+      # final.foo bu yerda allaqachon birinchi overlay'dan
+      bar = final.foo.overrideAttrs (old: { ... });
+    })
+  ];
+}
+```
+
+## 12. `extend`
+
+Pkgs'ni mahalliy extendlash (overlay'ga muqobil):
+
+```nix
+let
+  pkgs = import <nixpkgs> {};
+  myPkgs = pkgs.extend (final: prev: {
+    my-tool = ...;
+  });
+in
+  myPkgs.my-tool
+```
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`prev` vs `final`** — `prev` — bilan avvalgi, `final` — bilan yakuniy.
+- **Cycle** — `final` ichida `final.X = final.X.something` — infinite loop.
+- **Hash o'zgarish** — paket update'da yangi `sha256` kerak.
+- **Overlay tartibi** — keyingi avvalgini ustiga yozadi.
+- **`overrideAttrs` vs `override`** — `override` argument'larni, `overrideAttrs` attribute'larni.
+
+## 14. Eng yaxshi amaliyot
+
+- **Modular overlays** — har overlay alohida fayl.
+- **`overrideAttrs` patch uchun** — `override` parameter'lar uchun.
+- **Hash to'g'ri** — `lib.fakeSha256` placeholder.
+- **Comment'lar** — nima uchun overlay kerak.
+- **Test** — `nix-build -A myPackage` overlay bilan.
+
+## 15. Mashqlar
+
+1. **Inline overlay:** `hello`'ni o'zgartirish (postInstall).
+2. **Yangi paket:** Custom binary o'rnatish.
+3. **Versiya override:** Nginx aniq versiya.
+4. **Multiple overlays:** Bir nechta overlay birga.
+5. **NUR ulanish:** Community paketlar.
+
+## 16. Bilim sinovi
+
+**Savol 1.** Overlay function signature:
+
+- a) `pkgs:`
+- b) `final: prev:`
+- c) `nixpkgs:`
+- d) `lib:`
+
+<Callout type="success" title="Javob">
+**(b)** `final` — yakuniy, `prev` — avvalgi pkgs.[¹](https://nixos.org/manual/nixpkgs/stable/#chap-overlays)
+</Callout>
+
+**Savol 2.** Versiya override:
+
+- a) `overrideAttrs`
+- b) `override`
+- c) Ikkalasi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** `overrideAttrs` — derivation attribute'lari (src, version).
+</Callout>
+
+**Savol 3.** Bir nechta overlay tartibi:
+
+- a) Birinchi yutadi
+- b) Oxirgi yutadi (sequential)
+- c) Random
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Har overlay avvalgi'sini ko'radi.
+</Callout>
+
+**Savol 4.** NUR nima?
+
+- a) Yangi distro
+- b) Nix User Repository — community paketlar
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** GitHub'dagi user paketlar.
+</Callout>
+
+**Savol 5.** `final` o'z-o'ziga ulanadi:
+
+- a) Hech narsa
+- b) Infinite loop (cycle)
+- c) Faster
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `final.X = final.X + ...` — xato.
+</Callout>
+
+## Manbalar
+
+1. NixOS Manual — Overlays. [https://nixos.org/manual/nixpkgs/stable/#chap-overlays](https://nixos.org/manual/nixpkgs/stable/#chap-overlays)
+
+## Keyingi qadam
+
+👉 [NixOS Cachix — binary cache](/nixos/cachix)

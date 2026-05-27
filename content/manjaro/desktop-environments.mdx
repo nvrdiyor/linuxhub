@@ -1,0 +1,309 @@
+---
+title: "Manjaro Desktop Environments"
+description: "KDE, GNOME, Xfce, Cinnamon — Manjaro flavors."
+order: 7
+level: "beginner"
+estimated_minutes: 7
+prerequisites:
+  - "/manjaro/introduction"
+learning_objectives:
+  - "Manjaro flavors farqi"
+  - "KDE Plasma — eng moslashtirilgan"
+  - "GNOME — sodda"
+  - "Xfce — yengil"
+  - "DE o'zgartirish"
+tags: ["manjaro", "desktop", "kde", "gnome"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Editions"
+    url: "https://manjaro.org/download/"
+---
+
+**Manjaro** uchta rasmiy flavor: **KDE Plasma**, **GNOME**, **Xfce**. Community variantlari: Cinnamon, MATE, Sway, va boshqalar. Tanlash — siz qanday ishlash uslubini afzal ko'rasiz?[¹](https://manjaro.org/download/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Uchta rasmiy flavor.
+- KDE Plasma — moslashtirilgan.
+- GNOME — sodda.
+- Xfce — yengil, eski hardware.
+- Community editions.
+- Bir DE'dan ikkinchi'siga o'tish.
+</Callout>
+
+## 1. Rasmiy flavors
+
+| Flavor | RAM (minimum) | Tavsif |
+|---|---|---|
+| **KDE Plasma** | 4 GB | Eng moslashtirilgan, Windows kabi |
+| **GNOME** | 4 GB | Sodda, modern, macOS kabi |
+| **Xfce** | 2 GB | Yengil, klassik |
+
+## 2. KDE Plasma
+
+```
++ Eng ko'p sozlamalar.
++ Widgets va effects.
++ Dolphin file manager (eng kuchli).
++ Konsole terminal.
++ Customization cheksiz.
+- Resurs ko'proq.
+- Murakkab yangi user uchun.
+```
+
+Tavsiya etiladi: power-user, Windows'dan o'tganlar.
+
+## 3. GNOME
+
+```
++ Sodda, minimalist.
++ macOS hissi.
++ GNOME extensions ekosistemasi.
++ Workflow optimal.
+- Customization cheklangan default'da.
+- Past performance eski hardware'da.
+```
+
+Tavsiya etiladi: macOS user'lari, sodda interface tarafdorlari.
+
+## 4. Xfce
+
+```
++ Yengil — RAM minimum.
++ Klassik desktop (panel + start menu).
++ Stabil — kam o'zgarish.
++ Eski hardware'da ham tez.
+- Modern effects yo'q.
+- Default theme eski ko'rinishda.
+```
+
+Tavsiya etiladi: eski kompyuter, server GUI, klassik foydalanuvchi.
+
+## 5. Community editions
+
+```bash
+# Manjaro Community ISO'lar
+# https://manjaro.org/download/
+
+# Sway (Wayland tiling)
+# i3 (X11 tiling)
+# Cinnamon (Linux Mint kabi)
+# MATE (GNOME 2 fork)
+# Budgie (Solus DE)
+# LXDE (yengilroq Xfce'dan)
+```
+
+## 6. DE o'zgartirish (bir-biriga)
+
+Mavjud Manjaro'da boshqa DE qo'shish:
+
+### KDE qo'shish
+
+```bash
+sudo pacman -S plasma-meta kde-applications-meta
+sudo pacman -S sddm        # SDDM display manager
+sudo systemctl enable sddm
+sudo systemctl disable gdm    # eski'sini o'chirish
+
+# Reboot va SDDM oynasida session tanlang
+sudo reboot
+```
+
+### GNOME qo'shish
+
+```bash
+sudo pacman -S gnome gnome-extra
+sudo pacman -S gdm
+sudo systemctl enable gdm
+sudo systemctl disable sddm
+
+sudo reboot
+```
+
+### Xfce qo'shish
+
+```bash
+sudo pacman -S xfce4 xfce4-goodies
+sudo pacman -S lightdm lightdm-gtk-greeter
+sudo systemctl enable lightdm
+
+sudo reboot
+```
+
+## 7. Display Manager (DM)
+
+| DM | Default |
+|---|---|
+| **SDDM** | KDE |
+| **GDM** | GNOME |
+| **LightDM** | Xfce, Cinnamon |
+
+Faqat bittasi aktiv bo'lishi mumkin.
+
+## 8. Wayland vs X11
+
+| Server | DE qo'llab-quvvatlash | Tavsiya |
+|---|---|---|
+| **X11** | Hammasi | Eski (default ko'p DE'da) |
+| **Wayland** | KDE 5.27+, GNOME 41+, Sway, Hyprland | Yangi, xavfsizroq, modernroq |
+
+KDE'da Wayland tanlash: SDDM oynasida session tanlovida.
+
+## 9. Boshqa DE'larni butunlay o'chirish
+
+```bash
+# Avval boshqa'siga ulanib turing!
+
+# KDE o'chirish
+sudo pacman -Rns plasma-meta plasma-desktop kde-applications-meta sddm
+
+# GNOME
+sudo pacman -Rns gnome gnome-extra gdm
+
+# Xfce
+sudo pacman -Rns xfce4 xfce4-goodies lightdm
+```
+
+Ehtiyot — DM o'chsa, GUI ishlamaydi.
+
+## 10. Settings va konfiguratsiya
+
+```
+KDE:
+  ~/.config/plasma-*
+  ~/.config/kdeglobals
+  ~/.config/kwin*
+
+GNOME:
+  ~/.config/dconf/
+  gsettings list-recursively
+
+Xfce:
+  ~/.config/xfce4/
+```
+
+## 11. Manjaro Settings Manager
+
+```bash
+manjaro-settings-manager
+```
+
+GUI:
+
+- Kernel boshqaruv
+- Hardware (mhwd)
+- Language packs
+- Time va date
+- User accounts
+- Notifications
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Ikki DM yoqilgan** — boot'da konflikt.
+- **Boshqa DE o'rnatishdan oldin ikkinchisi'siga o'tmaslik** — eski yo'qoladi.
+- **Default DM o'rniga noto'g'ri** — `systemctl enable` bilan to'g'ri.
+- **Wayland va NVIDIA muammosi** — eski NVIDIA driver Wayland'da yomon.
+- **GNOME extensions konflikt** — versiya'larga moslab.
+
+## 13. Eng yaxshi amaliyot
+
+- **ISO'dan to'g'ri tanlash** — keyin o'zgartirish murakkab.
+- **VirtualBox'da sinash** — qaysi DE yoqadi.
+- **Bittadan DM** — boot konflikt'siz.
+- **`pacman -Rns`** — paket va orphan dependency.
+- **`/etc/lightdm/lightdm.conf` va boshqa DM config** — yodda saqlash.
+
+## 14. Misol — KDE'dan GNOME'ga
+
+```bash
+# 1. Snapshot
+sudo timeshift --create --comments "Before GNOME switch"
+
+# 2. GNOME o'rnatish
+sudo pacman -S gnome gnome-extra gdm
+
+# 3. SDDM o'chirib, GDM yoqish
+sudo systemctl disable sddm
+sudo systemctl enable gdm
+
+# 4. Reboot
+sudo reboot
+
+# 5. GDM oynasida login
+
+# 6. KDE'ni keyin o'chirish (xohlasangiz)
+sudo pacman -Rns plasma-meta sddm
+```
+
+## 15. Mashqlar
+
+1. **Joriy DE:** `echo $XDG_CURRENT_DESKTOP`.
+2. **Display manager:** `systemctl status sddm` (yoki gdm, lightdm).
+3. **Boshqa DE qo'shish:** Test VM'da KDE'dan Xfce'ga.
+4. **Wayland:** KDE'da Wayland session sinab ko'rish.
+5. **Settings Manager:** GUI'ni ochib har tab'ni o'rganish.
+
+## 16. Bilim sinovi
+
+**Savol 1.** KDE'ning asosiy xususiyati:
+
+- a) Yengil
+- b) Eng moslashtirilgan (customization)
+- c) macOS hissi
+- d) Klassik
+
+<Callout type="success" title="Javob">
+**(b)** Widgets, effects, theme, layout — hammasi sozlanadi.[¹](https://manjaro.org/download/)
+</Callout>
+
+**Savol 2.** Eski hardware uchun:
+
+- a) KDE
+- b) Xfce (yengil)
+- c) GNOME
+- d) Cinnamon
+
+<Callout type="success" title="Javob">
+**(b)** RAM minimum 2 GB. KDE va GNOME — 4 GB+.
+</Callout>
+
+**Savol 3.** Bir vaqtda ikki DM:
+
+- a) OK
+- b) Konflikt — bittasini tanlash kerak
+- c) Tezroq
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** SDDM va GDM bir vaqtda ishlay olmaydi.
+</Callout>
+
+**Savol 4.** Wayland NVIDIA bilan:
+
+- a) Yaxshi
+- b) Eski driver'da yomon — yangi 545+ qo'llab-quvvatlaydi
+- c) Hech farqi yo'q
+- d) Faqat AMD
+
+<Callout type="success" title="Javob">
+**(b)** Yangi NVIDIA driver'da Wayland ishlaydi.
+</Callout>
+
+**Savol 5.** DE o'zgartirib eski'sini o'chirish:
+
+- a) Avval o'chirib keyin yangi o'rnatish
+- b) Yangi o'rnatib, unga o'tib keyin eski'ni o'chirish
+- c) Hech narsa
+- d) Reboot
+
+<Callout type="success" title="Javob">
+**(b)** Eski o'chirilsa, hech DE qolmaydi — GUI ishlamaydi.
+</Callout>
+
+## Manbalar
+
+1. Manjaro Editions. [https://manjaro.org/download/](https://manjaro.org/download/)
+
+## Keyingi qadam
+
+👉 [Manjaro AUR Helper (yay/paru)](/manjaro/aur-helpers)

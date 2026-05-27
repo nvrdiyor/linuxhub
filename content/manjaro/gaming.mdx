@@ -1,0 +1,361 @@
+---
+title: "Manjaro Gaming — Steam, Proton, Lutris"
+description: "Manjaro'da o'yinlar — Steam, Proton, Wine, Lutris."
+order: 9
+level: "intermediate"
+estimated_minutes: 9
+prerequisites:
+  - "/manjaro/mhwd"
+learning_objectives:
+  - "Steam o'rnatish"
+  - "Proton — Windows o'yinlar"
+  - "Lutris — non-Steam"
+  - "GameMode va performance"
+  - "MangoHUD — FPS monitor"
+tags: ["manjaro", "gaming", "steam", "proton"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ProtonDB"
+    url: "https://www.protondb.com/"
+  - title: "Lutris"
+    url: "https://lutris.net/"
+---
+
+**Manjaro** — Linux gaming uchun yaxshi tanlov. Eng yangi GPU driver, kernel, va Steam Proton bilan minglab Windows o'yinlar ishlaydi.[¹](https://www.protondb.com/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- GPU driver (mhwd).
+- Steam + Proton.
+- Lutris non-Steam o'yinlar uchun.
+- GameMode performance.
+- MangoHUD FPS overlay.
+- Vulkan support.
+</Callout>
+
+## 1. GPU driver
+
+```bash
+# Avtomatik tanlash
+sudo mhwd -a pci nonfree 0300
+
+# NVIDIA
+sudo mhwd -i pci video-nvidia
+
+# Reboot
+sudo reboot
+
+# Test
+glxinfo | grep "OpenGL renderer"
+# OpenGL renderer string: NVIDIA GeForce RTX 4060
+```
+
+## 2. Steam o'rnatish
+
+```bash
+# Repository
+sudo pacman -S steam
+
+# Yoki Flatpak
+flatpak install flathub com.valvesoftware.Steam
+
+# Yoki Snap
+sudo snap install steam
+```
+
+Ishga tushirish:
+
+```bash
+steam
+```
+
+Login va kutubxonangiz keladi.
+
+## 3. Proton — Windows o'yinlar
+
+Proton — Wine + DXVK + VKD3D — Windows o'yinlar Linux'da.
+
+Steam → Settings → Compatibility → "Enable Steam Play for all titles".
+
+```
+Proton 9.0-x (latest)
+Proton Experimental
+Proton GE (GloriousEggroll — community fork, eng yaxshi compat)
+```
+
+## 4. Proton GE
+
+```bash
+# yay'dan
+yay -S protonup-qt
+
+# GUI
+protonup-qt
+
+# Yoki CLI
+yay -S protonup-rs
+protonup -d ~/.steam/root/compatibilitytools.d/
+```
+
+Steam'ni qayta ishga tushiring — Proton GE versiyalari ko'rinadi.
+
+Per-game tanlash: Library → Right-click game → Properties → Compatibility → Force the use of a specific Steam Play compatibility tool → "Proton-GE-Latest".
+
+## 5. ProtonDB
+
+```
+https://www.protondb.com/
+```
+
+Har o'yin uchun Proton'da qanday ishlaydi. **Platinum** — to'liq, **Gold** — tweak'siz, **Silver** — ko'p tweak, **Bronze** — ishlamaydi.
+
+## 6. Vulkan support
+
+```bash
+# Vulkan o'rnatish
+sudo pacman -S vulkan-icd-loader lib32-vulkan-icd-loader
+
+# NVIDIA
+sudo pacman -S nvidia-utils lib32-nvidia-utils
+
+# AMD
+sudo pacman -S vulkan-radeon lib32-vulkan-radeon
+
+# Intel
+sudo pacman -S vulkan-intel lib32-vulkan-intel
+
+# Test
+vulkaninfo --summary
+```
+
+`lib32-*` — 32-bit support (eski o'yinlar uchun).
+
+## 7. Lutris — non-Steam
+
+Battle.net, Epic Games, GOG, va boshqalar:
+
+```bash
+sudo pacman -S lutris
+```
+
+GUI'da:
+
+1. **Sources** — Battle.net, Epic, GOG installer'lar.
+2. **Wine** — manual o'yinlar.
+3. **Communities scripts** — bir bosish bilan o'rnatish.
+
+## 8. GameMode
+
+CPU/GPU performance tuning while gaming:
+
+```bash
+sudo pacman -S gamemode lib32-gamemode
+
+# Steam launch option
+gamemoderun %command%
+
+# Yoki executable bilan
+gamemoderun ./mygame
+```
+
+`/etc/gamemode.ini`:
+
+```ini
+[general]
+renice=10
+ioprio=0
+inhibit_screensaver=1
+
+[gpu]
+apply_gpu_optimisations=accept-responsibility
+gpu_device=0
+amd_performance_level=high
+```
+
+## 9. MangoHUD — FPS overlay
+
+```bash
+sudo pacman -S mangohud lib32-mangohud
+
+# Steam launch
+mangohud %command%
+
+# Yoki environment
+MANGOHUD=1 ./mygame
+```
+
+`~/.config/MangoHud/MangoHud.conf`:
+
+```
+gpu_stats
+cpu_stats
+fps
+frametime=0
+gpu_temp
+cpu_temp
+ram
+vram
+position=top-left
+font_size=20
+```
+
+## 10. DXVK / VKD3D-Proton
+
+Proton'da DirectX → Vulkan tarjima:
+
+- **DXVK** — DirectX 9, 10, 11 → Vulkan.
+- **VKD3D-Proton** — DirectX 12 → Vulkan.
+
+Avtomatik Proton ichida. Manual:
+
+```bash
+yay -S dxvk-bin vkd3d-proton-bin
+```
+
+## 11. Heroic Games Launcher
+
+Epic Games + GOG client:
+
+```bash
+yay -S heroic-games-launcher-bin
+# Yoki Flatpak
+flatpak install flathub com.heroicgameslauncher.hgl
+```
+
+GUI bilan o'yinlar download va run.
+
+## 12. Misol — Cyberpunk 2077 Steam
+
+```bash
+# 1. Steam o'rnatish va o'yinni download
+# 2. Library → Cyberpunk 2077 → Properties
+
+# Compatibility:
+#   Force Proton 9.0 (yoki Proton-GE-Latest)
+
+# Launch Options:
+#   gamemoderun mangohud %command%
+
+# 3. Boshlash
+```
+
+ProtonDB'da har o'yin uchun launch options tavsiyalar.
+
+## 13. Wine bilan o'yinlar (Lutris'siz)
+
+```bash
+# Wine
+sudo pacman -S wine wine-mono wine-gecko
+
+# Winetricks
+sudo pacman -S winetricks
+
+# Bottle (wine prefix)
+WINEPREFIX=~/.wine-myapp winecfg
+
+# .exe ishga tushirish
+WINEPREFIX=~/.wine-myapp wine setup.exe
+```
+
+## 14. CachyOS kernel (gaming optimized)
+
+Manjaro'da:
+
+```bash
+yay -S linux-cachyos linux-cachyos-headers
+
+# Yoki Manjaro'ning Zen kernel
+sudo mhwd-kernel -i linux-zen
+```
+
+CachyOS — gaming benchmark'larida 5-15% tezroq.
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`lib32-*` paket'lar yo'q** — 32-bit support yo'q, eski o'yinlar ishlamaydi.
+- **Multilib repository yoqilmagan** — `/etc/pacman.conf`'da `[multilib]` yoqing.
+- **Proton-GE Steam restart bo'lmasdan** — yangi versiya ko'rinmaydi.
+- **NVIDIA Wayland muammosi** — 545+ driver kerak.
+- **GameMode root'siz** — `systemctl --user enable gamemoded`.
+
+## 16. Eng yaxshi amaliyot
+
+- **Eng yangi NVIDIA driver** — Vulkan performance.
+- **Proton-GE** — Proton'dan kengroq compat.
+- **ProtonDB tekshirish** — har o'yin uchun.
+- **`gamemoderun mangohud %command%`** — performance + monitoring.
+- **CachyOS yoki Zen kernel** — gaming optimized.
+
+## 17. Mashqlar
+
+1. **Steam o'rnatish:** Free o'yin (Dota 2, CS2).
+2. **Proton GE:** O'rnatib, sinab ko'rish.
+3. **Lutris:** Battle.net yoki Epic Games.
+4. **MangoHUD:** FPS overlay.
+5. **GameMode:** Launch option bilan.
+
+## 18. Bilim sinovi
+
+**Savol 1.** Proton nima?
+
+- a) GPU
+- b) Steam'ning Wine + DXVK forki — Windows o'yinlar Linux'da
+- c) Linux distro
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Valve'ning project'i — Windows o'yinlar Linux'da deyarli barchasi ishlaydi.[¹](https://www.protondb.com/)
+</Callout>
+
+**Savol 2.** ProtonDB:
+
+- a) Database
+- b) Community ranking — har o'yin Proton'da qanday ishlaydi
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Platinum/Gold/Silver/Bronze ranking.
+</Callout>
+
+**Savol 3.** DXVK:
+
+- a) Steam plugin
+- b) DirectX → Vulkan tarjima (Proton ichida)
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Performance tarjima — native DX'ga yaqin.
+</Callout>
+
+**Savol 4.** GameMode:
+
+- a) Antivirus
+- b) CPU/GPU performance tuning — o'yin paytida
+- c) Faqat AMD
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Renice, governor, GPU tuning.
+</Callout>
+
+**Savol 5.** Lutris afzalligi:
+
+- a) Faqat Steam
+- b) Steam + Epic + GOG + Battle.net + boshqalar
+- c) Hech narsa
+- d) GUI yo'q
+
+<Callout type="success" title="Javob">
+**(b)** Bitta launcher — barcha platformalar.
+</Callout>
+
+## Manbalar
+
+1. ProtonDB. [https://www.protondb.com/](https://www.protondb.com/)
+2. Lutris. [https://lutris.net/](https://lutris.net/)
+
+## Keyingi qadam
+
+👉 [Manjaro Performance Tuning](/manjaro/performance)
