@@ -1,0 +1,345 @@
+---
+title: "Nix Garbage Collection"
+description: "Nix store'ni tozalash — generations va gc."
+order: 33
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/nixos/concepts/nix-language"
+learning_objectives:
+  - "Nix store nima saqlaydi"
+  - "Generations va roots"
+  - "`nix-collect-garbage`"
+  - "Avtomatik GC schedule"
+  - "Store optimize"
+tags: ["nixos", "garbage-collection", "store"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Manual — GC"
+    url: "https://nixos.org/manual/nix/stable/package-management/garbage-collection.html"
+---
+
+**Nix store** vaqt o'tib o'sib boradi — har paket update'da eski versiya saqlanadi (rollback uchun). **Garbage collection** — kerak bo'lmagan paketlarni o'chirib disk bo'shatadi.[¹](https://nixos.org/manual/nix/stable/package-management/garbage-collection.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Nix store strukturasi.
+- Generations va GC roots.
+- `nix-collect-garbage`.
+- `--delete-older-than`.
+- Avtomatik GC NixOS'da.
+- Store optimize.
+</Callout>
+
+## 1. Nix store
+
+```bash
+ls /nix/store/ | head
+# 0001a-libffi-3.4.4
+# 002b-glibc-2.39
+# ...
+
+# Hajm
+du -sh /nix/store
+# 50G
+```
+
+Har paket — `<hash>-<name>-<version>`. Hash content asosida — bir xil paket bir marta.
+
+## 2. Generations
+
+Har `nixos-rebuild switch` — yangi generation:
+
+```bash
+sudo nix-env --list-generations --profile /nix/var/nix/profiles/system
+
+#   1   2026-04-01 10:00:00
+#   2   2026-04-15 11:30:00
+#   3   2026-05-01 14:00:00   (current)
+```
+
+Har generation — paketlar ro'yxatining snapshot'i. Eski generation'lar GC'dan saqlaydi.
+
+## 3. GC roots
+
+```bash
+# GC root'lar — kerak paketlar
+nix-store --gc --print-roots | head
+
+# /nix/var/nix/profiles/system-3-link
+# /nix/var/nix/profiles/per-user/diyor/profile-15-link
+# /nix/var/nix/profiles/per-user/diyor/channels-5-link
+# ...
+```
+
+Root'larga ulangan paketlar saqlanadi. Boshqalari — garbage.
+
+## 4. `nix-collect-garbage`
+
+```bash
+# Faqat unused paketlar (har generation saqlanadi)
+sudo nix-collect-garbage
+
+# Eski generation'larni ham o'chirish
+sudo nix-collect-garbage -d
+# DANGEROUS: rollback imkoniyati yo'qoladi
+```
+
+```bash
+# Faqat foydalanuvchi
+nix-collect-garbage
+
+# System wide
+sudo nix-collect-garbage
+
+# Bir kun'dan eski
+sudo nix-collect-garbage --delete-older-than 1d
+sudo nix-collect-garbage --delete-older-than 7d
+sudo nix-collect-garbage --delete-older-than 30d
+```
+
+## 5. Tozalashdan oldin tekshirish
+
+```bash
+# Qancha o'chiriladi?
+sudo nix-collect-garbage --dry-run
+
+# Yoki
+nix-store --gc --print-dead | du -sch
+```
+
+## 6. Avtomatik GC
+
+`/etc/nixos/configuration.nix`:
+
+```nix
+{
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
+  };
+}
+```
+
+Yoki Flakes bilan:
+
+```nix
+{
+  nix.gc = {
+    automatic = true;
+    persistent = true;          # missed run'larni catch up
+    dates = "weekly";
+    options = "--delete-older-than 7d";
+  };
+}
+```
+
+`systemctl list-timers | grep nix-gc`.
+
+## 7. Store optimize
+
+Duplicate fayllarni hardlink qilish:
+
+```bash
+# Manual
+nix-store --optimise
+
+# Avtomatik
+# configuration.nix
+nix.optimise.automatic = true;
+nix.optimise.dates = [ "03:45" ];
+
+# Yoki
+nix.settings.auto-optimise-store = true;
+```
+
+Disk hajmi 10-30% kamayishi mumkin.
+
+## 8. Generation'larni boshqarish
+
+```bash
+# Ro'yxat
+sudo nix-env --list-generations --profile /nix/var/nix/profiles/system
+
+# Aniq generation'ni o'chirish
+sudo nix-env --delete-generations 1 2 3 --profile /nix/var/nix/profiles/system
+
+# Eski'larni
+sudo nix-env --delete-generations old --profile /nix/var/nix/profiles/system
+# `old` — current'dan tashqari hammasi
+
+# Boshqa profile'lar
+sudo nix-env --delete-generations old --profile /nix/var/nix/profiles/per-user/diyor/profile
+
+# Channel
+sudo nix-env --delete-generations old --profile /nix/var/nix/profiles/per-user/diyor/channels
+```
+
+## 9. Disk to'lib qolgan
+
+Acil:
+
+```bash
+# Eng tez
+sudo nix-collect-garbage -d
+
+# Yoki
+sudo nix-collect-garbage --delete-older-than 1h
+
+# Generation'larni manual
+sudo nix-env --delete-generations old --profile /nix/var/nix/profiles/system
+sudo nix-collect-garbage
+
+# Store optimize
+sudo nix-store --optimise
+```
+
+## 10. Per-profile GC
+
+Har foydalanuvchi alohida profile:
+
+```bash
+ls /nix/var/nix/profiles/per-user/
+# diyor/
+# admin/
+
+# diyor uchun
+sudo nix-env --delete-generations old --profile /nix/var/nix/profiles/per-user/diyor/profile
+sudo nix-collect-garbage
+```
+
+## 11. Boot generation'larni o'chirish
+
+GRUB menyusi'da ham generation'lar:
+
+```nix
+{
+  boot.loader.systemd-boot.configurationLimit = 10;     # 10 ta saqlash
+  boot.loader.grub.configurationLimit = 10;
+}
+```
+
+```bash
+sudo nixos-rebuild boot
+# Menu'da 10 ta latest qoladi
+```
+
+## 12. Misol — har hafta GC
+
+`/etc/nixos/configuration.nix`:
+
+```nix
+{
+  nix = {
+    # Avtomatik GC
+    gc = {
+      automatic = true;
+      persistent = true;
+      dates = "weekly";
+      options = "--delete-older-than 30d";
+    };
+
+    # Store optimize
+    optimise = {
+      automatic = true;
+      dates = [ "03:45" ];
+    };
+
+    # Yoki
+    settings.auto-optimise-store = true;
+  };
+
+  # Boot generations
+  boot.loader.systemd-boot.configurationLimit = 10;
+}
+```
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`-d` darhol** — rollback imkoniyati yo'qoladi.
+- **GC root manual qilish** — saqlanadi, GC ishlamaydi.
+- **GC ishlatmaslik** — disk to'lib qoladi.
+- **`auto-optimise-store` katta tizimda sekin** — bunlock vaqtida.
+- **Boot generation cheklashsiz** — GRUB menu uzun.
+
+## 14. Eng yaxshi amaliyot
+
+- **Avtomatik GC weekly** — disk to'lib qolmaslik.
+- **`--delete-older-than 30d`** — bir oylik rollback OK.
+- **`auto-optimise-store`** — duplicate hardlink.
+- **Boot limit 10-20** — boot menu toza.
+- **Manual GC katta build'dan keyin** — Docker image'lar ko'p disk.
+
+## 15. Mashqlar
+
+1. **Joriy hajm:** `du -sh /nix/store`.
+2. **Generations:** `nix-env --list-generations`.
+3. **Dry-run:** `nix-collect-garbage --dry-run`.
+4. **GC:** 30 kunlik retention.
+5. **Avtomatik:** Configuration.nix'da weekly GC.
+
+## 16. Bilim sinovi
+
+**Savol 1.** Nix store nima saqlaydi?
+
+- a) Faqat joriy paketlar
+- b) Joriy + eski generation'lar (rollback uchun)
+- c) Faqat kernel
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Har generation'da paketlar — eski'larni saqlaydi.[¹](https://nixos.org/manual/nix/stable/package-management/garbage-collection.html)
+</Callout>
+
+**Savol 2.** `nix-collect-garbage -d`:
+
+- a) Faqat unused
+- b) Hammasi + eski generation'lar (rollback yo'q)
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `-d` — generation'larni ham. Rollback imkoniyati yo'qoladi.
+</Callout>
+
+**Savol 3.** Generation nima?
+
+- a) Versiya
+- b) `nixos-rebuild` snapshot — barcha paket'larning ro'yxati
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Har system state — boot'dan tanlash mumkin.
+</Callout>
+
+**Savol 4.** `auto-optimise-store`:
+
+- a) Tezroq build
+- b) Duplicate fayllarni hardlink — disk tejaydi
+- c) Hech narsa
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Bir xil fayllar bir marta saqlanadi.
+</Callout>
+
+**Savol 5.** Boot generation'lar:
+
+- a) Cheklashsiz
+- b) `configurationLimit` bilan cheklang
+- c) Faqat 1
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** GRUB/systemd-boot menu — `configurationLimit = 10`.
+</Callout>
+
+## Manbalar
+
+1. NixOS Manual — GC. [https://nixos.org/manual/nix/stable/package-management/garbage-collection.html](https://nixos.org/manual/nix/stable/package-management/garbage-collection.html)
+
+## Keyingi qadam
+
+👉 [NixOS DevShells](/nixos/devshells)

@@ -1,0 +1,476 @@
+---
+title: "Home Manager — user environment NixOS'da"
+description: "Home Manager — foydalanuvchi dasturlar va dotfiles Nix bilan."
+order: 30
+level: "intermediate"
+estimated_minutes: 9
+prerequisites:
+  - "/nixos/concepts/nix-language"
+learning_objectives:
+  - "Home Manager nima"
+  - "Standalone va NixOS module"
+  - "Foydalanuvchi paketlari"
+  - "Dotfiles declarative"
+  - "Update va switch"
+tags: ["nixos", "home-manager", "dotfiles"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Home Manager"
+    url: "https://nix-community.github.io/home-manager/"
+---
+
+**Home Manager** — Nix orqali foydalanuvchi muhitini declarative tarzda boshqaruv. NixOS — tizim, Home Manager — `~/`. Dotfiles, paketlar, sozlamalar bitta `home.nix`'da.[¹](https://nix-community.github.io/home-manager/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Home Manager o'rnatish.
+- Standalone (har distro) yoki NixOS module.
+- Foydalanuvchi paketlari.
+- Dotfiles (vim, zsh, git) declarative.
+- `home-manager switch`.
+</Callout>
+
+## 1. Standalone install (har distro)
+
+```bash
+# Nix o'rnatilgan bo'lishi kerak
+nix-channel --add https://github.com/nix-community/home-manager/archive/release-24.05.tar.gz home-manager
+nix-channel --update
+
+# Home Manager
+nix-shell '<home-manager>' -A install
+
+# Birinchi switch
+home-manager switch
+```
+
+Endi `~/.config/home-manager/home.nix` mavjud.
+
+## 2. NixOS module sifatida
+
+`/etc/nixos/configuration.nix`:
+
+```nix
+{ config, pkgs, ... }:
+{
+  imports = [
+    <home-manager/nixos>
+  ];
+
+  home-manager.users.diyor = { pkgs, ... }: {
+    home.packages = with pkgs; [
+      firefox
+      vscode
+    ];
+    home.stateVersion = "24.05";
+  };
+}
+```
+
+```bash
+sudo nixos-rebuild switch
+```
+
+## 3. `home.nix` asosiy
+
+```nix
+{ config, pkgs, ... }:
+{
+  home.username = "diyor";
+  home.homeDirectory = "/home/diyor";
+  home.stateVersion = "24.05";
+
+  home.packages = with pkgs; [
+    firefox
+    vscode
+    obsidian
+    discord
+    spotify
+    htop
+    btop
+    ripgrep
+    fd
+    bat
+    fzf
+    jq
+    tree
+  ];
+
+  programs.home-manager.enable = true;
+}
+```
+
+```bash
+home-manager switch
+```
+
+## 4. Program modul'lar
+
+Home Manager dasturlar uchun modul'lar:
+
+```nix
+{
+  programs.git = {
+    enable = true;
+    userName = "Diyor";
+    userEmail = "diyor@example.com";
+    aliases = {
+      st = "status";
+      co = "checkout";
+      br = "branch";
+      cm = "commit";
+    };
+    extraConfig = {
+      init.defaultBranch = "main";
+      pull.rebase = true;
+    };
+  };
+
+  programs.zsh = {
+    enable = true;
+    enableCompletion = true;
+    enableAutosuggestions = true;
+    shellAliases = {
+      ll = "ls -la";
+      gs = "git status";
+    };
+    oh-my-zsh = {
+      enable = true;
+      theme = "robbyrussell";
+      plugins = [ "git" "docker" ];
+    };
+  };
+
+  programs.vscode = {
+    enable = true;
+    extensions = with pkgs.vscode-extensions; [
+      ms-python.python
+      esbenp.prettier-vscode
+      eamodio.gitlens
+    ];
+    userSettings = {
+      "editor.fontSize" = 14;
+      "editor.fontFamily" = "JetBrains Mono";
+      "editor.formatOnSave" = true;
+    };
+  };
+}
+```
+
+## 5. Dotfiles management
+
+### Static fayl
+
+```nix
+home.file.".config/myapp/config.toml".text = ''
+  [database]
+  url = "postgres://localhost/mydb"
+
+  [server]
+  port = 8080
+'';
+```
+
+### Fayl ko'chirib qo'yish
+
+```nix
+home.file.".config/myapp/config.toml".source = ./dotfiles/myapp.toml;
+
+# Yoki katalog
+home.file.".config/i3".source = ./dotfiles/i3;
+```
+
+### XDG config
+
+```nix
+xdg.configFile."alacritty/alacritty.yml".text = ''
+  window:
+    opacity: 0.95
+  font:
+    size: 12
+'';
+```
+
+## 6. Service'lar
+
+Home Manager systemd user service'lar yaratadi:
+
+```nix
+{
+  services.dunst = {
+    enable = true;
+    settings = {
+      global = {
+        font = "JetBrains Mono 10";
+        frame_color = "#89dceb";
+      };
+    };
+  };
+
+  services.syncthing.enable = true;
+
+  services.gpg-agent = {
+    enable = true;
+    defaultCacheTtl = 3600;
+    pinentryPackage = pkgs.pinentry-gnome3;
+  };
+}
+```
+
+## 7. WM (Window Manager)
+
+i3, sway, hyprland:
+
+```nix
+{
+  wayland.windowManager.sway = {
+    enable = true;
+    config = rec {
+      modifier = "Mod4";
+      terminal = "alacritty";
+      menu = "rofi -show drun";
+      bars = [];
+      keybindings = {
+        "${modifier}+Return" = "exec ${terminal}";
+        "${modifier}+d" = "exec ${menu}";
+        "${modifier}+Shift+q" = "kill";
+      };
+    };
+  };
+}
+```
+
+## 8. Switch va rollback
+
+```bash
+# Yangi config qo'llash
+home-manager switch
+
+# Versiya tarixi
+home-manager generations
+
+# Rollback
+/nix/store/...-home-manager-generation/activate
+```
+
+## 9. Flake bilan (zamonaviy)
+
+`flake.nix`:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
+    home-manager = {
+      url = "github:nix-community/home-manager/release-24.05";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { nixpkgs, home-manager, ... }: {
+    homeConfigurations."diyor" = home-manager.lib.homeManagerConfiguration {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      modules = [ ./home.nix ];
+    };
+  };
+}
+```
+
+```bash
+home-manager switch --flake .#diyor
+```
+
+## 10. Misol — to'liq dev workstation
+
+```nix
+{ config, pkgs, ... }:
+
+let
+  myPkgs = with pkgs; [
+    # Editors
+    vim neovim
+    vscode
+
+    # Dev tools
+    git lazygit
+    docker docker-compose
+    kubectl kubectx k9s helm
+
+    # Languages
+    nodejs_20
+    python311
+    rustup
+    go
+
+    # CLI utilities
+    ripgrep fd bat eza
+    fzf jq yq
+    htop btop
+    tldr
+    httpie
+
+    # Browsers
+    firefox
+    google-chrome
+
+    # Communication
+    slack discord telegram-desktop
+
+    # Media
+    spotify vlc obs-studio
+
+    # Productivity
+    obsidian
+    libreoffice
+  ];
+
+in {
+  home.username = "diyor";
+  home.homeDirectory = "/home/diyor";
+  home.stateVersion = "24.05";
+
+  home.packages = myPkgs;
+
+  programs.git = {
+    enable = true;
+    userName = "Diyor";
+    userEmail = "diyor@example.com";
+  };
+
+  programs.zsh = {
+    enable = true;
+    shellAliases = {
+      ll = "eza -la";
+      cat = "bat";
+      find = "fd";
+    };
+  };
+
+  programs.starship.enable = true;
+
+  programs.alacritty = {
+    enable = true;
+    settings = {
+      window.opacity = 0.95;
+      font.size = 12;
+    };
+  };
+
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    BROWSER = "firefox";
+  };
+}
+```
+
+## 11. Per-host config
+
+```nix
+# home.nix
+{ config, pkgs, lib, ... }:
+{
+  imports = lib.optional (builtins.pathExists ./host.nix) ./host.nix;
+
+  home.packages = with pkgs; [
+    # common packages
+  ];
+}
+
+# host.nix (laptop'da)
+{ pkgs, ... }:
+{
+  home.packages = with pkgs; [
+    powertop
+    tlp
+  ];
+}
+```
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **`stateVersion` o'zgartirilmasligi kerak** — versiya migration uchun.
+- **`home-manager switch` qilmaslik** — config o'zgartirilgan, lekin amal qilmagan.
+- **Konflikt mavjud fayllar bilan** — `home.file.*` mavjud fayl ustiga yozolmaydi.
+- **NixOS module bilan standalone aralashtirish** — bittasini tanlash.
+- **`stateVersion` o'zgartirish** — fayllar buzilishi mumkin.
+
+## 13. Eng yaxshi amaliyot
+
+- **Flake bilan** — reproducible, lock fayl.
+- **Per-host modular config** — laptop vs desktop.
+- **Dotfiles Git'da** — `home.nix` versiya nazorat.
+- **`home.packages` minimal** — kerakli'lari faqat.
+- **`programs.*` declarative** — `home.file.*` o'rniga.
+
+## 14. Mashqlar
+
+1. **O'rnatish:** Home Manager standalone yoki NixOS module.
+2. **Birinchi switch:** Bir nechta paket bilan.
+3. **Git config:** `programs.git` bilan.
+4. **Dotfile:** `home.file` bilan custom fayl.
+5. **Generation tarixi:** `home-manager generations`.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Home Manager nima boshqaradi?
+
+- a) Tizim
+- b) Foydalanuvchi muhiti (`~/`)
+- c) Faqat paketlar
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** User-level — dotfiles, paketlar, service.[¹](https://nix-community.github.io/home-manager/)
+</Callout>
+
+**Savol 2.** NixOS vs Home Manager:
+
+- a) Bir xil
+- b) NixOS — tizim, Home Manager — user
+- c) Home Manager kerak emas
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Birga ishlatish — full reproducibility.
+</Callout>
+
+**Savol 3.** Switch buyrug'i:
+
+- a) `nixos-rebuild`
+- b) `home-manager switch`
+- c) `nix-env`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Yoki NixOS module orqali `nixos-rebuild switch`.
+</Callout>
+
+**Savol 4.** `programs.git`:
+
+- a) Git'ni o'rnatadi
+- b) Git'ni o'rnatadi + config (`.gitconfig`)
+- c) Faqat config
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Program module — paket + config birga.
+</Callout>
+
+**Savol 5.** Flake afzalligi:
+
+- a) Tezroq
+- b) Lock fayl — reproducible, versiya pin
+- c) Kichikroq
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `flake.lock` har commit'da hash'ni saqlaydi.
+</Callout>
+
+## Manbalar
+
+1. Home Manager. [https://nix-community.github.io/home-manager/](https://nix-community.github.io/home-manager/)
+
+## Keyingi qadam
+
+👉 [NixOS Flakes chuqur](/nixos/flakes-deep)

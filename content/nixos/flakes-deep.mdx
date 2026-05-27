@@ -1,0 +1,483 @@
+---
+title: "Nix Flakes chuqur"
+description: "Flakes — Nix'ning yangi standart, lock fayl, reproducible builds."
+order: 31
+level: "advanced"
+estimated_minutes: 10
+prerequisites:
+  - "/nixos/concepts/nix-language"
+learning_objectives:
+  - "Flake nima va nima uchun"
+  - "`flake.nix` va `flake.lock`"
+  - "Inputs va outputs"
+  - "NixOS, Home Manager flake"
+  - "`nix flake` buyruqlari"
+tags: ["nixos", "flakes", "nix"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nix Flakes Wiki"
+    url: "https://nixos.wiki/wiki/Flakes"
+  - title: "Flakes reference"
+    url: "https://nix.dev/concepts/flakes"
+---
+
+**Nix Flakes** — Nix'ning yangi standart, reproducible build'lar va dependency'lar uchun. `flake.lock` fayl bilan har vaqt aynan bir xil paket'lar olinadi.[¹](https://nixos.wiki/wiki/Flakes)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Flake nima va eski Nix'dan farqi.
+- `flake.nix` struktura — inputs, outputs.
+- `flake.lock` — version pin.
+- NixOS, Home Manager, devShell flake.
+- `nix flake` CLI.
+</Callout>
+
+## 1. Flake nima?
+
+Flake — Nix project'i:
+
+- **`flake.nix`** — config (Git'da).
+- **`flake.lock`** — pinned versiyalar (Git'da).
+- **Inputs** — boshqa flake'lar yoki kanal'lar.
+- **Outputs** — packages, NixOS configs, devShells.
+
+Afzalliklar:
+
+- **Reproducible** — har commit aynan bir xil hash.
+- **Standard** — yagona format.
+- **Pure evaluation** — environment ishlatmaydi.
+
+## 2. Yoqish
+
+Default'da hali experimental:
+
+```bash
+# /etc/nix/nix.conf yoki ~/.config/nix/nix.conf
+experimental-features = nix-command flakes
+```
+
+NixOS'da:
+
+```nix
+{
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+}
+```
+
+## 3. Birinchi flake
+
+```bash
+mkdir my-project
+cd my-project
+nix flake init
+```
+
+`flake.nix` yaratiladi:
+
+```nix
+{
+  description = "A very basic flake";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+  };
+
+  outputs = { self, nixpkgs }: {
+    packages.x86_64-linux.hello = nixpkgs.legacyPackages.x86_64-linux.hello;
+    packages.x86_64-linux.default = self.packages.x86_64-linux.hello;
+  };
+}
+```
+
+```bash
+# Build
+nix build
+
+# Run
+nix run
+
+# Show
+nix flake show
+```
+
+## 4. Inputs
+
+```nix
+{
+  inputs = {
+    # Versiyalar
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    # Home Manager
+    home-manager = {
+      url = "github:nix-community/home-manager/release-24.05";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Flake utils
+    flake-utils.url = "github:numtide/flake-utils";
+
+    # Boshqa flake
+    my-tools = {
+      url = "github:diyornv/my-tools";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Lokal
+    local-mod.url = "path:./local-module";
+
+    # Tag bilan
+    foo.url = "github:owner/repo/v1.2.3";
+
+    # Branch bilan
+    bar.url = "github:owner/repo/develop";
+  };
+
+  outputs = inputs: { ... };
+}
+```
+
+## 5. flake.lock
+
+```bash
+# Birinchi build
+nix build
+# flake.lock avtomatik yaratildi
+
+cat flake.lock
+# {
+#   "nodes": {
+#     "nixpkgs": {
+#       "locked": {
+#         "lastModified": 1714253743,
+#         "narHash": "sha256-mdTQw2XlariysyScCv2tTE45QSU9v/ezLcHJ22f0Nxc=",
+#         "owner": "NixOS",
+#         "repo": "nixpkgs",
+#         "rev": "abcd1234...",
+#         "type": "github"
+#       },
+#       ...
+#     }
+#   }
+# }
+```
+
+`rev` — Git commit hash. `nix build` har vaqt aynan shu commit'ni ishlatadi.
+
+## 6. Update
+
+```bash
+# Bitta input
+nix flake lock --update-input nixpkgs
+
+# Hammasi
+nix flake update
+
+# Refresh
+nix flake check
+```
+
+## 7. NixOS flake
+
+`/etc/nixos/flake.nix`:
+
+```nix
+{
+  description = "My NixOS config";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    home-manager = {
+      url = "github:nix-community/home-manager/release-24.05";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { self, nixpkgs, home-manager, ... }: {
+    nixosConfigurations.mylaptop = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ./configuration.nix
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+          home-manager.users.diyor = import ./home.nix;
+        }
+      ];
+    };
+  };
+}
+```
+
+Switch:
+
+```bash
+sudo nixos-rebuild switch --flake /etc/nixos#mylaptop
+```
+
+## 8. DevShell
+
+Project bog'liq dev environment:
+
+```nix
+{
+  description = "My Node.js project";
+
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+
+  outputs = { self, nixpkgs }:
+    let
+      system = "x86_64-linux";
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      devShells.${system}.default = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          nodejs_20
+          pnpm
+          typescript
+        ];
+
+        shellHook = ''
+          echo "Welcome to my-project dev shell"
+          export NODE_ENV=development
+        '';
+      };
+    };
+}
+```
+
+```bash
+nix develop
+# Yoki direnv bilan avtomatik
+```
+
+## 9. `direnv` integration
+
+`.envrc`:
+
+```bash
+use flake
+```
+
+```bash
+direnv allow
+```
+
+Endi katalogga kirsangiz — avtomatik environment.
+
+## 10. Package
+
+```nix
+{
+  outputs = { self, nixpkgs }:
+    let
+      system = "x86_64-linux";
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      packages.${system}.hello = pkgs.stdenv.mkDerivation {
+        name = "my-hello";
+        src = ./.;
+        buildPhase = ''
+          echo "echo Hello from flake" > hello.sh
+          chmod +x hello.sh
+        '';
+        installPhase = ''
+          mkdir -p $out/bin
+          cp hello.sh $out/bin/hello
+        '';
+      };
+
+      packages.${system}.default = self.packages.${system}.hello;
+    };
+}
+```
+
+```bash
+nix build
+./result/bin/hello
+# Hello from flake
+```
+
+## 11. Multi-system
+
+`flake-utils` bilan:
+
+```nix
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs";
+  inputs.flake-utils.url = "github:numtide/flake-utils";
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let pkgs = nixpkgs.legacyPackages.${system};
+      in {
+        packages.default = pkgs.hello;
+        devShells.default = pkgs.mkShell { ... };
+      });
+}
+```
+
+Endi `x86_64-linux`, `aarch64-linux`, `x86_64-darwin`, `aarch64-darwin` hammasiga ishlaydi.
+
+## 12. `nix flake` buyruqlari
+
+```bash
+# Init
+nix flake init
+nix flake init -t templates#trivial
+
+# Info
+nix flake show
+nix flake metadata
+
+# Update
+nix flake update
+nix flake lock --update-input <name>
+
+# Check (validation)
+nix flake check
+
+# Clone
+nix flake clone github:owner/repo
+
+# Build/run
+nix build .#package
+nix run .#app
+nix develop .#shell
+```
+
+## 13. Misol — Home Manager flake
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    home-manager.url = "github:nix-community/home-manager/release-24.05";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { nixpkgs, home-manager, ... }: {
+    homeConfigurations."diyor" = home-manager.lib.homeManagerConfiguration {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      modules = [ ./home.nix ];
+    };
+  };
+}
+```
+
+```bash
+home-manager switch --flake .#diyor
+```
+
+## 14. `follows`
+
+Bir nechta input bir xil nixpkgs ishlatishi uchun:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";       # share
+    };
+    flake-utils = {
+      url = "github:numtide/flake-utils";
+    };
+  };
+}
+```
+
+`follows` — disk hajmi va versiya konflikti yo'q.
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **Experimental yoqilmagan** — `experimental-features` set qiling.
+- **`flake.lock`'ni Git'ga qo'shmaslik** — reproducibility yo'qoladi.
+- **`inputs.nixpkgs.follows` qilmaslik** — duplicate nixpkgs.
+- **`--flake .#name`** — name'ni unutmoq.
+- **Update qilmaslik** — eski paketlar.
+
+## 16. Eng yaxshi amaliyot
+
+- **`flake.lock` Git'da** — har vaqt commit.
+- **`follows` ishlatish** — input konsistentlik.
+- **`flake-utils`** — multi-system uchun.
+- **`nix flake check`** — har commit'dan oldin.
+- **DevShell + direnv** — har project muhitsi.
+
+## 17. Mashqlar
+
+1. **Birinchi flake:** `nix flake init`.
+2. **DevShell:** Node.js project'ga.
+3. **NixOS flake:** Configuration'ni flake'ga ko'chirish.
+4. **Home Manager:** Flake bilan.
+5. **Update:** `nix flake update` har hafta.
+
+## 18. Bilim sinovi
+
+**Savol 1.** `flake.lock` nima beradi?
+
+- a) Tezlik
+- b) Reproducibility — aynan bir xil paketlar har vaqt
+- c) Hech narsa
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Har input'ning aynan rev hash'ni saqlaydi.[¹](https://nixos.wiki/wiki/Flakes)
+</Callout>
+
+**Savol 2.** Inputs'da `follows`:
+
+- a) Hech narsa
+- b) Bir nechta input bir xil nixpkgs share qiladi
+- c) Order
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Duplicate nixpkgs'ni oldini oladi.
+</Callout>
+
+**Savol 3.** DevShell:
+
+- a) Production
+- b) Project'ga moslab dev environment (`nix develop`)
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Project root'da `flake.nix` bilan environment.
+</Callout>
+
+**Savol 4.** NixOS flake switch:
+
+- a) `nixos-rebuild switch`
+- b) `sudo nixos-rebuild switch --flake .#hostname`
+- c) `nix-env -i`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Flake reference + hostname.
+</Callout>
+
+**Savol 5.** `nix flake update`:
+
+- a) `flake.nix`ni o'zgartiradi
+- b) `flake.lock` ni yangilaydi (yangi rev hash'lar)
+- c) Hech narsa
+- d) NixOS rebuild
+
+<Callout type="success" title="Javob">
+**(b)** Eng yangi commit'lar'ga update.
+</Callout>
+
+## Manbalar
+
+1. Nix Flakes Wiki. [https://nixos.wiki/wiki/Flakes](https://nixos.wiki/wiki/Flakes)
+2. Flakes reference. [https://nix.dev/concepts/flakes](https://nix.dev/concepts/flakes)
+
+## Keyingi qadam
+
+👉 [NixOS Secrets management](/nixos/secrets-management)
