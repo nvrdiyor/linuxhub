@@ -1,0 +1,342 @@
+---
+title: "sources.list — Debian repository konfiguratsiya"
+description: "Debian APT manbalari, mirror, deb822 format."
+order: 2
+level: "intermediate"
+estimated_minutes: 9
+prerequisites:
+  - "/debian/apt-debian"
+learning_objectives:
+  - "sources.list format'i"
+  - "Repository turlari (main/contrib/non-free)"
+  - "Mirror tanlash"
+  - "Yangi deb822 (.sources) format"
+tags: ["debian", "apt", "sources", "repository"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "sources.list(5) — Debian manpage"
+    url: "https://manpages.debian.org/bookworm/apt/sources.list.5.en.html"
+  - title: "Debian Mirror List"
+    url: "https://www.debian.org/mirror/list"
+---
+
+**`/etc/apt/sources.list`** — APT repository manbalari fayli. Debian'da nima'ni o'rnatish mumkinligini va qaerdan olishini aytadi.[¹](https://manpages.debian.org/bookworm/apt/sources.list.5.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- One-line va deb822 format.
+- `main`, `contrib`, `non-free`, `non-free-firmware` komponentlar.
+- Security va updates repository.
+- Mirror tanlash va `apt-mirror`.
+- Repository imzolari (Signed-By).
+</Callout>
+
+## 1. One-line format
+
+Klassik `/etc/apt/sources.list`:
+
+```
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+deb-src http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+```
+
+Sintaksis:
+
+```
+deb <URL> <suite> <component1> [component2] [component3] ...
+```
+
+- `deb` — binary paketlar
+- `deb-src` — source kod
+- `<URL>` — mirror
+- `<suite>` — release (`bookworm`, `trixie`, `unstable`)
+- `<component>` — `main`, `contrib`, `non-free`, `non-free-firmware`
+
+## 2. Komponentlar
+
+| Komponent | Ma'no |
+|---|---|
+| `main` | Bepul (DFSG-compliant) — asosiy |
+| `contrib` | Bepul, lekin non-free'ga dependency |
+| `non-free` | Yopiq/cheklangan litsenziya (driver, firmware) |
+| `non-free-firmware` | Firmware (alohida Debian 12'dan) |
+
+Debian 12 (bookworm)'dan boshlab `non-free-firmware` ajratilgan — installer'da default yoqilgan.
+
+## 3. Security va Updates
+
+Debian'da uchta tipdagi update:
+
+```
+# Asosiy paketlar
+deb http://deb.debian.org/debian bookworm main
+
+# Security fixes (tezda)
+deb http://security.debian.org/debian-security bookworm-security main
+
+# Point release uchun (har 2-3 oyda)
+deb http://deb.debian.org/debian bookworm-updates main
+```
+
+`-updates` — kichik bug fix'lar.
+`-security` — xavfsizlik fixes (Debian Security Team).
+
+## 4. deb822 format (.sources)
+
+Yangi format — `/etc/apt/sources.list.d/debian.sources`:
+
+```
+Types: deb deb-src
+URIs: http://deb.debian.org/debian
+Suites: bookworm bookworm-updates
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: http://security.debian.org/debian-security
+Suites: bookworm-security
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+```
+
+Afzalliklari:
+
+- O'qish oson.
+- `Signed-By:` — har repository alohida key.
+- Bir blok'da ko'p repository.
+
+Debian 12 va keyin — default sources `.sources` fayllariga ko'chmoqda.
+
+## 5. Mirror tanlash
+
+Debian Mirror'lar dunyo bo'yicha:
+
+- **`deb.debian.org`** — CDN (eng tez, default).
+- **`ftp.us.debian.org`** — AQSh.
+- **`ftp.ru.debian.org`** — Rossiya.
+- **`mirrors.dotsrc.org`** — Daniya.
+
+Tezroq mirror topish:
+
+```bash
+# netselect-apt o'rnating
+sudo apt install netselect-apt
+
+# Eng tez mirror
+sudo netselect-apt bookworm
+# Yangi sources.list yaratadi
+```
+
+Yoki: `https://www.debian.org/mirror/list`.
+
+## 6. Local mirror (apt-mirror)
+
+Katta tarmoqda ichki mirror:
+
+```bash
+sudo apt install apt-mirror
+
+# /etc/apt/mirror.list
+set base_path /var/spool/apt-mirror
+deb http://deb.debian.org/debian bookworm main contrib non-free
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free
+
+# Sync (taxminan 100 GB!)
+sudo apt-mirror
+
+# HTTP serve
+sudo apt install apache2
+sudo ln -s /var/spool/apt-mirror/mirror/deb.debian.org /var/www/html/debian
+```
+
+Boshqa server'lar:
+
+```
+deb http://YOUR-MIRROR/debian bookworm main
+```
+
+## 7. CD/DVD bilan ishlash
+
+Internet bo'lmagan tizimda CD'dan:
+
+```bash
+sudo apt-cdrom add
+# CD'ni qo'ying, OK bosing
+# /etc/apt/sources.list ga "deb cdrom:[...]" qo'shiladi
+```
+
+Yoki ISO mount qilish:
+
+```bash
+sudo mkdir /media/debian-iso
+sudo mount -o loop debian-12.iso /media/debian-iso
+
+# /etc/apt/sources.list
+deb file:/media/debian-iso/ bookworm main contrib non-free
+```
+
+## 8. Third-party repository qo'shish
+
+Misol — Nginx rasmiy:
+
+```bash
+# 1. Key
+curl https://nginx.org/keys/nginx_signing.key | \
+    sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
+
+# 2. Repository
+echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian bookworm nginx" | \
+    sudo tee /etc/apt/sources.list.d/nginx.list
+
+# 3. Update va install
+sudo apt update
+sudo apt install nginx
+```
+
+**MUHIM:** `signed-by=` ishlatish — global trust bermaslik.
+
+## 9. Repository imzosini tekshirish
+
+```bash
+# Mavjud key'lar
+ls /usr/share/keyrings/
+ls /etc/apt/trusted.gpg.d/
+
+# Key information
+gpg --no-default-keyring --keyring /usr/share/keyrings/debian-archive-keyring.gpg --list-keys
+
+# Fingerprint
+gpg --fingerprint
+```
+
+## 10. Repository'ni o'chirish
+
+```bash
+# Birinchi: uninstall paketlar
+sudo apt remove nginx
+
+# Repository fayli'ni o'chirish
+sudo rm /etc/apt/sources.list.d/nginx.list
+
+# Key
+sudo rm /usr/share/keyrings/nginx-archive-keyring.gpg
+
+# Update
+sudo apt update
+```
+
+## 11. Misol — to'liq sources.list
+
+Production server uchun:
+
+```
+# Main repository
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+
+# Security
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+deb-src http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+
+# Point release updates
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+
+# Backports (opsional)
+deb http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+```
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **`http://` o'rniga `ftp://`** — eski FTP server'lar yo'q.
+- **Mavjud emas suite (`buster` o'rniga `bookworm`)** — `apt update` 404.
+- **Trusted key yo'q** — `GPG error: NO_PUBKEY ...`.
+- **`signed-by=` ishlatmaslik** — boshqa repository'lar uchun ham trust.
+- **Ko'p mirror bir vaqtda** — qaysi'sini ishlatish noaniq.
+
+## 13. Eng yaxshi amaliyot
+
+- **`.sources` format** — yangi deb822, oson o'qish.
+- **`signed-by=`** — har third-party key alohida.
+- **Mirror geografik** — eng yaqin server.
+- **Security repo har vaqt yoqilgan** — security update'lar uchun.
+- **`apt update` har sources.list o'zgartirish'dan keyin** — kesh yangilash.
+
+## 14. Mashqlar
+
+1. **deb822 ga ko'chirish:** `sources.list`'ni `.sources` formatiga o'tkazing.
+2. **Mirror tezligi:** `netselect-apt` bilan eng tez mirror toping.
+3. **Third-party:** Docker rasmiy repository qo'shing (`signed-by=`).
+4. **Imzo:** Mavjud key'lar ro'yxatini ko'ring.
+5. **Backports:** `bookworm-backports` qo'shing va paket ro'yxatini ko'ring.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Debian Stable security update repository:
+
+- a) `bookworm-updates`
+- b) `bookworm-security`
+- c) `bookworm-backports`
+- d) `bookworm-fixes`
+
+<Callout type="success" title="Javob">
+**(b)** `security.debian.org/debian-security` Security Team tomonidan.[¹](https://manpages.debian.org/bookworm/apt/sources.list.5.en.html)
+</Callout>
+
+**Savol 2.** `non-free-firmware` qachon ajratildi?
+
+- a) Debian 10
+- b) Debian 11
+- c) Debian 12
+- d) Debian 9
+
+<Callout type="success" title="Javob">
+**(c)** Debian 12 (bookworm)'dan alohida komponent.
+</Callout>
+
+**Savol 3.** deb822 format afzalligi:
+
+- a) Tez ishlaydi
+- b) `Signed-By:` per-repository, oson o'qish
+- c) Kichik fayl
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Strukturalashgan, har repository alohida key.
+</Callout>
+
+**Savol 4.** `signed-by=` nima qiladi?
+
+- a) Repository'ni o'chiradi
+- b) Faqat shu key bilan imzolangan paketlarni trust qiladi
+- c) Hech narsa
+- d) Speedup
+
+<Callout type="success" title="Javob">
+**(b)** Repository scope'ini cheklab beradi (xavfsizlik).
+</Callout>
+
+**Savol 5.** Mirror tanlash uchun yaxshi qurol:
+
+- a) `apt-fast`
+- b) `netselect-apt`
+- c) `apt-mirror`
+- d) `aptitude`
+
+<Callout type="success" title="Javob">
+**(b)** `netselect-apt` — eng tez mirror'ni avtomatik tanlaydi.
+</Callout>
+
+## Manbalar
+
+1. sources.list(5). [https://manpages.debian.org/bookworm/apt/sources.list.5.en.html](https://manpages.debian.org/bookworm/apt/sources.list.5.en.html)
+2. Debian Mirror List. [https://www.debian.org/mirror/list](https://www.debian.org/mirror/list)
+
+## Keyingi qadam
+
+👉 [Debian dpkg chuqur](/debian/dpkg-deep)

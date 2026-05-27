@@ -1,0 +1,489 @@
+---
+title: "Debian Server o'rnatish va sozlash"
+description: "Debian server'ni production uchun tayyorlash."
+order: 8
+level: "intermediate"
+estimated_minutes: 12
+prerequisites:
+  - "/debian/installation"
+  - "/fundamentals/ssh-advanced"
+learning_objectives:
+  - "Minimal server o'rnatish"
+  - "SSH key, firewall, fail2ban"
+  - "Avtomatik security update"
+  - "Monitoring va backup"
+tags: ["debian", "server", "production", "security"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Wiki — Securing Debian"
+    url: "https://www.debian.org/doc/manuals/securing-debian-manual/"
+  - title: "Debian Administrator's Handbook"
+    url: "https://debian-handbook.info/"
+---
+
+**Debian server** — eng mashhur Linux server distrosi. Minimal o'rnatish, security update'lar, SSH hardening, firewall — barchasi production'ga tayyor server uchun zarur.[¹](https://www.debian.org/doc/manuals/securing-debian-manual/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Debian minimal server o'rnatish.
+- SSH key, root login o'chirish.
+- UFW firewall, fail2ban.
+- Avtomatik security update (`unattended-upgrades`).
+- Monitoring (Prometheus + Node Exporter).
+- Backup (`rsync`, `borgbackup`).
+</Callout>
+
+## 1. O'rnatish — Debian Netinst
+
+Eng yengil — netinst ISO (~600 MB):
+
+```
+https://www.debian.org/distrib/netinst
+```
+
+**Boot va tarmoq** orqali boshqa paketlar yuklab olinadi.
+
+### Task tanlash
+
+Installer oxirida `tasksel`:
+
+```
+[ ] Debian desktop environment
+[ ] ... GNOME, Xfce, KDE, ...
+[*] SSH server
+[*] standard system utilities
+```
+
+**Faqat**: SSH server + standard system utilities (desktop environment yo'q).
+
+## 2. Birinchi login
+
+```bash
+# Server IP'ni o'rganish (console'da)
+ip a
+
+# SSH client'dan
+ssh user@SERVER_IP
+```
+
+## 3. Foydalanuvchi va sudo
+
+Agar installer'da foydalanuvchi yaratilgan bo'lsa:
+
+```bash
+# sudo guruhga qo'shish (agar yo'q bo'lsa)
+su -
+usermod -aG sudo username
+exit
+
+# Logout va qayta login
+```
+
+Tekshirish:
+
+```bash
+sudo whoami
+# root
+```
+
+## 4. Tizimni yangilash
+
+```bash
+sudo apt update
+sudo apt full-upgrade -y
+sudo apt autoremove -y
+sudo reboot
+```
+
+## 5. Asosiy paketlar
+
+```bash
+sudo apt install -y \
+    vim curl wget htop \
+    git tmux ncdu tree \
+    net-tools dnsutils \
+    ca-certificates gnupg
+```
+
+## 6. SSH hardening
+
+### 6a. SSH key generatsiya (mijozda)
+
+```bash
+# Lokal mashinada
+ssh-keygen -t ed25519 -C "admin@laptop"
+# Default ~/.ssh/id_ed25519
+
+# Public key serverga
+ssh-copy-id user@SERVER_IP
+```
+
+### 6b. SSH config (`/etc/ssh/sshd_config`)
+
+```
+# Root login o'chirish
+PermitRootLogin no
+
+# Faqat key
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+PubkeyAuthentication yes
+
+# Foydalanuvchilar
+AllowUsers diyor admin
+
+# Port (opsional, default 22)
+# Port 2222
+
+# Idle timeout
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Forwarding
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+```
+
+```bash
+# Test sintaksis
+sudo sshd -t
+
+# Restart
+sudo systemctl restart ssh
+
+# **OLDIN test**: yangi terminal'da ulangan, bo'lmasa fall-back!
+ssh user@SERVER_IP
+```
+
+<Callout type="warning" title="Diqqat">
+SSH config xato bo'lsa, hozirgi ulangan session ishlaydi, lekin yangi ulanish imkonsiz. **Avval yangi terminal'da test qilib ko'ring**, keyin eski ulanishni yoping.
+</Callout>
+
+## 7. Firewall — UFW
+
+```bash
+sudo apt install -y ufw
+
+# Default policy
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# Ruxsat berish
+sudo ufw allow ssh
+sudo ufw allow 80/tcp     # HTTP
+sudo ufw allow 443/tcp    # HTTPS
+
+# Yoqish
+sudo ufw enable
+sudo ufw status verbose
+```
+
+`y` bosing — yoqish.
+
+## 8. fail2ban — brute-force himoyasi
+
+```bash
+sudo apt install -y fail2ban
+
+# Local config
+sudo tee /etc/fail2ban/jail.local <<EOF
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+EOF
+
+sudo systemctl restart fail2ban
+sudo fail2ban-client status sshd
+```
+
+## 9. Avtomatik security update
+
+```bash
+sudo apt install -y unattended-upgrades apt-listchanges
+
+# Yoqish
+sudo dpkg-reconfigure -plow unattended-upgrades
+# Default Yes
+
+# Config: /etc/apt/apt.conf.d/50unattended-upgrades
+```
+
+Asosiy sozlamalar:
+
+```
+Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=${distro_codename},label=Debian-Security";
+};
+
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Mail "admin@example.com";
+```
+
+```bash
+# Tekshirish
+sudo unattended-upgrade --dry-run --debug
+```
+
+## 10. Tizim vaqti — NTP
+
+```bash
+# systemd-timesyncd default Debian'da
+timedatectl status
+
+# NTP yoqilgan?
+sudo timedatectl set-ntp true
+
+# Vaqt zona
+sudo timedatectl set-timezone Asia/Tashkent
+```
+
+## 11. Monitoring — Node Exporter
+
+Prometheus + Grafana stack:
+
+```bash
+# Node Exporter (metric'lar)
+sudo apt install -y prometheus-node-exporter
+sudo systemctl enable --now prometheus-node-exporter
+
+# Port 9100
+curl http://localhost:9100/metrics | head
+```
+
+Markaziy Prometheus'dan scraping:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'debian-server'
+    static_configs:
+      - targets: ['SERVER_IP:9100']
+```
+
+Firewall — faqat Prometheus server'dan:
+
+```bash
+sudo ufw allow from PROMETHEUS_IP to any port 9100
+```
+
+## 12. Backup — rsync
+
+Misol — `/etc`, `/home`, `/var/www`:
+
+```bash
+#!/bin/bash
+# /usr/local/bin/backup.sh
+
+BACKUP_HOST="backup.example.com"
+BACKUP_USER="backup"
+BACKUP_PATH="/srv/backups/$(hostname)"
+
+rsync -aAXv --delete \
+    --exclude={"/dev/*","/proc/*","/sys/*","/tmp/*","/run/*","/mnt/*","/media/*","/lost+found"} \
+    /etc /home /var/www \
+    $BACKUP_USER@$BACKUP_HOST:$BACKUP_PATH/
+```
+
+```bash
+sudo chmod +x /usr/local/bin/backup.sh
+
+# Cron — har kun 3:00
+echo "0 3 * * * /usr/local/bin/backup.sh" | sudo tee /etc/cron.d/backup
+```
+
+## 13. Backup — Borg (deduplicated)
+
+```bash
+sudo apt install -y borgbackup
+
+# Repo yaratish
+borg init --encryption=repokey /mnt/backup/borg
+
+# Backup
+borg create \
+    --stats --progress --compression lz4 \
+    /mnt/backup/borg::$(hostname)-$(date +%Y%m%d) \
+    /etc /home /var/www
+
+# Eski backup'larni o'chirish
+borg prune \
+    --keep-daily=7 --keep-weekly=4 --keep-monthly=6 \
+    /mnt/backup/borg
+```
+
+## 14. Log'lar — Logrotate
+
+`/etc/logrotate.d/myapp`:
+
+```
+/var/log/myapp/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 myapp myapp
+    postrotate
+        systemctl reload myapp >/dev/null 2>&1 || true
+    endscript
+}
+```
+
+```bash
+# Test
+sudo logrotate -d /etc/logrotate.d/myapp
+```
+
+## 15. Tizim tahlili
+
+```bash
+# Resurs
+htop
+free -h
+df -h
+iostat -x 1 5
+
+# Tarmoq
+ss -tunlp
+iftop
+
+# Auditing
+sudo apt install -y auditd
+sudo systemctl enable --now auditd
+
+# Audit rules — /etc/audit/rules.d/audit.rules
+-w /etc/passwd -p wa -k passwd_changes
+-w /etc/shadow -p wa -k shadow_changes
+-w /etc/ssh/sshd_config -p wa -k ssh_config
+
+sudo systemctl restart auditd
+```
+
+## 16. Reboot va test
+
+```bash
+# Reboot
+sudo reboot
+
+# 30s kuting
+ssh user@SERVER_IP
+
+# Tekshirish
+sudo ufw status
+sudo fail2ban-client status sshd
+sudo systemctl status ssh
+sudo systemctl status prometheus-node-exporter
+```
+
+## 17. Production checklist
+
+- [ ] Tizim yangilangan (`apt full-upgrade`).
+- [ ] SSH root login o'chirilgan.
+- [ ] SSH key authentication.
+- [ ] Parol authentication o'chirilgan.
+- [ ] UFW firewall yoqilgan.
+- [ ] fail2ban ishlaydi.
+- [ ] `unattended-upgrades` yoqilgan.
+- [ ] NTP sinxronlangan.
+- [ ] Vaqt zona to'g'ri.
+- [ ] Backup script (cron).
+- [ ] Monitoring (Node Exporter).
+- [ ] Logrotate.
+- [ ] auditd yoqilgan.
+- [ ] Sudo user, root login yo'q.
+
+## 18. Eng tez-tez uchraydigan xatolar
+
+- **`PasswordAuthentication no` SSH key sinashsiz** — qoladi.
+- **UFW yoqishdan oldin SSH ruxsat bermaslik** — o'zini bloklash.
+- **`unattended-upgrades` faqat security** — `bookworm-updates` ham qo'shilsa keng update.
+- **Backup tekshirilmagan** — restore test qilinmagan = backup yo'q.
+- **`auditd` rules'siz** — log'lar bo'sh.
+
+## 19. Eng yaxshi amaliyot
+
+- **Minimal o'rnatish** — kerakli paketlar faqat.
+- **SSH key + 2FA** — paroldan voz keching.
+- **UFW + fail2ban** — ikkala qatlam.
+- **Monitoring birinchi kun** — kech bo'lgandan oldin.
+- **Backup haftada bir restore test** — backups ishlayotganini tasdiqlash.
+
+## 20. Mashqlar
+
+1. **Minimal o'rnatish:** VM'da Debian netinst — faqat SSH server.
+2. **SSH hardening:** Root login o'chiring, key authentication.
+3. **UFW:** SSH + HTTP/HTTPS ruxsat, qolganlari deny.
+4. **fail2ban:** Test — `ssh root@server` 5 marta noto'g'ri parol — ban.
+5. **Backup script:** `/etc` va `/home`'ni boshqa serverga.
+
+## 21. Bilim sinovi
+
+**Savol 1.** Production server uchun SSH eng xavfsiz tanlovi:
+
+- a) Parol + key
+- b) Faqat key, parol o'chirilgan
+- c) Faqat parol
+- d) Root login OK
+
+<Callout type="success" title="Javob">
+**(b)** Key authentication eng kuchli. Parol o'chirib qo'yiladi.[¹](https://www.debian.org/doc/manuals/securing-debian-manual/)
+</Callout>
+
+**Savol 2.** `unattended-upgrades` default'da nima yangilaydi?
+
+- a) Hammasi
+- b) Faqat `-security` repository
+- c) Hech narsa
+- d) Faqat kernel
+
+<Callout type="success" title="Javob">
+**(b)** Default Debian Security'dan faqat. Updates'ni ham qo'shish mumkin.
+</Callout>
+
+**Savol 3.** UFW yoqishdan oldin nima qilish kerak?
+
+- a) Hech narsa
+- b) SSH portni allow qilish (`ufw allow ssh`)
+- c) Tizimni o'chirish
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Aks holda yoqilganda SSH ulanishingiz uziladi.
+</Callout>
+
+**Savol 4.** fail2ban nima qiladi?
+
+- a) Antivirus
+- b) Brute-force urinishlarni topib IP'ni bloklaydi
+- c) Backup
+- d) Firewall
+
+<Callout type="success" title="Javob">
+**(b)** Log'larni o'qib, ko'p marta noto'g'ri login urinishi qilingan IP'ni vaqtinchalik ban qiladi.
+</Callout>
+
+**Savol 5.** Backup'larning real testi:
+
+- a) Backup hajmi
+- b) Restore qilib ko'rish
+- c) Hech narsa
+- d) Log'lar
+
+<Callout type="success" title="Javob">
+**(b)** Backup faqat real restore'da ishonarli — har vaqt sinab ko'ring.
+</Callout>
+
+## Manbalar
+
+1. Securing Debian Manual. [https://www.debian.org/doc/manuals/securing-debian-manual/](https://www.debian.org/doc/manuals/securing-debian-manual/)
+2. Debian Administrator's Handbook. [https://debian-handbook.info/](https://debian-handbook.info/)
+
+## Keyingi qadam
+
+👉 [Debian Network Manager](/debian/network-manager)

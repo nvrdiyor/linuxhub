@@ -1,0 +1,342 @@
+---
+title: "debconf — Debian konfiguratsiya tizimi"
+description: "debconf — paket o'rnatish vaqtidagi interaktiv savollar va avtomatlashtirilgan setup."
+order: 5
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/debian/dpkg-deep"
+learning_objectives:
+  - "debconf nima qiladi"
+  - "Priority darajalari"
+  - "Preseed fayl bilan avtomatlashtirilgan o'rnatish"
+  - "debconf-show va debconf-set-selections"
+tags: ["debian", "debconf", "automation", "preseed"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "debconf(7) manpage"
+    url: "https://manpages.debian.org/bookworm/debconf/debconf.7.en.html"
+  - title: "Debian Installation Guide — Preseed"
+    url: "https://www.debian.org/releases/stable/amd64/apb.en.html"
+---
+
+**`debconf`** — Debian paket o'rnatish vaqtidagi savollarni boshqaruvchi tizim. `dpkg-reconfigure` yoki `apt install`'da chiqadigan interaktiv savollar — debconf'dan kelad.[¹](https://manpages.debian.org/bookworm/debconf/debconf.7.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- debconf nima va u qaerda?
+- Frontend turlari (dialog, readline, noninteractive).
+- Priority darajalari.
+- Preseed fayl — avtomatlashtirish.
+- `debconf-set-selections` va `debconf-show`.
+</Callout>
+
+## 1. debconf nima?
+
+Paket o'rnatish'da bunday savollar:
+
+- MySQL root paroli
+- Postfix mail server tipi
+- Wireshark — non-root user'lar paket capture qila olishi
+- Locale va vaqt zonasi
+
+Bularning hammasi — `debconf` tomonidan boshqariladi.
+
+## 2. debconf frontend'lari
+
+Savollar qanday ko'rsatiladi:
+
+| Frontend | Tavsif |
+|---|---|
+| `dialog` | Ekran to'liq ncurses oynalar (default) |
+| `readline` | Terminal'da matn-bo'yicha |
+| `noninteractive` | Hech narsa so'ralmaydi (default qabul) |
+| `gnome` | GTK GUI |
+| `kde` | Qt GUI |
+| `text` | Sodda matn |
+
+O'zgartirish:
+
+```bash
+sudo dpkg-reconfigure debconf
+# Yoki vaqtinchalik
+DEBIAN_FRONTEND=noninteractive sudo apt install -y postfix
+```
+
+## 3. Priority
+
+| Priority | Ma'no |
+|---|---|
+| `critical` | Faqat hayot-muhim savollar |
+| `high` | Muhim default'siz savollar |
+| `medium` | Default mavjud, lekin tasdiq kerak |
+| `low` | Hamma savollar (eng ko'p detalga) |
+
+```bash
+# Faqat critical/high savollar
+DEBIAN_PRIORITY=critical sudo apt install postfix
+
+# Hammasi
+DEBIAN_PRIORITY=low sudo dpkg-reconfigure -plow tzdata
+```
+
+## 4. Joriy debconf qiymatlar
+
+```bash
+sudo debconf-show postfix
+# * postfix/mailname: example.com
+# * postfix/main_mailer_type: Internet Site
+# * postfix/destinations: $myhostname, localhost
+# ...
+
+sudo debconf-show tzdata
+# * tzdata/Areas: Asia
+# * tzdata/Zones/Asia: Tashkent
+```
+
+`*` — qiymat o'rnatilgan. Bo'lmasa — paket so'raydi.
+
+## 5. Qiymatlarni o'rnatish
+
+```bash
+# Hozirgi paketga
+echo "postfix postfix/mailname string mail.example.com" | sudo debconf-set-selections
+echo "postfix postfix/main_mailer_type select Internet Site" | sudo debconf-set-selections
+
+# Endi o'rnatish — savol so'ralmaydi
+sudo apt install -y postfix
+```
+
+Sintaksis:
+
+```
+<paket> <savol> <type> <qiymat>
+```
+
+`<type>`: `string`, `boolean`, `select`, `multiselect`, `password`, `note`.
+
+## 6. Preseed fayl — to'liq avtomatlashtirish
+
+`/tmp/preseed.txt`:
+
+```
+# MySQL
+mysql-server mysql-server/root_password password mysecret
+mysql-server mysql-server/root_password_again password mysecret
+
+# Postfix
+postfix postfix/main_mailer_type select Internet Site
+postfix postfix/mailname string mail.example.com
+
+# Wireshark
+wireshark-common wireshark-common/install-setuid boolean true
+
+# Tzdata
+tzdata tzdata/Areas select Asia
+tzdata tzdata/Zones/Asia select Tashkent
+```
+
+Qo'llash:
+
+```bash
+sudo debconf-set-selections /tmp/preseed.txt
+DEBIAN_FRONTEND=noninteractive sudo apt install -y mysql-server postfix wireshark
+```
+
+## 7. Mavjud savollar topish
+
+```bash
+# Paket ichidagi templates
+cat /var/lib/dpkg/info/postfix.templates
+
+# Yoki
+debconf-show postfix
+```
+
+Yoki interaktiv qilish, savollarni ko'rish:
+
+```bash
+sudo DEBIAN_PRIORITY=low dpkg-reconfigure postfix
+# Barcha savollarni ketma-ket ko'rsatadi
+```
+
+## 8. Misol — MySQL root paroli avtomatik
+
+```bash
+#!/bin/bash
+# Script: install_mysql.sh
+
+PASSWORD="MyS3curePass!"
+
+sudo debconf-set-selections <<EOF
+mysql-server mysql-server/root_password password $PASSWORD
+mysql-server mysql-server/root_password_again password $PASSWORD
+EOF
+
+DEBIAN_FRONTEND=noninteractive sudo apt install -y mysql-server
+
+echo "MySQL root password: $PASSWORD"
+```
+
+## 9. Misol — Postfix avtomatik
+
+```bash
+#!/bin/bash
+# Postfix — "Internet Site" tipida, hostname avtomatik
+
+HOSTNAME=$(hostname -f)
+
+sudo debconf-set-selections <<EOF
+postfix postfix/main_mailer_type select Internet Site
+postfix postfix/mailname string $HOSTNAME
+postfix postfix/destinations string \$myhostname, $HOSTNAME, localhost.localdomain, localhost
+EOF
+
+DEBIAN_FRONTEND=noninteractive sudo apt install -y postfix
+```
+
+## 10. Installer preseed (advanced)
+
+Debian Installer to'liq avtomatlashtirilgan o'rnatish — `preseed.cfg`:
+
+```
+# Locale
+d-i debian-installer/locale string en_US.UTF-8
+d-i keyboard-configuration/xkb-keymap select us
+
+# Tarmoq
+d-i netcfg/get_hostname string debian
+d-i netcfg/get_domain string example.com
+
+# Foydalanuvchi
+d-i passwd/user-fullname string Diyor
+d-i passwd/username string diyor
+d-i passwd/user-password password Pass123!
+d-i passwd/user-password-again password Pass123!
+
+# Disk
+d-i partman-auto/method string regular
+d-i partman-auto/choose_recipe select atomic
+
+# APT
+d-i apt-setup/non-free boolean true
+d-i apt-setup/contrib boolean true
+
+# Paketlar
+tasksel tasksel/first multiselect standard, ssh-server
+
+# Yakuniy
+d-i finish-install/reboot_in_progress note
+```
+
+USB yoki PXE'da `preseed=...` orqali yuklash.
+
+## 11. Debconf database
+
+```bash
+ls /var/cache/debconf/
+# config.dat   templates.dat   passwords.dat
+
+# Read-only ko'rinish
+debconf-copydb configdb pipe | head
+```
+
+## 12. Debconf reset
+
+```bash
+# Bitta paket uchun
+sudo dpkg-reconfigure --priority=low paket
+
+# Yoki to'liq tozalash
+sudo apt remove --purge paket
+sudo apt install paket
+```
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`debconf-set-selections` paket o'rnatilgandan keyin** — yangidan ish bermaydi (paket allaqachon configured).
+- **Noto'g'ri type** — `string` o'rniga `boolean` — xatolik.
+- **`DEBIAN_FRONTEND` o'rnatilmagan** — interaktiv terminal'da savol chiqaveradi.
+- **Parol cleartext** — preseed faylda parol yozish — xavfli.
+
+## 14. Eng yaxshi amaliyot
+
+- **Preseed fayllar Git'da** — versiya nazorat (parolsiz).
+- **Parol environment'dan** — `$PASSWORD` o'qish.
+- **`DEBIAN_FRONTEND=noninteractive`** — CI/CD'da.
+- **Test virtual mashina'da** — preseed sinash.
+- **`debconf-show` debug** — qaysi qiymat o'rnatildi tekshirish.
+
+## 15. Mashqlar
+
+1. **Joriy qiymatlar:** `debconf-show tzdata` — vaqt zonangiz qaysi?
+2. **Preseed:** `postfix` paketini noninteractive o'rnatish skripti yozing.
+3. **Frontend:** `DEBIAN_FRONTEND=readline` bilan paket o'rnatish — farqi nima?
+4. **Priority:** `DEBIAN_PRIORITY=low dpkg-reconfigure tzdata` — qancha savol?
+5. **Template:** `/var/lib/dpkg/info/wireshark-common.templates` ni o'qing.
+
+## 16. Bilim sinovi
+
+**Savol 1.** debconf nima qiladi?
+
+- a) Paket o'rnatadi
+- b) Paket o'rnatish vaqtidagi savollarni boshqaradi
+- c) Dependency hal qiladi
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Paket setup savollari, default qiymatlar, interaktiv konfiguratsiya.[¹](https://manpages.debian.org/bookworm/debconf/debconf.7.en.html)
+</Callout>
+
+**Savol 2.** `DEBIAN_FRONTEND=noninteractive` nima qiladi?
+
+- a) Tarmoqsiz o'rnatadi
+- b) Hech qanday savol chiqarmaydi, default qabul
+- c) GUI ochadi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Avtomatik o'rnatish — CI/CD uchun foydali.
+</Callout>
+
+**Savol 3.** `debconf-set-selections` qachon ishga tushiriladi?
+
+- a) Paket o'rnatilgandan keyin
+- b) Paket o'rnatishdan oldin
+- c) Faqat shutdown'da
+- d) Hech qachon
+
+<Callout type="success" title="Javob">
+**(b)** Avval qiymatlar o'rnatiladi, keyin paket install — savol chiqmaydi.
+</Callout>
+
+**Savol 4.** Preseed fayl nima?
+
+- a) Debian Installer to'liq avtomatlashtirilgan o'rnatish konfiguratsiyasi
+- b) Backup
+- c) Boot loader
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** Installer'ga barcha javoblarni oldindan beradi (hostname, disk, paketlar...).
+</Callout>
+
+**Savol 5.** debconf priority `low`:
+
+- a) Faqat critical
+- b) Hammasi (eng ko'p savol)
+- c) Hech narsa
+- d) Faqat default'lar
+
+<Callout type="success" title="Javob">
+**(b)** Eng ko'p detalga, hamma savollar ko'rsatiladi.
+</Callout>
+
+## Manbalar
+
+1. debconf(7). [https://manpages.debian.org/bookworm/debconf/debconf.7.en.html](https://manpages.debian.org/bookworm/debconf/debconf.7.en.html)
+2. Debian Installation Guide — Preseed. [https://www.debian.org/releases/stable/amd64/apb.en.html](https://www.debian.org/releases/stable/amd64/apb.en.html)
+
+## Keyingi qadam
+
+👉 [Debian Installer preseed](/debian/preseed)

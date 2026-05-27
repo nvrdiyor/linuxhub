@@ -1,0 +1,358 @@
+---
+title: "Ubuntu va Windows dual-boot o'rnatish"
+description: "Windows 10/11 yonida Ubuntu o'rnatish — disk bo'lish, GRUB sozlash, troubleshooting."
+order: 5
+level: "intermediate"
+estimated_minutes: 14
+prerequisites:
+  - "/ubuntu/installation/requirements"
+  - "/ubuntu/installation/usb"
+learning_objectives:
+  - "Windows va Ubuntu o'rtasida disk bo'lish"
+  - "GRUB bootloader Windows bilan birga"
+  - "Secure Boot va UEFI sozlamalari"
+  - "Dual-boot troubleshooting"
+tags: ["ubuntu", "installation", "dual-boot", "windows", "grub"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu Tutorial — Install Ubuntu desktop"
+    url: "https://ubuntu.com/tutorials/install-ubuntu-desktop"
+  - title: "Ubuntu Community — WindowsDualBoot"
+    url: "https://help.ubuntu.com/community/WindowsDualBoot"
+  - title: "GNU GRUB Manual"
+    url: "https://www.gnu.org/software/grub/manual/grub/grub.html"
+---
+
+Dual-boot — bir kompyuter'da Windows va Ubuntu'ni birgalikda o'rnatish. Yangi boshlovchilar uchun eng xavfsiz Linux'ni o'rganish yo'li: ish Windows'da, sinov va o'rganish Ubuntu'da.[¹](https://help.ubuntu.com/community/WindowsDualBoot)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Disk'ni xavfsiz bo'lish (Windows bilan birga).
+- GRUB bootloader Windows tomonidan ko'rinishi.
+- Secure Boot va UEFI sozlamalari.
+- Boot vaqtida OS tanlash.
+- Tipik muammolar va yechimlar.
+</Callout>
+
+## 1. Talablar va tayyorgarlik
+
+Avval majburiy:
+
+- **Backup** — Windows'dagi muhim ma'lumotlar tashqi diskka. Dual-boot — diskdagi har narsa yo'qotilishi xavfli.
+- **Ubuntu LTS ISO** + bootable USB ([USB yaratish darsi](/ubuntu/installation/usb)).
+- **Disk bo'sh joyi** — kamida 30 GB (tavsiya — 100+ GB).
+- **Power** — laptop bo'lsa zaryadlangan + adapter ulangan.
+
+## 2. Windows tomondan tayyorlash
+
+### Fast Startup'ni o'chirish
+
+Windows'ning Fast Startup — disk'ni "yarim uxlatadi", Ubuntu uni mount qila olmaydi.
+
+1. **Control Panel → Power Options → Choose what the power buttons do**.
+2. **Change settings that are currently unavailable**.
+3. **Turn on fast startup** — uncheck.
+4. Save.
+
+### BitLocker'ni o'chirish (yoqilgan bo'lsa)
+
+BitLocker yoqilgan disk'da Ubuntu o'rnatish murakkab. Avval:
+
+- **Control Panel → BitLocker Drive Encryption** → C: drive **Turn off BitLocker**.
+- Decryption tugashini kuting (soatlar olishi mumkin).
+
+### Disk bo'sh joyini ajratish (shrink)
+
+Windows'ning ichidan:
+
+1. **Disk Management** (`diskmgmt.msc`).
+2. C: drive'ga right-click → **Shrink Volume**.
+3. **Enter the amount of space to shrink** — Ubuntu uchun MB (100 GB = 102400 MB).
+4. Shrink.
+
+Endi diskda **Unallocated** sohasi paydo bo'ladi — Ubuntu shu yerga.
+
+## 3. UEFI / BIOS sozlamalari
+
+Kompyuterni o'chiring, boot menyu'siga kirish tugmasini bosib yoqing (`F2`, `Del`, `F10`, `Esc` — ishlab chiqaruvchiga qarab).
+
+UEFI sozlamalarda:
+
+- **Secure Boot** — Ubuntu 22.04+ qo'llab-quvvatlaydi, qoldirishingiz mumkin. Lekin proprietary drayverlar (NVIDIA) kerak bo'lsa, vaqtinchalik **Disabled**.
+- **Fast Boot** — Disabled.
+- **Boot Mode** — UEFI (Legacy/CSM emas).
+- **TPM** — yoqilgan qoldirib turing.
+
+Saqlash va chiqish.
+
+## 4. Ubuntu o'rnatish
+
+USB'ni ulang, kompyuterni qayta yoqing, boot menyu'sida (`F12`, `F11` — ishlab chiqaruvchiga qarab) USB'ni tanlang.
+
+Ubuntu o'rnatuvchi qadamlari:
+
+<Steps>
+  <Step title="Til">
+    Til (English yoki Russian) tanlash. Ubuntu 24.04+ da o'rnatuvchi yangi (Flutter asosida).
+  </Step>
+  <Step title="Klaviatura va internet">
+    Klaviatura va Wi-Fi (yoki kabel).
+  </Step>
+  <Step title="Yangilanishlar">
+    "Install third-party software" — proprietary drayverlar (Wi-Fi, GPU, Bluetooth).
+  </Step>
+  <Step title="Installation type">
+    Bu eng muhim qadam. Variantlar:
+
+    - **Install Ubuntu alongside Windows** — avtomatik (oson, lekin nazoratsiz).
+    - **Erase disk and install Ubuntu** — XAVFLI! Windows'ni o'chiradi.
+    - **Something else** — qo'l bilan bo'lish (tavsiya etiladi).
+  </Step>
+  <Step title="Manual partitioning (Something else)">
+    Disk strukturasini ko'rasiz. **Unallocated** (Windows'da yaratganimiz) ni tanlang.
+
+    **+ Add** orqali yangi partition:
+
+    - **Size:** 1024 MB
+    - **Type:** Logical
+    - **Use as:** EFI System Partition
+    - **Mount point:** /boot/efi
+    - (Agar UEFI EFI partition mavjud bo'lsa — Windows EFI'ni qayta ishlatish mumkin. Lekin yangi partition xavfsizroq).
+
+    Yana **+ Add**:
+
+    - **Size:** Qolgan joy minus swap (yoki hammasi)
+    - **Type:** Primary
+    - **Use as:** Ext4 journaling file system
+    - **Mount point:** /
+
+    Va swap (RAM 16 GB+ bo'lsa kerak emas):
+
+    - **Size:** RAM yarmi (8 GB)
+    - **Use as:** swap area
+
+    **Device for boot loader installation:** sizning disk'ni tanlang (`/dev/sda` yoki `/dev/nvme0n1`) — partition emas!
+  </Step>
+  <Step title="Vaqt mintaqasi, foydalanuvchi">
+    Asia/Tashkent. Foydalanuvchi nomi, parol.
+  </Step>
+  <Step title="O'rnatish">
+    20-30 daqiqa. Tugagandan keyin restart, USB chiqarib oling.
+  </Step>
+</Steps>
+
+## 5. GRUB menyu
+
+Restart'dan keyin GRUB menyu ko'rinishi kerak:
+
+```
+*Ubuntu
+ Advanced options for Ubuntu
+ Windows Boot Manager (on /dev/sda1)
+ UEFI Firmware Settings
+```
+
+Strelka tugmalari bilan tanlab Enter. 10 soniya kutsangiz, default tanlovi avtomatik (Ubuntu).
+
+### Default tanlovni o'zgartirish
+
+Windows'ni default qilish:
+
+```bash
+sudo nano /etc/default/grub
+
+# Quyidagini o'zgartiring:
+GRUB_DEFAULT="Windows Boot Manager (on /dev/sda1)"
+
+# Yoki raqamli (Windows odatda 2-yoki 3-pozitsiyada):
+GRUB_DEFAULT=2
+
+# Yoki "saved" — oxirgi tanlovni eslab qoladi:
+GRUB_DEFAULT=saved
+GRUB_SAVEDEFAULT=true
+```
+
+```bash
+sudo update-grub
+```
+
+### Vaqtni o'zgartirish
+
+```bash
+sudo nano /etc/default/grub
+GRUB_TIMEOUT=30      # 30 soniya kutish
+```
+
+## 6. Vaqt sinxronlash muammosi
+
+Windows va Linux disk'da vaqtni boshqacha saqlaydi:
+
+- **Windows** — local time.
+- **Linux** — UTC.
+
+Dual-boot'da har Ubuntu'dan Windows'ga o'tganda vaqt 5 soat farq qiladi (Tashkent UTC+5).
+
+Yechim — Ubuntu'ga local time ishlatish:
+
+```bash
+timedatectl set-local-rtc 1 --adjust-system-clock
+```
+
+Yoki Windows'ga UTC ishlatishni o'rgatish (Registry edit) — kamroq tavsiya etiladi.
+
+## 7. Windows va Ubuntu fayllari almashish
+
+Ubuntu Windows partition'larini avtomatik ko'radi (NTFS). Lekin Windows ext4'ni ko'rmaydi.
+
+**Ubuntu'dan Windows'ga kirish:**
+
+```bash
+# Mount qilingan
+ls /media/ali/
+
+# Yoki manual
+sudo mkdir /mnt/windows
+sudo mount /dev/sda3 /mnt/windows
+```
+
+**Windows'dan Ubuntu'ga kirish:**
+
+- **WSL** (Windows Subsystem for Linux) — Windows ichida Ubuntu mount.
+- **Ext2Fsd** yoki **DiskInternals Linux Reader** — uchinchi tomon dasturi.
+- Eng oson — cloud (Dropbox, Google Drive, OneDrive) yoki tashqi disk (exFAT).
+
+## 8. Tipik muammolar
+
+### "No bootable device" — GRUB ko'rinmaydi
+
+UEFI boot order Windows'ni birinchi qilib qo'ydi. Yechim:
+
+1. UEFI'ga kirib **Boot Order** — "ubuntu" birinchi.
+2. Yoki Live USB'dan boot qilib **Boot Repair** ishlatish:
+
+```bash
+sudo add-apt-repository ppa:yannubuntu/boot-repair
+sudo apt update
+sudo apt install boot-repair
+boot-repair
+```
+
+### Windows update'dan keyin GRUB yo'qoldi
+
+Windows Update ba'zan bootloader'ni o'zgartiradi. Live USB'dan boot, Boot Repair ishga tushiring.
+
+### Windows ishlamaydi GRUB'dan
+
+Tipik sabab — Fast Startup yoqilgan. Live USB → Windows'ga kirib Fast Startup'ni o'chiring.
+
+### Ubuntu Wi-Fi ishlamayapti
+
+Proprietary drayverlar yo'q. Hot-spot orqali kabel bilan ulanib:
+
+```bash
+sudo ubuntu-drivers autoinstall
+```
+
+## 9. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo update-grub` | GRUB konfiguratsiyasini yangilash |
+| `sudo nano /etc/default/grub` | GRUB sozlamalar |
+| `timedatectl set-local-rtc 1` | Local time RTC |
+| `lsblk` | Disk va partition |
+| `sudo fdisk -l` | To'liq partition jadval |
+| `sudo blkid` | UUID lar |
+| `boot-repair` | Boot tuzatuvchi |
+
+## 10. Eng tez-tez uchraydigan xatolar
+
+- **Fast Startup o'chirilmagan** — NTFS partition mount qilish xato, Ubuntu Windows fayllarini ko'rmaydi.
+- **BitLocker hali yoqilgan** — disk encryption muammosi.
+- **`/dev/sda1` ga bootloader install** — partition'ga emas, disk'ga (`/dev/sda`).
+- **Backup'siz dual-boot** — disk strukturasi buzilsa, ma'lumot yo'qoladi.
+- **UEFI Fast Boot yoqilgan** — boot menyu tezroq, lekin GRUB ko'rinmasligi mumkin.
+
+## 11. Eng yaxshi amaliyot
+
+- **Backup avval majburiy.**
+- **Disk bo'lish'ni Windows tomonidan qilish** — Windows fayl tizimi haqida ko'proq biladi.
+- **Alohida `/home` partition** — kelajakda Ubuntu'ni qayta o'rnatishda fayllar saqlanadi.
+- **Default 30+ soniya GRUB timeout** — yangi boshlovchi uchun aniq tanlov.
+- **Vaqti-vaqti bilan ikkala OS'ni yangilab turing** — eski Windows ba'zan GRUB'ni buzadi.
+- **Boot Repair tool'ni bilib qo'ying** — emergency uchun.
+
+## 12. Mashqlar
+
+1. **Disk audit:** Windows'dagi mavjud bo'sh joyni ko'ring (Disk Management). Ubuntu uchun qancha ajratish mumkin?
+2. **VM da sinov:** Avval VirtualBox'da Windows + Ubuntu dual-boot'ni sinab ko'ring (xavfsiz).
+3. **`timedatectl status`:** Sizning hozirgi vaqt holati qanday?
+4. **GRUB sozlamalar:** `/etc/default/grub` ni o'qing va `GRUB_DEFAULT` qaysi qiymatda?
+5. **NTFS test:** Ubuntu'da Windows disk'ini mount qilib fayl yarating. Windows'da ko'rinadimi?
+
+## 13. Bilim sinovi
+
+**Savol 1.** Dual-boot'dan oldin Windows'da nima qilish kerak?
+
+- a) Hech narsa
+- b) Fast Startup'ni o'chirish, BitLocker disable, disk shrink, backup
+- c) Faqat backup
+- d) Windows'ni qayta o'rnatish
+
+<Callout type="success" title="Javob">
+**(b)** Hamma 4 qadam zarur. Backup va Fast Startup eng muhim.[¹](https://help.ubuntu.com/community/WindowsDualBoot)
+</Callout>
+
+**Savol 2.** Ubuntu va Windows o'rtasida vaqt 5 soat farqi sababi:
+
+- a) Lokal vaqt mintaqasi
+- b) Windows local time, Linux UTC saqlaydi RTC'da
+- c) NTP server farqi
+- d) Kompyuter buzilgan
+
+<Callout type="success" title="Javob">
+**(b)** `timedatectl set-local-rtc 1` orqali tuzatish.
+</Callout>
+
+**Savol 3.** GRUB ko'rinmasa, qanday tuzatish:
+
+- a) Windows qayta o'rnatish
+- b) Live USB'dan boot, boot-repair ishlatish yoki UEFI boot order'ni tekshirish
+- c) Disk'ni almashtirish
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** Boot Repair tool — eng oson.
+</Callout>
+
+**Savol 4.** "Erase disk" tanlash dual-boot'da:
+
+- a) Tavsiya etiladi
+- b) XATA — Windows'ni o'chiradi
+- c) Faqat backup bilan
+- d) Hech qachon
+
+<Callout type="success" title="Javob">
+**(b)** "Something else" yoki "Install alongside Windows" tanlash kerak.
+</Callout>
+
+**Savol 5.** Bootloader qaerga o'rnatish:
+
+- a) Aniq partition (`/dev/sda1`)
+- b) Diskning o'zi (`/dev/sda`)
+- c) USB
+- d) Tarmoq
+
+<Callout type="success" title="Javob">
+**(b)** Disk darajasidagi MBR/GPT.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Community — WindowsDualBoot. [https://help.ubuntu.com/community/WindowsDualBoot](https://help.ubuntu.com/community/WindowsDualBoot)
+2. Ubuntu Tutorial — Install Ubuntu desktop. [https://ubuntu.com/tutorials/install-ubuntu-desktop](https://ubuntu.com/tutorials/install-ubuntu-desktop)
+3. GNU GRUB Manual. [https://www.gnu.org/software/grub/manual/grub/grub.html](https://www.gnu.org/software/grub/manual/grub/grub.html)
+
+## Keyingi qadam
+
+👉 [LVM + LUKS shifrlangan Ubuntu o'rnatish](/ubuntu/installation/lvm-luks)

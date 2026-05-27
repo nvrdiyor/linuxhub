@@ -1,0 +1,289 @@
+---
+title: "Alternatives system — update-alternatives"
+description: "Debian'da alternativ paketlar va default tanlash mexanizmi."
+order: 4
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/debian/dpkg-fundamentals"
+learning_objectives:
+  - "Alternatives system tushuncha"
+  - "`update-alternatives` ishlatish"
+  - "Default editor, python tanlash"
+  - "Custom alternativ qo'shish"
+tags: ["debian", "alternatives", "system"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "update-alternatives(1) manpage"
+    url: "https://manpages.debian.org/bookworm/dpkg/update-alternatives.1.en.html"
+---
+
+**Debian alternatives system** — bir nechta paketlar bir xil xizmatni beradi (masalan ko'p `editor`, `awk`, `java`). System default'ini bitta'siga aytib qo'yish uchun `update-alternatives` ishlatiladi.[¹](https://manpages.debian.org/bookworm/dpkg/update-alternatives.1.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `editor`, `awk`, `python`, `java` kabi alternativ links'lar.
+- `update-alternatives --config` — interaktiv tanlash.
+- `--set` va `--auto` rejimlari.
+- Custom alternativ qo'shish.
+</Callout>
+
+## 1. Alternatives system nima?
+
+Misol: `/usr/bin/editor` — bu real fayl emas, balki symlink:
+
+```bash
+ls -l /usr/bin/editor
+# /usr/bin/editor -> /etc/alternatives/editor
+ls -l /etc/alternatives/editor
+# /etc/alternatives/editor -> /usr/bin/nano
+```
+
+Symlink ikki bosqich:
+
+1. `/usr/bin/editor` → `/etc/alternatives/editor`
+2. `/etc/alternatives/editor` → real binary
+
+Bu — system "qaysi editor default?" deganda — `/etc/alternatives/editor`'ni o'qiydi.
+
+## 2. Mavjud alternativlar
+
+```bash
+update-alternatives --get-selections
+# editor          auto    /usr/bin/nano
+# awk             auto    /usr/bin/mawk
+# vi              auto    /usr/bin/vim.basic
+# python3         auto    /usr/bin/python3.11
+
+# Yoki
+ls /etc/alternatives/
+```
+
+## 3. Default tanlash
+
+Interaktiv:
+
+```bash
+sudo update-alternatives --config editor
+# There are 4 choices for the alternative editor:
+#
+#   Selection    Path                Priority   Status
+# ------------------------------------------------------------
+# * 0            /bin/nano            40        auto mode
+#   1            /bin/nano            40        manual mode
+#   2            /usr/bin/vim.basic   30        manual mode
+#   3            /usr/bin/vim.tiny    15        manual mode
+#   4            /usr/bin/vim.nox     40        manual mode
+# 
+# Press <enter> to keep the current choice[*], or type selection number:
+```
+
+`*` — hozirgi tanlov. Raqam tanlang.
+
+## 4. Manual tanlash
+
+```bash
+# Default editor — vim
+sudo update-alternatives --set editor /usr/bin/vim.basic
+
+# Tekshirish
+update-alternatives --display editor
+```
+
+## 5. Auto mode'ga qaytish
+
+```bash
+sudo update-alternatives --auto editor
+```
+
+Auto mode — eng yuqori priority'li alternativ avtomatik tanlanadi.
+
+## 6. Priority
+
+Har alternativ priority bilan ro'yxatga olinadi. Yuqori priority — auto mode'da default:
+
+```bash
+update-alternatives --display editor
+# editor - auto mode
+#   link best version is /usr/bin/nano
+#   link currently points to /usr/bin/nano
+#   link editor is /usr/bin/editor
+# ...
+# /usr/bin/nano - priority 40
+# /usr/bin/vim.basic - priority 30
+```
+
+Eng yuqori (`nano` priority 40) — auto mode'da tanlanadi.
+
+## 7. Custom alternativ qo'shish
+
+Misol — `/opt/myeditor/bin/myedit` qo'shish:
+
+```bash
+sudo update-alternatives --install \
+    /usr/bin/editor editor \
+    /opt/myeditor/bin/myedit 50
+
+# Tekshirish
+update-alternatives --display editor
+# /opt/myeditor/bin/myedit - priority 50
+```
+
+Endi `myedit` priority 50 — default bo'ladi (auto mode'da).
+
+Sintaksis:
+
+```bash
+update-alternatives --install <link> <name> <path> <priority>
+```
+
+## 8. Alternativ o'chirish
+
+```bash
+sudo update-alternatives --remove editor /opt/myeditor/bin/myedit
+
+# Yoki barchasi
+sudo update-alternatives --remove-all editor
+```
+
+## 9. Misol — Python alternatives
+
+```bash
+# Python 3.11 + 3.12 ikkalasi mavjud
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.11 50
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.12 60
+
+# Tanlash
+sudo update-alternatives --config python
+
+# Tekshirish
+python --version
+```
+
+## 10. Java alternatives
+
+OpenJDK ko'p versiya o'rnatilganda:
+
+```bash
+update-alternatives --display java
+# /usr/lib/jvm/java-11-openjdk-amd64/bin/java
+# /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+
+sudo update-alternatives --config java
+# Java 17 tanlash
+```
+
+## 11. Slave alternatives
+
+Asosiy alternativ bilan birga boshqa fayl ham o'zgaradi (man page, header, etc.).
+
+Misol — `editor` slave `editor.1.gz`:
+
+```bash
+sudo update-alternatives --install \
+    /usr/bin/editor editor /opt/myeditor/bin/myedit 50 \
+    --slave /usr/share/man/man1/editor.1.gz editor.1.gz /opt/myeditor/man/myedit.1.gz
+```
+
+Endi `editor`'ni o'zgartirsangiz, manpage ham o'zgaradi.
+
+## 12. Misol — GCC alternatives
+
+```bash
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 60 \
+    --slave /usr/bin/g++ g++ /usr/bin/g++-10
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 70 \
+    --slave /usr/bin/g++ g++ /usr/bin/g++-11
+
+# Tanlash
+sudo update-alternatives --config gcc
+# Avtomatik g++ ham almashadi
+```
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`/etc/alternatives/...` qo'lda o'zgartirish** — `update-alternatives` boshqaradi, qo'lda yo'q.
+- **Custom alternativ priority past** — auto mode default bo'lmaydi.
+- **`--remove` ishlatilmagan, faqat fayl o'chirilgan** — broken link qoladi.
+- **Slave belgilashsiz install** — manpage va boshqa fayllar boshqa joyga ko'rsatadi.
+
+## 14. Eng yaxshi amaliyot
+
+- **`update-alternatives --display`** — har o'zgartirish'dan oldin tekshirish.
+- **Priority qoidasi** — yangi alternativ priority `60+` agar default qilmoqchi.
+- **Auto mode** — agar default'larga ishonsangiz.
+- **Manual mode** — aniq versiya kerakli paytda.
+- **Slave alternatives** — bog'liq fayllar bilan birga.
+
+## 15. Mashqlar
+
+1. **Default editor:** `update-alternatives --config editor` — vim'ga o'tkazing.
+2. **Tekshirish:** `update-alternatives --get-selections | head` — ro'yxat.
+3. **Custom python:** `/usr/local/bin/python3.12` ni alternatives'ga qo'shing.
+4. **Java tanlash:** Agar Java ikki versiya o'rnatilgan bo'lsa, switch qiling.
+5. **Auto/manual:** `update-alternatives --auto editor` va `--set` farqi.
+
+## 16. Bilim sinovi
+
+**Savol 1.** Alternatives system nima'ni boshqaradi?
+
+- a) Paketlar
+- b) Bir xil funksiyaga bir nechta dasturlar (default tanlash)
+- c) Foydalanuvchilar
+- d) Disk
+
+<Callout type="success" title="Javob">
+**(b)** `editor`, `java`, `python` kabi alternativ default'lar.[¹](https://manpages.debian.org/bookworm/dpkg/update-alternatives.1.en.html)
+</Callout>
+
+**Savol 2.** `/usr/bin/editor` qaerga ko'rsatadi?
+
+- a) Real binary
+- b) `/etc/alternatives/editor` (symlink)
+- c) Hech qaerga
+- d) `/usr/local/bin/`
+
+<Callout type="success" title="Javob">
+**(b)** Ikki bosqichli symlink — `/etc/alternatives/` orqali real fayl.
+</Callout>
+
+**Savol 3.** Default'ni `vim`'ga o'zgartirish:
+
+- a) `ln -s /usr/bin/vim /usr/bin/editor`
+- b) `sudo update-alternatives --config editor`
+- c) `sudo dpkg-reconfigure editor`
+- d) `nano /etc/alternatives/editor`
+
+<Callout type="success" title="Javob">
+**(b)** Interaktiv tanlash, yoki `--set` flag bilan.
+</Callout>
+
+**Savol 4.** Yuqori priority — auto mode'da:
+
+- a) Default tanlanadi
+- b) Bekor qilinadi
+- c) Hech narsa
+- d) Olib tashlanadi
+
+<Callout type="success" title="Javob">
+**(a)** Auto mode — eng yuqori priority'li alternativ default.
+</Callout>
+
+**Savol 5.** Slave alternativ nima?
+
+- a) Boshqa server
+- b) Asosiy bilan birga o'zgaradigan bog'liq fayl
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Asosiy alternative bilan birga manpage, header kabi fayllar.
+</Callout>
+
+## Manbalar
+
+1. update-alternatives(1). [https://manpages.debian.org/bookworm/dpkg/update-alternatives.1.en.html](https://manpages.debian.org/bookworm/dpkg/update-alternatives.1.en.html)
+
+## Keyingi qadam
+
+👉 [Debian debconf](/debian/debconf)

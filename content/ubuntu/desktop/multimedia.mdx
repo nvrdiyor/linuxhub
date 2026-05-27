@@ -1,0 +1,401 @@
+---
+title: "Multimedia kodeklar va dasturlar"
+description: "Ubuntu'da audio/video kodeklar, VLC, OBS, Audacity va boshqa multimedia."
+order: 2
+level: "beginner"
+estimated_minutes: 8
+prerequisites:
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "Multimedia kodek o'rnatish"
+  - "VLC, MPV media player"
+  - "OBS Studio screen recording"
+  - "Audacity audio editing"
+tags: ["ubuntu", "desktop", "multimedia", "vlc", "obs"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu Community — RestrictedFormats"
+    url: "https://help.ubuntu.com/community/RestrictedFormats"
+---
+
+Ubuntu default'da ko'p multimedia kodek'larni litsenziya sababli o'rnatmaydi. Bu darsda MP3, MP4, H.264 kabi mashhur formatlarni qo'shamiz va asosiy media dasturlarini ko'rib chiqamiz.[¹](https://help.ubuntu.com/community/RestrictedFormats)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `ubuntu-restricted-extras` paketi.
+- VLC va MPV media player.
+- OBS Studio screen recording.
+- Audacity audio editing.
+- Image va video conversion.
+</Callout>
+
+## 1. Restricted extras
+
+```bash
+sudo apt update
+sudo apt install ubuntu-restricted-extras -y
+```
+
+Bu paket o'z ichiga oladi:
+
+- **gstreamer codec'lar** — MP3, AAC, WMA, MP4, H.264, MPEG2.
+- **Adobe Flash** (deprecated).
+- **Microsoft fonts** (`ttf-mscorefonts-installer`).
+- **Rar/Unrar**.
+- **libavcodec-extra** — qo'shimcha kodek'lar.
+
+O'rnatish vaqtida EULA so'raydi (Microsoft fonts uchun). Tab → OK.
+
+### Manual gstreamer codec
+
+```bash
+sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav -y
+```
+
+## 2. VLC media player
+
+VLC — eng universal media player.
+
+```bash
+sudo apt install vlc -y
+
+# Yoki Snap
+sudo snap install vlc
+
+# Yoki Flatpak
+flatpak install flathub org.videolan.VLC
+```
+
+VLC qo'llab-quvvatlash: deyarli har format (MKV, MP4, AVI, FLV, MOV, WebM, OGG, FLAC, OPUS, va boshqalar).
+
+Foydali VLC xususiyatlari:
+
+- **Convert/Save:** `Media → Convert/Save` — format konvertatsiya.
+- **Subtitle:** drag-drop yoki `Video → Subtitle Track`.
+- **Stream:** `Media → Open Network Stream` — YouTube, IPTV URL.
+- **Screenshot:** `Video → Take Snapshot` (Shift+S).
+
+## 3. MPV — minimal va kuchli
+
+MPV — VLC'ga zamonaviy muqobil. Buyruq satridan ham ishlaydi.
+
+```bash
+sudo apt install mpv -y
+```
+
+```bash
+# Faylni ochish
+mpv video.mp4
+
+# YouTube URL (yt-dlp bilan)
+sudo apt install yt-dlp
+mpv https://youtube.com/watch?v=...
+
+# Sozlash — ~/.config/mpv/mpv.conf
+mkdir -p ~/.config/mpv
+cat > ~/.config/mpv/mpv.conf <<EOF
+hwdec=auto
+profile=gpu-hq
+ytdl-format=bestvideo[height<=1080]+bestaudio/best
+osd-bar=no
+EOF
+```
+
+Foydali shortcuts:
+
+| Tugma | Vazifa |
+|---|---|
+| `Space` | Play/pause |
+| `Left/Right` | -5/+5 sekund |
+| `Up/Down` | +/-60 sekund |
+| `9/0` | Ovoz +/- |
+| `m` | Mute |
+| `f` | Fullscreen |
+| `q` | Chiqish |
+| `[` `]` | Tezlik -/+ |
+
+## 4. OBS Studio — screen recording
+
+OBS — streaming va screen recording uchun standart.
+
+```bash
+sudo add-apt-repository ppa:obsproject/obs-studio
+sudo apt update
+sudo apt install obs-studio -y
+```
+
+Yoki:
+
+```bash
+sudo snap install obs-studio
+flatpak install flathub com.obsproject.Studio
+```
+
+### Quick setup
+
+1. **Settings → Output:** Recording path, format (MKV), encoder.
+2. **Settings → Video:** Base resolution (1920x1080), FPS (30/60).
+3. **Settings → Audio:** Desktop audio va mic.
+4. **Sources → +:** Display Capture (ekran), Audio Input Capture (mic).
+
+`Start Recording` tugmasi.
+
+### Wayland va OBS
+
+OBS Wayland'da screen capture muammosi. Yechim — `Pipewire` + `xdg-desktop-portal`:
+
+```bash
+sudo apt install xdg-desktop-portal-wlr xdg-desktop-portal-gnome -y
+```
+
+So'ng OBS'da: Sources → PipeWire Screen Capture.
+
+## 5. Audacity — audio editing
+
+```bash
+sudo apt install audacity -y
+```
+
+Yoki:
+
+```bash
+flatpak install flathub org.audacityteam.Audacity
+```
+
+Audacity orqali:
+
+- Multi-track recording.
+- Audio filter va effektlar (noise reduction, compressor, EQ).
+- Format konvertatsiya (WAV, MP3, OGG, FLAC).
+- LADSPA/VST plagin'lar.
+
+### Microphone test
+
+Tools → Plot Spectrum — mikrofon sifatini ko'rish.
+
+## 6. ffmpeg — Swiss army knife
+
+```bash
+sudo apt install ffmpeg -y
+
+# Versiya
+ffmpeg -version
+```
+
+Ko'p funksiya:
+
+```bash
+# Format konvertatsiya
+ffmpeg -i input.mkv output.mp4
+
+# Compress (kichik fayl)
+ffmpeg -i input.mp4 -vcodec libx265 -crf 28 output-small.mp4
+
+# Audio extract
+ffmpeg -i video.mp4 -vn -acodec copy audio.aac
+
+# GIF yaratish
+ffmpeg -i video.mp4 -ss 0:05 -t 3 -vf "fps=15,scale=480:-1" output.gif
+
+# Screen record (X11)
+ffmpeg -f x11grab -framerate 30 -i :0.0 -c:v libx264 -preset ultrafast output.mp4
+
+# Audio normalize
+ffmpeg -i input.mp3 -af loudnorm output.mp3
+
+# Resize
+ffmpeg -i input.mp4 -vf scale=1280:720 output.mp4
+
+# Trim (5s'dan 30s'gacha)
+ffmpeg -i input.mp4 -ss 0:05 -to 0:30 -c copy output.mp4
+```
+
+## 7. ImageMagick — rasm
+
+```bash
+sudo apt install imagemagick -y
+
+# Resize
+convert input.jpg -resize 800x600 output.jpg
+
+# Format konvertatsiya
+convert input.png output.jpg
+
+# Quality
+convert input.jpg -quality 75 output.jpg
+
+# Watermark
+convert input.jpg watermark.png -gravity southeast -composite output.jpg
+
+# PDF'ni rasmga
+convert -density 300 document.pdf page-%03d.png
+
+# Batch
+mogrify -resize 1920x1080 -quality 80 *.jpg
+```
+
+## 8. youtube-dl / yt-dlp — video yuklash
+
+```bash
+sudo apt install yt-dlp -y
+
+# Default — best quality
+yt-dlp https://youtube.com/watch?v=...
+
+# Aniq format
+yt-dlp -F https://youtube.com/watch?v=...    # ro'yxat
+yt-dlp -f 137+140 https://...                # 1080p video + audio
+
+# Faqat audio (MP3)
+yt-dlp -x --audio-format mp3 https://...
+
+# Playlist
+yt-dlp https://youtube.com/playlist?list=...
+```
+
+`yt-dlp` `youtube-dl`'ning aktiv fork — yangi xususiyatlar.
+
+## 9. Spotify, Discord, Zoom
+
+```bash
+# Spotify (Snap eng oson)
+sudo snap install spotify
+
+# Discord
+sudo snap install discord
+# Yoki .deb yuklash https://discord.com/
+
+# Zoom
+wget https://zoom.us/client/latest/zoom_amd64.deb
+sudo apt install ./zoom_amd64.deb
+```
+
+## 10. GIMP — Photoshop muqobili
+
+```bash
+sudo apt install gimp -y
+
+# Plagin'lar
+sudo apt install gimp-plugin-registry gmic gimp-gmic -y
+```
+
+GIMP — rastr grafik. Krita (digital painting) ham mashhur:
+
+```bash
+sudo apt install krita -y
+```
+
+Vector grafika — Inkscape:
+
+```bash
+sudo apt install inkscape -y
+```
+
+Video editor — Kdenlive yoki DaVinci Resolve (proprietary, lekin bepul):
+
+```bash
+sudo apt install kdenlive -y
+```
+
+## 11. Buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `vlc <fayl>` | VLC bilan ochish |
+| `mpv <fayl>` | MPV bilan |
+| `ffmpeg -i in.mp4 out.mkv` | Format convert |
+| `convert in.jpg -resize 800x out.jpg` | Rasm resize |
+| `yt-dlp <URL>` | Video yuklash |
+| `obs` | OBS Studio |
+| `audacity` | Audacity |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **`ubuntu-restricted-extras` ozodlikni bilmaslik** — litsenziya sababi.
+- **OBS Wayland'da ekran qora** — PipeWire portal kerak.
+- **`ffmpeg` katta videoni 8 GB+ qiladi** — `-crf` flag bilan kichraytirish.
+- **Snap ilovalarning fayl tizimi cheklov** — Spotify Snap mahalliy fayllarga kira olmaydi.
+- **Video drayverlar yo'q** — VLC qora ekran. `vainfo` orqali tekshirish.
+
+## 13. Eng yaxshi amaliyot
+
+- **VLC universal player** — har format.
+- **MPV — power user uchun.**
+- **`yt-dlp` `youtube-dl` o'rniga** — aktiv loyiha.
+- **OBS PipeWire bilan Wayland'da.**
+- **GIMP + Krita + Inkscape** — to'liq dizayn stack.
+- **`ffmpeg`'ni o'rganib qo'ying** — har xil konvertatsiya uchun.
+- **Codec'lar Snap/Flatpak'da o'rnatilgan** bo'lishi mumkin (sandbox).
+
+## 14. Mashqlar
+
+1. **Restricted extras:** O'rnating va MP3 fayl ijro etishni sinab ko'ring.
+2. **`ffmpeg` test:** Video'ni MP4 → MKV ga convert qiling.
+3. **YouTube:** `yt-dlp` bilan video yuklab oling.
+4. **OBS:** Birinchi screen recording yarating.
+5. **`convert`:** Bir nechta rasmlar'ni `mogrify` orqali resize qiling.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Ubuntu default'da ko'p kodek'larni o'rnatmaydi, sababi:
+
+- a) Performance
+- b) Litsenziya / patent muammolari
+- c) Disk hajmi
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** MP3, MP4, H.264 va boshqalar patent litsenziyali.[¹](https://help.ubuntu.com/community/RestrictedFormats)
+</Callout>
+
+**Savol 2.** Eng universal media player:
+
+- a) GNOME Videos
+- b) VLC
+- c) Banshee
+- d) Rhythmbox
+
+<Callout type="success" title="Javob">
+**(b)** VLC — deyarli har format ishlaydi.
+</Callout>
+
+**Savol 3.** `ffmpeg -crf 28` qiymati nimaga:
+
+- a) Bitrate
+- b) Quality (kichikroq = yaxshiroq sifat, kattaroq = kichikroq fayl)
+- c) FPS
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Constant Rate Factor — 18-28 odatda.
+</Callout>
+
+**Savol 4.** OBS Wayland'da ekran ko'rinmaydi:
+
+- a) Driver muammosi
+- b) PipeWire screen capture va `xdg-desktop-portal` kerak
+- c) OBS Wayland'ni qo'llab-quvvatlamaydi
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** Pipewire portal.
+</Callout>
+
+**Savol 5.** youtube-dl alternativi:
+
+- a) youtube-cli
+- b) yt-dlp (aktiv fork)
+- c) yt-get
+- d) curl
+
+<Callout type="success" title="Javob">
+**(b)** youtube-dl rivojlanish sekinlashdi; yt-dlp aktiv.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Community — RestrictedFormats. [https://help.ubuntu.com/community/RestrictedFormats](https://help.ubuntu.com/community/RestrictedFormats)
+
+## Keyingi qadam
+
+👉 [Gaming setup — Steam va Lutris](/ubuntu/desktop/gaming)

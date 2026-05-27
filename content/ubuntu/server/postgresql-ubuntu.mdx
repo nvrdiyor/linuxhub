@@ -1,0 +1,501 @@
+---
+title: "PostgreSQL Ubuntu'da"
+description: "PostgreSQL o'rnatish, sozlash va boshqaruv Ubuntu Server'da."
+order: 4
+level: "intermediate"
+estimated_minutes: 10
+prerequisites:
+  - "/fundamentals/postgresql"
+learning_objectives:
+  - "PostgreSQL o'rnatish (rasmiy PGDG repo)"
+  - "Foydalanuvchi va database"
+  - "pg_hba.conf — autentifikatsiya"
+  - "Backup va restore"
+  - "Replication"
+tags: ["ubuntu", "postgresql", "database"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "PostgreSQL Documentation"
+    url: "https://www.postgresql.org/docs/"
+  - title: "Ubuntu PostgreSQL Wiki"
+    url: "https://wiki.postgresql.org/wiki/Apt"
+---
+
+**PostgreSQL** — eng kuchli open-source RDBMS. Ubuntu'da default 14/15 versiya, lekin rasmiy PGDG repository orqali eng yangi versiyani olish mumkin.[¹](https://www.postgresql.org/docs/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- PostgreSQL o'rnatish (Ubuntu repo va PGDG).
+- `postgres` user va `psql`.
+- Foydalanuvchi va database yaratish.
+- `pg_hba.conf` — kim ulana oladi.
+- `pg_dump` / `pg_restore`.
+- Streaming replication.
+</Callout>
+
+## 1. O'rnatish — Ubuntu repo
+
+```bash
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+
+sudo systemctl enable --now postgresql
+sudo systemctl status postgresql
+
+# Versiya
+psql --version
+# psql (PostgreSQL) 15.x
+```
+
+## 2. PGDG repo (eng yangi versiya)
+
+PostgreSQL'ning rasmiy Apt repository — har vaqt eng yangi:
+
+```bash
+sudo apt install -y curl ca-certificates
+sudo install -d /usr/share/postgresql-common/pgdg
+sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+
+# Repository qo'shish
+sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+
+sudo apt update
+sudo apt install -y postgresql-17    # eng yangi
+```
+
+## 3. `postgres` system user
+
+PostgreSQL'da default — `postgres` system user va `postgres` DB user.
+
+```bash
+# Ulanish
+sudo -u postgres psql
+
+# Yoki shell
+sudo -u postgres bash
+psql
+```
+
+`psql` ichida:
+
+```sql
+\l         -- database ro'yxati
+\du        -- user ro'yxati
+\c db      -- database tanlash
+\d         -- jadval'lar
+\d table   -- jadval struktura
+\q         -- chiqish
+```
+
+## 4. Foydalanuvchi va database
+
+```sql
+-- Yangi user
+CREATE USER myapp WITH PASSWORD 'StrongPass123!';
+
+-- Database
+CREATE DATABASE myapp_db OWNER myapp;
+
+-- Privilege
+GRANT ALL PRIVILEGES ON DATABASE myapp_db TO myapp;
+
+-- Ro'yxat
+\du
+\l
+
+-- O'chirish
+DROP DATABASE myapp_db;
+DROP USER myapp;
+```
+
+CLI'da:
+
+```bash
+sudo -u postgres createuser --pwprompt myapp
+sudo -u postgres createdb -O myapp myapp_db
+```
+
+## 5. `pg_hba.conf` — autentifikatsiya
+
+`/etc/postgresql/15/main/pg_hba.conf` (versiya'ga qarab):
+
+```
+# TYPE  DATABASE  USER       ADDRESS         METHOD
+
+# "local" — Unix socket
+local   all       postgres                   peer
+local   all       all                        peer
+
+# IPv4 local
+host    all       all        127.0.0.1/32    scram-sha-256
+
+# Remote subnet
+host    myapp_db  myapp      10.0.0.0/24     scram-sha-256
+
+# Trust (xavfli, faqat dev)
+# host    all       all        0.0.0.0/0       trust
+```
+
+`METHOD`:
+
+- `peer` — Unix user = DB user (local'da).
+- `md5` — eski parol hash.
+- `scram-sha-256` — zamonaviy parol.
+- `trust` — hech qanday tekshirish (XAVFLI).
+- `reject` — bloklash.
+
+```bash
+sudo systemctl reload postgresql
+```
+
+## 6. Remote ulanish
+
+`/etc/postgresql/15/main/postgresql.conf`:
+
+```
+listen_addresses = '*'      # yoki aniq IP
+port = 5432
+```
+
+`pg_hba.conf`:
+
+```
+host    myapp_db    myapp    10.0.1.0/24    scram-sha-256
+```
+
+```bash
+sudo systemctl restart postgresql
+sudo ufw allow from 10.0.1.0/24 to any port 5432
+```
+
+Client'dan:
+
+```bash
+psql -h DB_SERVER_IP -U myapp -d myapp_db
+```
+
+## 7. Schema, jadval
+
+```sql
+\c myapp_db
+
+CREATE SCHEMA app;
+
+CREATE TABLE app.users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index
+CREATE INDEX idx_users_email ON app.users(email);
+
+-- Insert
+INSERT INTO app.users (email, name) VALUES ('user@example.com', 'Diyor');
+
+-- Select
+SELECT * FROM app.users;
+
+-- Default schema
+SET search_path TO app, public;
+```
+
+## 8. Backup — `pg_dump`
+
+```bash
+# Bitta DB
+sudo -u postgres pg_dump myapp_db > /tmp/myapp_db.sql
+
+# Custom format (recommended)
+sudo -u postgres pg_dump -Fc myapp_db > /tmp/myapp_db.dump
+
+# Compressed plain
+sudo -u postgres pg_dump myapp_db | gzip > /tmp/myapp_db.sql.gz
+
+# Hammasi
+sudo -u postgres pg_dumpall > /tmp/all.sql
+
+# Faqat struktura
+sudo -u postgres pg_dump --schema-only myapp_db > /tmp/schema.sql
+
+# Faqat data
+sudo -u postgres pg_dump --data-only myapp_db > /tmp/data.sql
+```
+
+## 9. Restore
+
+```bash
+# Plain SQL
+sudo -u postgres psql myapp_db_new < /tmp/myapp_db.sql
+
+# Custom format
+sudo -u postgres pg_restore -d myapp_db_new /tmp/myapp_db.dump
+
+# Compressed
+gunzip -c /tmp/myapp_db.sql.gz | sudo -u postgres psql myapp_db_new
+```
+
+DB avval yaratilgan bo'lishi kerak:
+
+```bash
+sudo -u postgres createdb myapp_db_new
+```
+
+## 10. Avtomatik backup
+
+`/usr/local/bin/pg-backup.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+BACKUP_DIR="/var/backups/postgres"
+DATE=$(date +%Y%m%d-%H%M%S)
+RETENTION=14
+
+mkdir -p "$BACKUP_DIR"
+
+# Per-database
+for DB in $(sudo -u postgres psql -lqt | awk '{print $1}' | grep -vE '^$|template|^postgres$'); do
+    sudo -u postgres pg_dump -Fc "$DB" > "$BACKUP_DIR/$DB-$DATE.dump"
+done
+
+# Globals (users, tablespaces)
+sudo -u postgres pg_dumpall --globals-only > "$BACKUP_DIR/globals-$DATE.sql"
+
+# Cleanup
+find "$BACKUP_DIR" -mtime +$RETENTION -delete
+```
+
+```bash
+sudo chmod +x /usr/local/bin/pg-backup.sh
+echo "0 3 * * * /usr/local/bin/pg-backup.sh" | sudo tee /etc/cron.d/pg-backup
+```
+
+## 11. Streaming replication
+
+### Master
+
+`postgresql.conf`:
+
+```
+listen_addresses = '*'
+wal_level = replica
+max_wal_senders = 5
+wal_keep_size = 1GB
+```
+
+`pg_hba.conf`:
+
+```
+host    replication    replicator    10.0.1.0/24    scram-sha-256
+```
+
+```sql
+CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD 'replpass';
+```
+
+```bash
+sudo systemctl restart postgresql
+```
+
+### Standby
+
+```bash
+# Master'dan to'liq base backup
+sudo systemctl stop postgresql
+sudo -u postgres rm -rf /var/lib/postgresql/15/main/*
+
+sudo -u postgres pg_basebackup \
+    -h MASTER_IP -U replicator \
+    -D /var/lib/postgresql/15/main \
+    -P -v -R -X stream
+```
+
+`-R` — `standby.signal` va `postgresql.auto.conf` ga primary_conninfo qo'shadi.
+
+```bash
+sudo systemctl start postgresql
+```
+
+Master'da:
+
+```sql
+SELECT * FROM pg_stat_replication;
+```
+
+## 12. Performance tuning
+
+`postgresql.conf`:
+
+```
+# Memory
+shared_buffers = 4GB              # RAM'ning 25%
+effective_cache_size = 12GB       # RAM'ning 75%
+work_mem = 16MB
+maintenance_work_mem = 512MB
+
+# Checkpoints
+checkpoint_completion_target = 0.9
+wal_buffers = 16MB
+
+# Planner
+random_page_cost = 1.1            # SSD
+effective_io_concurrency = 200
+
+# Connections
+max_connections = 100
+
+# Logging
+logging_collector = on
+log_directory = 'log'
+log_min_duration_statement = 1000  # 1s'dan ortiq
+log_line_prefix = '%t [%p]: user=%u,db=%d,app=%a,client=%h '
+```
+
+```bash
+sudo systemctl restart postgresql
+```
+
+## 13. Monitoring — `pg_stat_*`
+
+```sql
+-- Aktiv ulanishlar
+SELECT * FROM pg_stat_activity WHERE state = 'active';
+
+-- Eng katta jadval'lar
+SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname NOT IN ('pg_catalog','information_schema')
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+LIMIT 10;
+
+-- Sekin query'lar (log'dan)
+SELECT * FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 10;
+```
+
+`pg_stat_statements` yoqilgan bo'lishi kerak.
+
+## 14. Extension'lar
+
+```sql
+-- Ro'yxat
+SELECT * FROM pg_available_extensions;
+
+-- O'rnatish
+CREATE EXTENSION pg_stat_statements;
+CREATE EXTENSION pgcrypto;
+CREATE EXTENSION uuid-ossp;
+
+-- PostGIS (geo)
+sudo apt install -y postgresql-15-postgis-3
+\c myapp_db
+CREATE EXTENSION postgis;
+```
+
+## 15. VACUUM va ANALYZE
+
+PostgreSQL — MVCC, eski row'lar saqlanadi:
+
+```sql
+-- Manual
+VACUUM ANALYZE app.users;
+
+-- Aggressive
+VACUUM FULL app.users;       -- jadvalni qisqartiradi (lock)
+
+-- Auto-vacuum (default yoqilgan)
+SHOW autovacuum;
+```
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **`peer` auth — boshqa OS user'dan ulanish** — `unix socket` faqat o'sha user uchun.
+- **`listen_addresses = 'localhost'`** — remote ulanish mumkin emas.
+- **`pg_hba.conf` o'zgartirib reload qilmaslik** — eski qoidalar amal qilmoqda.
+- **Backup faqat `pg_dump`** — config va WAL fayllarini ham saqlang.
+- **`shared_buffers` past** — performance pasayadi.
+
+## 17. Eng yaxshi amaliyot
+
+- **PGDG repository** — eng yangi versiya.
+- **`scram-sha-256` auth** — `md5` o'rniga.
+- **`pg_dump -Fc`** — custom format, parallel restore.
+- **Streaming replication** — high availability.
+- **Monitoring `pg_stat_*`** — performance.
+
+## 18. Mashqlar
+
+1. **O'rnatish:** PostgreSQL Ubuntu repo'dan.
+2. **DB yaratish:** `myapp_db` va `myapp` user.
+3. **Backup:** `pg_dump -Fc` va restore.
+4. **`pg_hba.conf`:** Remote ulanish ruxsat berish.
+5. **Tuning:** `shared_buffers` 25% RAM ga sozlang.
+
+## 19. Bilim sinovi
+
+**Savol 1.** PostgreSQL default system user:
+
+- a) `pgsql`
+- b) `postgres`
+- c) `psql`
+- d) `root`
+
+<Callout type="success" title="Javob">
+**(b)** O'rnatish'da `postgres` system user yaratiladi.[¹](https://www.postgresql.org/docs/)
+</Callout>
+
+**Savol 2.** `pg_hba.conf` qachon qayta o'qiladi:
+
+- a) Avtomatik
+- b) `systemctl reload postgresql` yoki `pg_reload_conf()`
+- c) Hech qachon
+- d) Restart'da faqat
+
+<Callout type="success" title="Javob">
+**(b)** Reload kifoya, restart shart emas.
+</Callout>
+
+**Savol 3.** `pg_dump -Fc` — bu qanday format?
+
+- a) Plain SQL
+- b) Custom binary (oson restore, parallel)
+- c) Tar
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Custom format — `pg_restore` bilan parallel restore mumkin.
+</Callout>
+
+**Savol 4.** Streaming replication uchun standby:
+
+- a) `standby.signal` fayli + `primary_conninfo`
+- b) `master` rejim
+- c) `read-only` flag
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** PostgreSQL 12+ — `standby.signal` va `postgresql.auto.conf`'da connection string.
+</Callout>
+
+**Savol 5.** `shared_buffers` tavsiyaviy hajm:
+
+- a) 1MB
+- b) RAM'ning ~25%
+- c) RAM'ning 100%
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** RAM'ning 25%. Qolgani OS cache va `work_mem` uchun.
+</Callout>
+
+## Manbalar
+
+1. PostgreSQL Documentation. [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/)
+2. PostgreSQL Apt Repository. [https://wiki.postgresql.org/wiki/Apt](https://wiki.postgresql.org/wiki/Apt)
+
+## Keyingi qadam
+
+👉 [Ubuntu Redis](/ubuntu/server/redis-ubuntu)

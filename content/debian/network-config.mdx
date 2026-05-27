@@ -1,0 +1,447 @@
+---
+title: "Debian Network konfiguratsiya"
+description: "Debian'da tarmoqni sozlash — interfaces, systemd-networkd, NetworkManager."
+order: 9
+level: "intermediate"
+estimated_minutes: 9
+prerequisites:
+  - "/debian/installation"
+  - "/fundamentals/networking-basics"
+learning_objectives:
+  - "`/etc/network/interfaces` an'anaviy usul"
+  - "systemd-networkd zamonaviy usul"
+  - "NetworkManager (desktop)"
+  - "Static IP, DHCP, bond, VLAN"
+tags: ["debian", "network", "interfaces", "systemd-networkd"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Wiki — Network Configuration"
+    url: "https://wiki.debian.org/NetworkConfiguration"
+  - title: "interfaces(5) manpage"
+    url: "https://manpages.debian.org/bookworm/ifupdown/interfaces.5.en.html"
+---
+
+**Debian'da tarmoq** uchta usul: an'anaviy **`ifupdown`** (`/etc/network/interfaces`), zamonaviy **`systemd-networkd`**, va desktop'lar uchun **NetworkManager**. Server'larda — `ifupdown` yoki `systemd-networkd`.[¹](https://wiki.debian.org/NetworkConfiguration)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `/etc/network/interfaces` — klassik Debian.
+- systemd-networkd — zamonaviy alternativ.
+- NetworkManager — desktop GUI/CLI.
+- Static IP, DHCP, bond, VLAN, bridge.
+- Default gateway va DNS.
+</Callout>
+
+## 1. Joriy tarmoq
+
+```bash
+# Interface ro'yxati
+ip link show
+# 1: lo: <LOOPBACK,UP,LOWER_UP>
+# 2: enp1s0: <BROADCAST,MULTICAST,UP>
+
+# IP manzillar
+ip addr show
+
+# Routing
+ip route show
+
+# DNS
+cat /etc/resolv.conf
+```
+
+Joriy boshqaruvchi:
+
+```bash
+# ifupdown — interfaces fayl
+cat /etc/network/interfaces
+
+# systemd-networkd
+systemctl is-active systemd-networkd
+
+# NetworkManager
+systemctl is-active NetworkManager
+```
+
+## 2. `/etc/network/interfaces` — klassik
+
+### 2a. DHCP
+
+```
+auto lo
+iface lo inet loopback
+
+auto enp1s0
+iface enp1s0 inet dhcp
+```
+
+### 2b. Static IP
+
+```
+auto lo
+iface lo inet loopback
+
+auto enp1s0
+iface enp1s0 inet static
+    address 192.168.1.100/24
+    gateway 192.168.1.1
+    dns-nameservers 1.1.1.1 8.8.8.8
+```
+
+### Qo'llash
+
+```bash
+sudo ifdown enp1s0
+sudo ifup enp1s0
+
+# Yoki to'liq restart
+sudo systemctl restart networking
+```
+
+## 3. IPv6
+
+```
+iface enp1s0 inet6 static
+    address 2001:db8::100/64
+    gateway 2001:db8::1
+    dns-nameservers 2606:4700:4700::1111
+```
+
+Yoki SLAAC (avtomatik):
+
+```
+iface enp1s0 inet6 auto
+```
+
+## 4. VLAN
+
+```bash
+sudo apt install -y vlan
+sudo modprobe 8021q
+echo 8021q | sudo tee -a /etc/modules
+```
+
+`/etc/network/interfaces`:
+
+```
+auto enp1s0
+iface enp1s0 inet manual
+
+auto enp1s0.10
+iface enp1s0.10 inet static
+    address 192.168.10.10/24
+    vlan-raw-device enp1s0
+
+auto enp1s0.20
+iface enp1s0.20 inet static
+    address 192.168.20.20/24
+    vlan-raw-device enp1s0
+```
+
+## 5. Bond (link aggregation)
+
+```bash
+sudo apt install -y ifenslave
+```
+
+```
+auto bond0
+iface bond0 inet static
+    address 192.168.1.100/24
+    gateway 192.168.1.1
+    bond-slaves enp1s0 enp2s0
+    bond-mode 802.3ad
+    bond-miimon 100
+    bond-lacp-rate fast
+```
+
+Bond modes:
+
+- `0` — round-robin
+- `1` — active-backup
+- `4` — 802.3ad (LACP)
+- `6` — adaptive-load-balancing
+
+## 6. Bridge (virtualizatsiya uchun)
+
+```bash
+sudo apt install -y bridge-utils
+```
+
+```
+auto br0
+iface br0 inet static
+    address 192.168.1.100/24
+    gateway 192.168.1.1
+    bridge_ports enp1s0
+    bridge_stp off
+    bridge_fd 0
+```
+
+VM yoki Docker bridge'ga ulanadi.
+
+## 7. systemd-networkd
+
+Zamonaviy alternativ — ozroq atributli, lekin tezroq.
+
+```bash
+sudo apt install -y systemd-resolved
+sudo systemctl enable --now systemd-networkd systemd-resolved
+
+# DNS — systemd-resolved orqali
+sudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+```
+
+`/etc/systemd/network/10-static.network`:
+
+```ini
+[Match]
+Name=enp1s0
+
+[Network]
+Address=192.168.1.100/24
+Gateway=192.168.1.1
+DNS=1.1.1.1
+DNS=8.8.8.8
+```
+
+```bash
+sudo systemctl restart systemd-networkd
+networkctl status enp1s0
+```
+
+DHCP:
+
+```ini
+[Match]
+Name=enp1s0
+
+[Network]
+DHCP=yes
+```
+
+## 8. NetworkManager (desktop)
+
+```bash
+sudo apt install -y network-manager network-manager-gnome
+sudo systemctl enable --now NetworkManager
+
+# CLI
+nmcli connection show
+nmcli connection up "Wired connection 1"
+
+# GUI
+nm-connection-editor
+```
+
+Static IP:
+
+```bash
+sudo nmcli con mod "Wired connection 1" \
+    ipv4.addresses 192.168.1.100/24 \
+    ipv4.gateway 192.168.1.1 \
+    ipv4.dns "1.1.1.1 8.8.8.8" \
+    ipv4.method manual
+
+sudo nmcli con up "Wired connection 1"
+```
+
+## 9. DNS
+
+### `/etc/resolv.conf`
+
+```
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+search example.local
+```
+
+systemd-resolved'da:
+
+```bash
+resolvectl status
+resolvectl dns enp1s0 1.1.1.1 8.8.8.8
+```
+
+### `/etc/nsswitch.conf`
+
+DNS resolution order:
+
+```
+hosts: files dns
+```
+
+`files` — `/etc/hosts` birinchi, keyin DNS.
+
+## 10. `/etc/hosts`
+
+Lokal name resolution:
+
+```
+127.0.0.1   localhost
+127.0.1.1   debian.local debian
+
+# Custom
+192.168.1.50 gitlab.local
+10.0.0.5     db1.internal
+```
+
+## 11. Wi-Fi (CLI)
+
+```bash
+sudo apt install -y wpasupplicant
+
+# Skan
+sudo iw wlan0 scan | grep SSID
+
+# Connection
+wpa_passphrase 'MySSID' 'mypassword' | sudo tee /etc/wpa_supplicant/wpa_supplicant.conf
+
+# /etc/network/interfaces
+auto wlan0
+iface wlan0 inet dhcp
+    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+```
+
+Yoki NetworkManager:
+
+```bash
+nmcli device wifi list
+nmcli device wifi connect MySSID password mypassword
+```
+
+## 12. Misol — server static IP
+
+`/etc/network/interfaces`:
+
+```
+auto lo
+iface lo inet loopback
+
+auto enp1s0
+iface enp1s0 inet static
+    address 10.0.1.50/24
+    gateway 10.0.1.1
+    dns-nameservers 10.0.1.1 1.1.1.1
+    dns-search company.local
+```
+
+```bash
+sudo systemctl restart networking
+ip addr show enp1s0
+ping -c 3 1.1.1.1
+nslookup google.com
+```
+
+## 13. Tarmoqni debugging
+
+```bash
+# Interface up/down
+sudo ip link set enp1s0 up
+sudo ip link set enp1s0 down
+
+# IP qo'lda
+sudo ip addr add 192.168.1.100/24 dev enp1s0
+sudo ip route add default via 192.168.1.1
+
+# Carrier (kabel)
+ethtool enp1s0
+# Link detected: yes
+
+# Routing
+ip route get 8.8.8.8
+
+# Test
+ping -c 3 gateway_ip
+mtr google.com
+```
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`auto enp1s0` ni unutmoq** — interface boot'da ko'tarilmaydi.
+- **`/etc/network/interfaces` va NetworkManager bir vaqtda** — konflikt.
+- **Mask noto'g'ri** — `/24` o'rniga `/16` butun tarmoqni o'zlashtirib qo'yadi.
+- **Default gateway yo'q** — `ip route` ko'rsatadi `default` yo'q.
+- **DNS yo'q** — `nameserver` qator yetishmaydi.
+
+## 15. Eng yaxshi amaliyot
+
+- **Server: `/etc/network/interfaces` yoki systemd-networkd** — ifupdown klassik.
+- **Desktop: NetworkManager** — Wi-Fi va profile uchun qulay.
+- **DNS systemd-resolved** — kesh va birga ko'p server.
+- **Bond production'da** — failover.
+- **VLAN'lar bridge'ga** — virtualization'da.
+
+## 16. Mashqlar
+
+1. **Joriy:** `ip addr` va `cat /etc/network/interfaces`.
+2. **Static IP:** DHCP'dan static'ga o'tkazing.
+3. **VLAN:** `enp1s0.10` qo'shing, test qiling.
+4. **DNS test:** `dig @1.1.1.1 google.com`.
+5. **Bond:** Ikki interface'ni `bond0`'ga birlashtiring (lab muhitida).
+
+## 17. Bilim sinovi
+
+**Savol 1.** `/etc/network/interfaces`'da `auto enp1s0` nima qiladi?
+
+- a) Interface'ni o'chiradi
+- b) Boot'da avtomatik ko'taradi
+- c) DHCP yoqadi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Boot va `ifup -a` paytida avtomatik ko'tariladi.[¹](https://wiki.debian.org/NetworkConfiguration)
+</Callout>
+
+**Savol 2.** systemd-networkd config qaerda?
+
+- a) `/etc/network/interfaces`
+- b) `/etc/systemd/network/*.network`
+- c) `/etc/sysconfig/network`
+- d) `/etc/netplan/`
+
+<Callout type="success" title="Javob">
+**(b)** `.network` fayllar systemd-networkd uchun.
+</Callout>
+
+**Savol 3.** Bond 802.3ad — bu nima?
+
+- a) Round-robin
+- b) Active-backup
+- c) LACP — switch bilan kelishuv
+- d) Bridge
+
+<Callout type="success" title="Javob">
+**(c)** LACP — switch'da ham yoqilgan bo'lishi shart.
+</Callout>
+
+**Savol 4.** Default gateway bermasdan internet ishlamaydi sababli:
+
+- a) DNS yo'q
+- b) Tashqi paketlar qaerga jo'natishni bilmaydi
+- c) IP yo'q
+- d) Tarmoq yopiq
+
+<Callout type="success" title="Javob">
+**(b)** Default route — tashqi tarmoqlar uchun "qaerga" yo'l.
+</Callout>
+
+**Savol 5.** NetworkManager va ifupdown bir vaqtda:
+
+- a) Eng yaxshi
+- b) Konflikt — bittasini tanlang
+- c) Hech farqi yo'q
+- d) Tezroq
+
+<Callout type="success" title="Javob">
+**(b)** Bir interface ikki boshqaruvchi tomonidan boshqarilishi mumkin emas.
+</Callout>
+
+## Manbalar
+
+1. Debian Network Configuration. [https://wiki.debian.org/NetworkConfiguration](https://wiki.debian.org/NetworkConfiguration)
+2. interfaces(5). [https://manpages.debian.org/bookworm/ifupdown/interfaces.5.en.html](https://manpages.debian.org/bookworm/ifupdown/interfaces.5.en.html)
+
+## Keyingi qadam
+
+👉 [Debian Apparmor](/debian/apparmor)

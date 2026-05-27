@@ -1,0 +1,412 @@
+---
+title: "LEMP stack — Nginx + MySQL + PHP-FPM"
+description: "Ubuntu Server'da modern LEMP stack — Nginx, MySQL/MariaDB, PHP-FPM bilan."
+order: 2
+level: "intermediate"
+estimated_minutes: 13
+prerequisites:
+  - "/ubuntu/apt-basics"
+  - "/fundamentals/nginx-basics"
+learning_objectives:
+  - "Nginx, MariaDB, PHP-FPM o'rnatish"
+  - "Server block (virtual host) sozlash"
+  - "PHP-FPM socket va FastCGI"
+  - "Performance optimizatsiya"
+tags: ["ubuntu", "server", "lemp", "nginx", "php-fpm"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu Server Guide — Nginx"
+    url: "https://documentation.ubuntu.com/server/how-to/web-services/install-nginx/"
+  - title: "PHP-FPM"
+    url: "https://www.php.net/manual/en/install.fpm.php"
+---
+
+**LEMP** = Linux + (E)Nginx + MySQL + PHP-FPM. LAMP'ning modern muqobili — Nginx event-driven arxitekturasi tufayli ko'p kontent ko'p concurrent connection'larni yaxshi handle qiladi.[¹](https://documentation.ubuntu.com/server/how-to/web-services/install-nginx/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Nginx, MariaDB va PHP-FPM o'rnatish.
+- Server block (Nginx virtual host).
+- FastCGI Pass — Nginx → PHP-FPM.
+- Performance va xavfsizlik.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+sudo apt update
+sudo apt install nginx mariadb-server php-fpm php-mysql -y
+sudo systemctl enable --now nginx mariadb php8.3-fpm
+```
+
+PHP versiya (Ubuntu 24.04 — 8.3) — `php --version` orqali tekshiring.
+
+### Kerakli PHP modullar
+
+```bash
+sudo apt install php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-intl php-imagick -y
+```
+
+### Firewall
+
+```bash
+sudo ufw allow 'Nginx Full'      # 80 + 443
+```
+
+## 2. MariaDB xavfsizlik
+
+```bash
+sudo mysql_secure_installation
+```
+
+[LAMP darsida tasvirlangan](/ubuntu/server/lamp-stack) jarayon.
+
+## 3. Nginx server block — PHP bilan
+
+`/etc/nginx/sites-available/example.com`:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com www.example.com;
+
+    root /var/www/example.com/public;
+    index index.php index.html;
+
+    access_log /var/log/nginx/example.com-access.log;
+    error_log /var/log/nginx/example.com-error.log;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    location ~ /\.git {
+        deny all;
+    }
+
+    # Static fayllar cache
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff2|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # Gzip
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+}
+```
+
+Yoqish:
+
+```bash
+sudo mkdir -p /var/www/example.com/public
+echo "<?php phpinfo(); ?>" | sudo tee /var/www/example.com/public/info.php
+sudo chown -R www-data:www-data /var/www/example.com
+
+sudo ln -s /etc/nginx/sites-available/example.com /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Lokal test:
+
+```bash
+echo "127.0.0.1 example.com" | sudo tee -a /etc/hosts
+curl http://example.com/info.php
+```
+
+PHP info HTML qaytarishi kerak. Test'dan keyin `info.php`'ni o'chiring.
+
+## 4. PHP-FPM ichki tuzilishi
+
+```bash
+ls /etc/php/8.3/fpm/
+# php-fpm.conf, php.ini, pool.d/
+```
+
+`pool.d/www.conf` — default pool. Tipik sozlamalar:
+
+```ini
+[www]
+user = www-data
+group = www-data
+
+listen = /run/php/php8.3-fpm.sock
+listen.owner = www-data
+listen.group = www-data
+
+pm = dynamic
+pm.max_children = 50
+pm.start_servers = 5
+pm.min_spare_servers = 5
+pm.max_spare_servers = 35
+pm.max_requests = 500
+```
+
+| Parametr | Ma'no |
+|---|---|
+| `pm = dynamic` | Talab bo'yicha worker (5 dan max gacha) |
+| `pm = static` | Doim ko'rsatilgan soni |
+| `pm = ondemand` | Faqat ulanish bo'lganda |
+| `pm.max_children` | Maksimal jarayonlar |
+| `pm.max_requests` | Worker N so'rovdan keyin restart (memory leak'lardan) |
+
+Performance tuning:
+
+```bash
+# RAM ishlash (har worker)
+ps -ylC php-fpm8.3 --sort:rss
+
+# Tipik 30-50 MB. RAM total / 50 MB = max_children
+```
+
+## 5. Let's Encrypt
+
+```bash
+sudo apt install certbot python3-certbot-nginx -y
+
+sudo certbot --nginx -d example.com -d www.example.com
+```
+
+Certbot avtomatik:
+
+- Sertifikat oladi.
+- 443 server block yaratadi.
+- HTTP → HTTPS redirect.
+- `certbot.timer` 90 kunda yangilashga.
+
+## 6. WordPress LEMP'da
+
+```bash
+cd /tmp
+wget https://wordpress.org/latest.tar.gz
+tar -xzf latest.tar.gz
+sudo rsync -av wordpress/ /var/www/example.com/public/
+sudo chown -R www-data:www-data /var/www/example.com
+sudo find /var/www/example.com/public/ -type d -exec chmod 755 {} \;
+sudo find /var/www/example.com/public/ -type f -exec chmod 644 {} \;
+```
+
+WordPress uchun maxsus location:
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.php?$args;
+}
+
+# WordPress permalink'lar uchun majburiy
+location ~* /wp-config.php {
+    deny all;
+}
+```
+
+## 7. Xavfsizlik headerlar
+
+```nginx
+# Server'da yoki har server block'da
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-XSS-Protection "1; mode=block" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+# CSP — saytga moslashtirish kerak
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'" always;
+
+# Server version yashirish
+server_tokens off;
+```
+
+## 8. Rate limiting
+
+```nginx
+http {
+    limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/m;
+
+    server {
+        # Login sahifaga rate limit
+        location /wp-login.php {
+            limit_req zone=login_limit burst=10 nodelay;
+            include snippets/fastcgi-php.conf;
+            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        }
+    }
+}
+```
+
+5 ta urinish daqiqada, burst 10. Brute-force himoyasi.
+
+## 9. Cache plugin yoki built-in
+
+Nginx FastCGI cache:
+
+```nginx
+http {
+    fastcgi_cache_path /var/cache/nginx levels=1:2 keys_zone=WORDPRESS:100m inactive=60m;
+    fastcgi_cache_key "$scheme$request_method$host$request_uri";
+
+    server {
+        set $skip_cache 0;
+
+        # POST so'rovlarni cache qilmaslik
+        if ($request_method = POST) {
+            set $skip_cache 1;
+        }
+
+        # Admin sahifalarni cache qilmaslik
+        if ($request_uri ~* "/wp-admin/|/xmlrpc.php|wp-.*.php|/feed/|index.php|sitemap(_index)?.xml") {
+            set $skip_cache 1;
+        }
+
+        # Cookie'larni cache qilmaslik
+        if ($http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_logged_in") {
+            set $skip_cache 1;
+        }
+
+        location ~ \.php$ {
+            fastcgi_cache_bypass $skip_cache;
+            fastcgi_no_cache $skip_cache;
+            fastcgi_cache WORDPRESS;
+            fastcgi_cache_valid 60m;
+            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+            include snippets/fastcgi-php.conf;
+            add_header X-Cache $upstream_cache_status;
+        }
+    }
+}
+```
+
+`X-Cache: HIT` — cache'dan, `MISS` — PHP'dan.
+
+## 10. Loglar tahlil
+
+```bash
+# Real-time
+sudo tail -f /var/log/nginx/access.log
+
+# Top IP
+sudo awk '{print $1}' /var/log/nginx/access.log | sort | uniq -c | sort -rn | head -10
+
+# 4xx/5xx xatolar
+sudo grep " 5\d\d \| 4\d\d " /var/log/nginx/access.log | tail -20
+
+# GoAccess (web report)
+sudo apt install goaccess
+sudo goaccess /var/log/nginx/access.log -o /var/www/html/report.html --log-format=COMBINED
+```
+
+## 11. Buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo nginx -t` | Sintaksis test |
+| `sudo systemctl reload nginx` | Reload |
+| `sudo systemctl reload php8.3-fpm` | PHP-FPM reload |
+| `sudo ln -s ../sites-available/foo sites-enabled/` | Sayt yoqish |
+| `ps -ylC php-fpm8.3` | PHP-FPM jarayonlar |
+| `sudo tail -f /var/log/nginx/error.log` | Real-time log |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **`fastcgi_pass` socket yo'li xato** — `/run/php/php8.3-fpm.sock` (PHP versiyasiga qarab).
+- **PHP file ko'rinmaydi, faqat HTML** — `location ~ \.php$` yo'q yoki noto'g'ri.
+- **502 Bad Gateway** — PHP-FPM ishlamayapti yoki socket ruxsatlari.
+- **`pm.max_children` past** — high traffic'da 502 yoki sekinlik.
+- **`info.php` production'da qoldirish** — xavfsizlik xavfi.
+
+## 13. Eng yaxshi amaliyot
+
+- **Nginx + PHP-FPM** — LAMP'ga modern muqobil.
+- **`server_tokens off`** — version yashirish.
+- **Security headers** har vaqt.
+- **Let's Encrypt** majburiy.
+- **`pm.max_requests`** — memory leak'larga qarshi.
+- **FastCGI cache** — WordPress va boshqalar uchun.
+- **Rate limiting** login va API endpointlar uchun.
+
+## 14. Mashqlar
+
+1. **LEMP o'rnatish:** Yuqoridagi qadamlar.
+2. **Server block:** `example.com` uchun yarating, `info.php` ishlatib test qiling.
+3. **PHP-FPM pool:** `max_children`'ni RAM'ga qarab hisoblang.
+4. **Cache test:** FastCGI cache yoqing va `X-Cache: HIT` header'ni tasdiqlang.
+5. **Let's Encrypt:** Real domen bo'lsa — HTTPS yoqing.
+
+## 15. Bilim sinovi
+
+**Savol 1.** LEMP'dagi E nima?
+
+- a) Exchange
+- b) Nginx (engine-x)
+- c) Express
+- d) eMail
+
+<Callout type="success" title="Javob">
+**(b)** Nginx — "engine X" deb o'qiladi.
+</Callout>
+
+**Savol 2.** PHP-FPM va Nginx o'rtasidagi aloqa:
+
+- a) HTTP
+- b) FastCGI (socket yoki TCP)
+- c) WebSocket
+- d) gRPC
+
+<Callout type="success" title="Javob">
+**(b)** FastCGI — odatda Unix socket.
+</Callout>
+
+**Savol 3.** `pm = dynamic` nima qiladi?
+
+- a) Doim ko'rsatilgan worker
+- b) Talabga qarab worker (min/max orasida)
+- c) Faqat ulanish bo'lganda
+- d) Random
+
+<Callout type="success" title="Javob">
+**(b)** Dynamic scaling.
+</Callout>
+
+**Savol 4.** FastCGI cache `X-Cache: HIT` ma'nosi:
+
+- a) Xato
+- b) Javob cache'dan keldi (PHP ishlatilmadi)
+- c) Cache to'lib qoldi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Performance — PHP-FPM yuklanmadi.
+</Callout>
+
+**Savol 5.** Apache va Nginx farqi (LAMP vs LEMP):
+
+- a) Bir xil
+- b) Apache prefork (thread per request); Nginx event-driven (kichik RAM, ko'p concurrent)
+- c) Nginx faqat statik fayllar
+- d) Apache modern
+
+<Callout type="success" title="Javob">
+**(b)** Arxitektura farqi.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Server Guide — Nginx. [https://documentation.ubuntu.com/server/how-to/web-services/install-nginx/](https://documentation.ubuntu.com/server/how-to/web-services/install-nginx/)
+2. PHP-FPM. [https://www.php.net/manual/en/install.fpm.php](https://www.php.net/manual/en/install.fpm.php)
+
+## Keyingi qadam
+
+👉 [Postfix mail server](/ubuntu/server/postfix-mail)

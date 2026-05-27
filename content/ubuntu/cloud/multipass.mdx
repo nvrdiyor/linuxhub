@@ -1,0 +1,378 @@
+---
+title: "Multipass — Ubuntu virtual mashinalar"
+description: "Canonical'ning Multipass — Ubuntu VM'larni darrov yaratish va boshqarish."
+order: 1
+level: "intermediate"
+estimated_minutes: 8
+prerequisites:
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "Multipass o'rnatish va asosiy buyruqlar"
+  - "VM yaratish, boshqarish, o'chirish"
+  - "cloud-init bilan avtomatik sozlash"
+  - "Host bilan fayl almashish"
+tags: ["ubuntu", "cloud", "multipass", "vm"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Multipass Documentation"
+    url: "https://multipass.run/docs"
+---
+
+**Multipass** — Canonical'ning Ubuntu VM tool — har platforma (Linux, macOS, Windows) uchun bir xil. Buyruq satridan minut ichida Ubuntu VM yaratish.[¹](https://multipass.run/docs)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Multipass va Docker farqi.
+- VM yaratish, ulanish, o'chirish.
+- cloud-init bilan boostrap.
+- Mount va fayl almashish.
+- Network konfiguratsiya.
+</Callout>
+
+## 1. Multipass vs Docker
+
+| | Multipass | Docker |
+|---|---|---|
+| Tur | Virtual machine | Container |
+| OS | To'liq Ubuntu (kernel + userspace) | Yagona binary container |
+| Resource | RAM 1+ GB, disk 5+ GB | RAM 50-200 MB |
+| Boot vaqti | 30-60 sekund | 1-3 sekund |
+| Use case | Test Ubuntu, multi-OS dev | Microservices, isolation |
+
+Multipass — to'liq VM ehtiyoj bo'lganda (kernel modul, systemd, ko'p service test).
+
+## 2. O'rnatish
+
+```bash
+# Linux (Snap)
+sudo snap install multipass
+
+# macOS (Homebrew)
+brew install --cask multipass
+
+# Windows — installer multipass.run dan
+```
+
+```bash
+multipass version
+```
+
+## 3. Birinchi VM
+
+```bash
+# Default Ubuntu LTS bilan VM
+multipass launch --name primary
+
+# Aniq versiya
+multipass launch 24.04 --name myvm
+
+# Aniq resurs
+multipass launch --name dev --cpus 2 --memory 4G --disk 20G 24.04
+
+# VM ichida shell
+multipass shell primary
+# yoki
+multipass exec primary -- bash
+```
+
+VM ichida — odatdagi Ubuntu.
+
+## 4. VM boshqaruv
+
+```bash
+# Ro'yxat
+multipass list
+# Name          State    IPv4         Image
+# primary       Running  10.0.0.5     Ubuntu 24.04 LTS
+
+# To'xtatish / yoqish / restart
+multipass stop primary
+multipass start primary
+multipass restart primary
+
+# Suspend (RAM saqlash)
+multipass suspend primary
+
+# Hammasini to'xtatish
+multipass stop --all
+
+# O'chirish
+multipass delete primary
+multipass purge    # delete'dan keyin disk tozalash
+```
+
+## 5. Buyruq bajarish
+
+```bash
+# Bir martalik
+multipass exec primary -- ls /var
+
+# Sudo
+multipass exec primary -- sudo apt update
+multipass exec primary -- sudo apt install -y nginx
+```
+
+## 6. Cloud-init — avtomatik sozlash
+
+`cloud-init.yaml`:
+
+```yaml
+#cloud-config
+package_update: true
+packages:
+  - nginx
+  - python3-pip
+  - git
+
+write_files:
+  - path: /var/www/html/index.html
+    content: |
+      <h1>Hello from Multipass</h1>
+
+users:
+  - name: ali
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA...
+
+runcmd:
+  - systemctl enable --now nginx
+  - echo "Setup complete" > /var/log/setup.log
+```
+
+```bash
+multipass launch --name web --cloud-init cloud-init.yaml
+```
+
+VM yaratilganda avtomatik:
+- `nginx` o'rnatiladi va yoqiladi.
+- `index.html` joylashtiriladi.
+- User `ali` SSH key bilan yaratiladi.
+
+## 7. Mount va fayl almashish
+
+```bash
+# Host katalog'ni VM'ga mount
+multipass mount ~/projects primary:/mnt/projects
+
+# Mount'lar ro'yxati
+multipass info primary
+
+# Unmount
+multipass umount primary:/mnt/projects
+```
+
+Endi host'da `~/projects` va VM'da `/mnt/projects` — bir xil katalog.
+
+```bash
+# Transfer (mount o'rniga)
+multipass transfer ~/file.txt primary:/home/ubuntu/
+multipass transfer primary:/home/ubuntu/output.log .
+```
+
+## 8. Network
+
+```bash
+# IP
+multipass info primary | grep IPv4
+
+# Boshqa mashina'dan ssh
+ssh ubuntu@10.0.0.5
+```
+
+### Bridge network (tarmoqqa kirish uchun)
+
+```bash
+multipass launch --name web --network name=eth0,mode=manual,mac="52:54:00:11:22:33"
+```
+
+Yoki Multipass settings:
+
+```bash
+multipass set local.driver=qemu
+```
+
+## 9. Image variantlari
+
+```bash
+# Mavjud image'lar
+multipass find
+# Image          Aliases           Version          Description
+# 20.04          focal             20240520         Ubuntu 20.04 LTS
+# 22.04          jammy             20240520         Ubuntu 22.04 LTS
+# 24.04          noble, lts        20240520         Ubuntu 24.04 LTS
+# core           core24            20240520         Ubuntu Core 24
+# docker         —                 —                Docker pre-installed
+```
+
+```bash
+# Docker pre-installed
+multipass launch docker --name dev
+
+# Daxakar:
+multipass exec dev -- docker run hello-world
+```
+
+## 10. Misol — Kubernetes lab
+
+3 ta VM bilan k3s cluster:
+
+```bash
+# Master
+multipass launch --name k3s-master --cpus 2 --memory 4G --disk 20G 24.04
+
+# Worker'lar
+multipass launch --name k3s-worker1 --cpus 2 --memory 2G --disk 10G 24.04
+multipass launch --name k3s-worker2 --cpus 2 --memory 2G --disk 10G 24.04
+
+# Master'ga k3s o'rnatish
+multipass exec k3s-master -- bash -c "curl -sfL https://get.k3s.io | sh -"
+
+# Master token
+MASTER_TOKEN=$(multipass exec k3s-master -- sudo cat /var/lib/rancher/k3s/server/node-token)
+MASTER_IP=$(multipass info k3s-master | grep IPv4 | awk '{print $2}')
+
+# Worker'larni join qilish
+for w in k3s-worker1 k3s-worker2; do
+    multipass exec $w -- bash -c "curl -sfL https://get.k3s.io | K3S_URL=https://$MASTER_IP:6443 K3S_TOKEN=$MASTER_TOKEN sh -"
+done
+
+# Status
+multipass exec k3s-master -- sudo kubectl get nodes
+```
+
+## 11. Snapshot
+
+```bash
+# VM to'xtatish
+multipass stop primary
+
+# Snapshot
+multipass snapshot primary --name before-experiment
+
+# Snapshot'lar ro'yxati
+multipass list --snapshots
+
+# Restore
+multipass restore primary.before-experiment
+```
+
+## 12. Performance
+
+```bash
+# Driver tanlash (Linux'da)
+multipass set local.driver=qemu      # default
+# yoki
+multipass set local.driver=lxd       # tezroq, lekin LXD kerak
+
+# Resource o'zgartirish (toxir)
+multipass stop primary
+multipass set local.primary.memory=4G
+multipass set local.primary.cpus=2
+multipass start primary
+```
+
+## 13. Buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `multipass launch --name X` | Yangi VM |
+| `multipass list` | Ro'yxat |
+| `multipass shell X` | Interaktiv shell |
+| `multipass exec X -- <cmd>` | Buyruq |
+| `multipass mount src X:dst` | Mount |
+| `multipass transfer src dst` | Fayl ko'chirish |
+| `multipass stop/start X` | Holatni boshqarish |
+| `multipass delete X` | O'chirish |
+| `multipass purge` | Disk tozalash |
+| `multipass find` | Mavjud image'lar |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Linux'da KVM modul o'chirilgan** — Multipass ishlamaydi. `kvm-ok` orqali tekshirish.
+- **Disk to'lib qoldi** — VM disk hajmi default 5 GB. `--disk 20G` bilan ko'paytirish.
+- **Cloud-init xato** — sintaksis xato. `multipass logs <name>` orqali tekshirish.
+- **Mount host'da ruxsat yo'q** — VM user (`ubuntu`) host fayllariga kira olmasligi mumkin.
+- **`purge` qilmaslik** — `delete` qilingan VM disk hali bor.
+
+## 15. Eng yaxshi amaliyot
+
+- **`cloud-init`** har VM uchun — reproducible.
+- **`--name`** har VM aniq — chalkashlik bo'lmaydi.
+- **`primary` default VM** — Multipass auto-config.
+- **`mount` katalog ulashish** — kod editing host'da, build VM'da.
+- **Snapshots majburiy o'zgarishlardan oldin.**
+- **`purge`** muntazam — disk tejash.
+
+## 16. Mashqlar
+
+1. **O'rnatish:** Multipass'ni o'rnating. `multipass version`.
+2. **Birinchi VM:** `multipass launch --name test` qiling. `multipass shell test` bilan kiring.
+3. **Cloud-init:** Yuqoridagi misol bo'yicha nginx-li VM yarating.
+4. **Mount test:** Host katalog'ni VM'ga mount qiling.
+5. **Snapshot:** Snapshot oling, fayl yarating, restore qiling — yo'qoldi-mi?
+
+## 17. Bilim sinovi
+
+**Savol 1.** Multipass va Docker farqi:
+
+- a) Bir xil
+- b) Multipass — to'liq VM (kernel + Ubuntu); Docker — container (host kernel)
+- c) Multipass tezroq
+- d) Docker faqat Linux'da
+
+<Callout type="success" title="Javob">
+**(b)** VM vs Container fundamental farq.[¹](https://multipass.run/docs)
+</Callout>
+
+**Savol 2.** Cloud-init nima beradi?
+
+- a) Bulutni boshlash
+- b) VM birinchi yuklanganda avtomatik konfiguratsiya (paket, user, fayl)
+- c) Faqat AWS uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Industriya standart bootstrap.
+</Callout>
+
+**Savol 3.** VM'ni butunlay o'chirish:
+
+- a) `multipass stop`
+- b) `multipass delete` keyin `multipass purge`
+- c) `multipass remove`
+- d) Faqat reboot
+
+<Callout type="success" title="Javob">
+**(b)** Delete + purge — disk tozalash.
+</Callout>
+
+**Savol 4.** Host bilan fayl almashish:
+
+- a) Manual scp
+- b) `multipass mount` yoki `multipass transfer`
+- c) Email
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** Mount uzoq, transfer bir martalik.
+</Callout>
+
+**Savol 5.** Multipass platforma'lar:
+
+- a) Faqat Ubuntu
+- b) Linux, macOS, Windows
+- c) Faqat Linux
+- d) Faqat cloud
+
+<Callout type="success" title="Javob">
+**(b)** Cross-platform — Canonical'ning maqsad.
+</Callout>
+
+## Manbalar
+
+1. Multipass Documentation. [https://multipass.run/docs](https://multipass.run/docs)
+
+## Keyingi qadam
+
+👉 [LXD — system containers](/ubuntu/cloud/lxd)

@@ -1,0 +1,458 @@
+---
+title: "MariaDB Ubuntu'da — o'rnatish va boshqaruv"
+description: "MariaDB Server, foydalanuvchi, ma'lumotlar bazasi, replikatsiya."
+order: 3
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/ubuntu/server/lamp-stack"
+learning_objectives:
+  - "MariaDB o'rnatish"
+  - "Foydalanuvchi va privilege"
+  - "Backup (`mysqldump`)"
+  - "Replication"
+  - "Performance tuning"
+tags: ["ubuntu", "mariadb", "mysql", "database"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "MariaDB Documentation"
+    url: "https://mariadb.com/kb/en/documentation/"
+  - title: "Ubuntu Server Guide — Databases"
+    url: "https://ubuntu.com/server/docs/databases-mysql"
+---
+
+**MariaDB** — MySQL'ning open-source fork'i, Ubuntu/Debian'da default. Tezroq, ko'proq feature, MySQL bilan to'liq mos.[¹](https://mariadb.com/kb/en/documentation/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `mariadb-server` o'rnatish.
+- `mysql_secure_installation`.
+- Database, foydalanuvchi yaratish.
+- Backup va restore.
+- Master-slave replication.
+- `my.cnf` tuning.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+sudo apt update
+sudo apt install -y mariadb-server mariadb-client
+
+sudo systemctl enable --now mariadb
+sudo systemctl status mariadb
+
+# Versiya
+mariadb --version
+# mariadb  Ver 10.11.x for debian-linux-gnu
+```
+
+## 2. Birinchi security setup
+
+```bash
+sudo mysql_secure_installation
+
+# - Enter current root password: <Enter>
+# - Switch to unix_socket authentication? n
+# - Change the root password? Y → yangi parol
+# - Remove anonymous users? Y
+# - Disallow root login remotely? Y
+# - Remove test database? Y
+# - Reload privilege tables? Y
+```
+
+## 3. Birinchi ulanish
+
+Ubuntu/Debian'da default `unix_socket` auth:
+
+```bash
+sudo mariadb
+# MariaDB [(none)]>
+```
+
+Yoki parol bilan:
+
+```bash
+mariadb -u root -p
+```
+
+Chiqish: `\q` yoki `exit`.
+
+## 4. Database yaratish
+
+```sql
+CREATE DATABASE myapp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+SHOW DATABASES;
+USE myapp;
+
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+SHOW TABLES;
+DESC users;
+```
+
+## 5. Foydalanuvchi va privilege
+
+```sql
+-- Yangi user
+CREATE USER 'myapp'@'localhost' IDENTIFIED BY 'StrongPass123!';
+
+-- Privilege berish
+GRANT ALL PRIVILEGES ON myapp.* TO 'myapp'@'localhost';
+
+-- Yoki cheklangan
+GRANT SELECT, INSERT, UPDATE, DELETE ON myapp.* TO 'myapp'@'localhost';
+
+FLUSH PRIVILEGES;
+
+-- Ko'rsatish
+SHOW GRANTS FOR 'myapp'@'localhost';
+
+-- O'chirish
+DROP USER 'myapp'@'localhost';
+```
+
+Remote ulanish uchun:
+
+```sql
+CREATE USER 'myapp'@'%' IDENTIFIED BY 'pass';
+GRANT ALL ON myapp.* TO 'myapp'@'%';
+```
+
+`%` — har qaerdan. `'myapp'@'10.0.0.0/255.255.255.0'` — tarmoq'dan.
+
+## 6. Remote ulanish
+
+`/etc/mysql/mariadb.conf.d/50-server.cnf`:
+
+```ini
+[mysqld]
+bind-address = 0.0.0.0
+# yoki aniq IP
+bind-address = 10.0.1.50
+```
+
+```bash
+sudo systemctl restart mariadb
+
+# Firewall
+sudo ufw allow from 10.0.0.0/24 to any port 3306
+```
+
+Client'dan:
+
+```bash
+mariadb -h DB_SERVER_IP -u myapp -p
+```
+
+## 7. Backup — `mysqldump`
+
+```bash
+# Bitta database
+sudo mysqldump myapp > /tmp/myapp.sql
+
+# Hammasi
+sudo mysqldump --all-databases > /tmp/all.sql
+
+# Compressed
+sudo mysqldump myapp | gzip > /tmp/myapp.sql.gz
+
+# Aniq foydalanuvchi bilan
+mysqldump -u root -p myapp > /tmp/myapp.sql
+
+# Strukturasiz (faqat data)
+mysqldump --no-create-info myapp > data.sql
+
+# Faqat struktura
+mysqldump --no-data myapp > schema.sql
+```
+
+## 8. Restore
+
+```bash
+# Yangi DB ga
+mariadb -u root -p
+> CREATE DATABASE myapp_restored;
+> \q
+
+mariadb -u root -p myapp_restored < /tmp/myapp.sql
+
+# Compressed
+gunzip -c /tmp/myapp.sql.gz | mariadb -u root -p myapp_restored
+```
+
+## 9. Avtomatik backup cron
+
+`/usr/local/bin/db-backup.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+BACKUP_DIR="/var/backups/mariadb"
+DATE=$(date +%Y%m%d-%H%M%S)
+RETENTION=7
+
+mkdir -p "$BACKUP_DIR"
+
+# Hammasi
+sudo mysqldump --all-databases --single-transaction --quick \
+    | gzip > "$BACKUP_DIR/all-$DATE.sql.gz"
+
+# Eski backup'larni o'chirish
+find "$BACKUP_DIR" -name "all-*.sql.gz" -mtime +$RETENTION -delete
+
+echo "Backup completed: $DATE"
+```
+
+```bash
+sudo chmod +x /usr/local/bin/db-backup.sh
+
+# Cron
+echo "0 3 * * * /usr/local/bin/db-backup.sh" | sudo tee /etc/cron.d/db-backup
+```
+
+`--single-transaction` — InnoDB uchun lock'siz backup.
+
+## 10. Master-slave replication
+
+### Master (10.0.1.10)
+
+`/etc/mysql/mariadb.conf.d/50-server.cnf`:
+
+```ini
+[mysqld]
+server-id = 1
+log_bin = /var/log/mysql/mariadb-bin
+binlog_format = ROW
+bind-address = 0.0.0.0
+```
+
+```bash
+sudo systemctl restart mariadb
+```
+
+```sql
+-- Replication user
+CREATE USER 'repl'@'10.0.1.11' IDENTIFIED BY 'replpass';
+GRANT REPLICATION SLAVE ON *.* TO 'repl'@'10.0.1.11';
+FLUSH PRIVILEGES;
+
+-- Master status
+SHOW MASTER STATUS;
+-- +--------------------+----------+
+-- | File               | Position |
+-- +--------------------+----------+
+-- | mariadb-bin.000001 |      328 |
+-- +--------------------+----------+
+```
+
+Database dump:
+
+```bash
+sudo mysqldump --all-databases --master-data > /tmp/master-dump.sql
+scp /tmp/master-dump.sql slave:/tmp/
+```
+
+### Slave (10.0.1.11)
+
+`/etc/mysql/mariadb.conf.d/50-server.cnf`:
+
+```ini
+[mysqld]
+server-id = 2
+read_only = 1
+```
+
+```bash
+sudo systemctl restart mariadb
+mariadb < /tmp/master-dump.sql
+```
+
+```sql
+CHANGE MASTER TO
+    MASTER_HOST='10.0.1.10',
+    MASTER_USER='repl',
+    MASTER_PASSWORD='replpass',
+    MASTER_LOG_FILE='mariadb-bin.000001',
+    MASTER_LOG_POS=328;
+
+START SLAVE;
+
+SHOW SLAVE STATUS\G
+-- Slave_IO_Running: Yes
+-- Slave_SQL_Running: Yes
+```
+
+## 11. Performance tuning
+
+`/etc/mysql/mariadb.conf.d/50-server.cnf`:
+
+```ini
+[mysqld]
+# InnoDB buffer (RAM'ning 50-70%)
+innodb_buffer_pool_size = 4G
+
+# Log
+innodb_log_file_size = 256M
+innodb_flush_log_at_trx_commit = 2
+
+# Connections
+max_connections = 200
+thread_cache_size = 16
+
+# Query cache (eskirgan, 0)
+query_cache_size = 0
+query_cache_type = 0
+
+# Slow query log
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/slow.log
+long_query_time = 2
+```
+
+```bash
+sudo systemctl restart mariadb
+```
+
+## 12. mysqltuner — tahlil
+
+```bash
+sudo apt install -y mysqltuner
+sudo mysqltuner
+# Tavsiyalar ro'yxati
+```
+
+## 13. Monitoring
+
+Slow query log:
+
+```bash
+sudo tail -f /var/log/mysql/slow.log
+
+# Analiz
+sudo mysqldumpslow -t 10 /var/log/mysql/slow.log
+# Eng sekin 10 ta query
+```
+
+Process list:
+
+```sql
+SHOW FULL PROCESSLIST;
+SHOW ENGINE INNODB STATUS\G
+```
+
+## 14. Foydalanuvchilar va auditing
+
+```sql
+-- Hozirgi connections
+SHOW STATUS LIKE 'Threads_connected';
+
+-- Failed login
+SHOW STATUS LIKE 'Aborted_connects';
+
+-- Plugin auditing
+INSTALL PLUGIN server_audit SONAME 'server_audit.so';
+
+-- /etc/mysql/conf.d/audit.cnf
+[mysqld]
+server_audit_logging = ON
+server_audit_events = CONNECT,QUERY
+server_audit_file_path = /var/log/mysql/audit.log
+```
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`bind-address = 127.0.0.1` o'zgartirmaslik** — remote ulanish ishlamaydi.
+- **`'user'@'localhost'` vs `'user'@'%'`** — ikkita alohida user.
+- **`FLUSH PRIVILEGES` unutmoq** — yangi grant'lar darhol amal qilmaydi (eski versiyada).
+- **Backup tekshirilmagan** — restore qilib ko'ring.
+- **`innodb_buffer_pool_size` past** — RAM'ning 50%+ bo'lishi kerak.
+
+## 16. Eng yaxshi amaliyot
+
+- **`mysql_secure_installation` har vaqt** — birinchi qadam.
+- **Strong parol** — `pwgen 32` yoki shunga o'xshash.
+- **`utf8mb4` charset** — emoji va to'liq Unicode.
+- **`--single-transaction` backup** — InnoDB jadval'larni lock qilmasdan.
+- **Slow query log** — 2s'dan ortiq optimizatsiya kerak.
+
+## 17. Mashqlar
+
+1. **O'rnatish:** MariaDB o'rnatib, `mysql_secure_installation`.
+2. **DB yaratish:** `myapp` DB, `myapp` user.
+3. **Backup:** `mysqldump` va restore.
+4. **Cron backup:** Har kun 3:00.
+5. **Slow query:** 5s'dan ortiq query log'lash.
+
+## 18. Bilim sinovi
+
+**Savol 1.** MariaDB Ubuntu'da default auth:
+
+- a) Parol
+- b) `unix_socket` (root uchun, `sudo mariadb`)
+- c) Token
+- d) Ssh key
+
+<Callout type="success" title="Javob">
+**(b)** Ubuntu/Debian default — `unix_socket` plugin. Parol kerak emas root sifatida.[¹](https://mariadb.com/kb/en/documentation/)
+</Callout>
+
+**Savol 2.** Foydalanuvchi yaratish:
+
+- a) `CREATE USER 'name'@'host' IDENTIFIED BY 'pass';`
+- b) `ADD USER name pass;`
+- c) `INSERT INTO users ...`
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** Standard SQL — `'user'@'host'` formatida.
+</Callout>
+
+**Savol 3.** InnoDB jadval backup'da lock yo'q:
+
+- a) `--lock-tables`
+- b) `--single-transaction`
+- c) `--no-lock`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** `--single-transaction` — InnoDB tranzaksiya bilan consistent snapshot.
+</Callout>
+
+**Savol 4.** Master-slave replication uchun zarur:
+
+- a) `server-id` har host'da unique
+- b) Bir xil parol
+- c) Hech narsa
+- d) Bir xil versiya
+
+<Callout type="success" title="Javob">
+**(a)** Har MariaDB instance unique `server-id` bilan.
+</Callout>
+
+**Savol 5.** Slow query log:
+
+- a) Faqat error
+- b) Belgilangan vaqtdan ortiq ishlagan query'lar
+- c) Hammasi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `long_query_time` (default 10s) — bundan ortiq query log'lanadi.
+</Callout>
+
+## Manbalar
+
+1. MariaDB Documentation. [https://mariadb.com/kb/en/documentation/](https://mariadb.com/kb/en/documentation/)
+2. Ubuntu Server Guide — Databases. [https://ubuntu.com/server/docs/databases-mysql](https://ubuntu.com/server/docs/databases-mysql)
+
+## Keyingi qadam
+
+👉 [Ubuntu PostgreSQL](/ubuntu/server/postgresql)

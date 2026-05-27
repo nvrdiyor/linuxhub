@@ -1,0 +1,483 @@
+---
+title: "UFW — Uncomplicated Firewall chuqurroq"
+description: "Ubuntu'ning standart firewall'i UFW — qoidalar, profillar, logging va advanced sozlamalar."
+order: 1
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/ubuntu/introduction"
+  - "/fundamentals/networking"
+learning_objectives:
+  - "UFW arxitekturasi va asosiy buyruqlar"
+  - "Profillar va application list"
+  - "Rate limiting va logging"
+  - "IPv6 va advanced syntax"
+tags: ["ubuntu", "security", "firewall", "ufw"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu Server Guide — UFW"
+    url: "https://documentation.ubuntu.com/server/how-to/security/firewall/"
+  - title: "UFW Manual"
+    url: "https://manpages.ubuntu.com/manpages/jammy/man8/ufw.8.html"
+---
+
+**UFW** (Uncomplicated Firewall) — Ubuntu'da iptables/nftables ustida ishlovchi qulay interfeys. Sodda sintaksis bilan kuchli himoya — server administrator'ning birinchi quroli.[¹](https://documentation.ubuntu.com/server/how-to/security/firewall/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- UFW yoqish va asosiy qoidalar.
+- Application profillar va port allow/deny.
+- Rate limiting (brute-force himoyasi).
+- Logging va monitoring.
+- IPv6 va advanced rules.
+</Callout>
+
+## 1. O'rnatish va yoqish
+
+Ubuntu Desktop'da UFW default mavjud, lekin **o'chirilgan**. Server'da yoqish:
+
+```bash
+sudo apt install ufw -y
+
+# Joriy holat
+sudo ufw status verbose
+# Status: inactive
+```
+
+### Default policy
+
+```bash
+# Default — kelayotganlar rad, chiqayotganlar ruxsat
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+```
+
+### Yoqish
+
+```bash
+# Eng avval SSH ruxsatini qo'shing (aks holda lock-out!)
+sudo ufw allow ssh
+
+sudo ufw enable
+# Command may disrupt existing ssh connections. Proceed with operation (y|n)? y
+```
+
+### Status
+
+```bash
+sudo ufw status
+# Status: active
+# To                         Action      From
+# --                         ------      ----
+# 22/tcp                     ALLOW       Anywhere
+
+sudo ufw status numbered
+# Qator raqamlari bilan — o'chirish uchun
+
+sudo ufw status verbose
+# Default policy, profiles va boshqalar
+```
+
+## 2. Asosiy qoidalar
+
+### Allow
+
+```bash
+# Port nom bo'yicha (`/etc/services`'dan)
+sudo ufw allow ssh
+sudo ufw allow http
+sudo ufw allow https
+
+# Port raqami
+sudo ufw allow 22
+sudo ufw allow 80/tcp
+sudo ufw allow 53/udp
+
+# Port diapazoni
+sudo ufw allow 6000:6007/tcp
+
+# Aniq IP'dan
+sudo ufw allow from 192.168.1.50
+
+# Aniq IP'dan aniq port'ga
+sudo ufw allow from 192.168.1.50 to any port 22
+
+# Aniq IP'dan aniq port'ga, aniq protocol
+sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+
+# Aniq interface
+sudo ufw allow in on eth0 to any port 80
+```
+
+### Deny / Reject
+
+```bash
+# Bloklash (silent)
+sudo ufw deny 23
+
+# Reject (ICMP "reset" yuboradi)
+sudo ufw reject 23
+
+# Aniq IP'dan rad qilish
+sudo ufw deny from 1.2.3.4
+```
+
+`deny` va `reject` farqi:
+
+- `deny` — paket sukunatda tashlanadi (so'rovchi waitlost).
+- `reject` — ICMP "Connection refused" qaytariladi (so'rovchi bilan).
+
+`deny` afzal — port scanner'ga ma'lumot kamroq.
+
+### Limit (brute-force himoyasi)
+
+```bash
+sudo ufw limit ssh
+```
+
+Default — 6 ulanish 30 soniyada bir IP'dan. Ko'p urinish — vaqtinchalik blok.
+
+### Qoidalarni o'chirish
+
+```bash
+# Qator raqami bo'yicha
+sudo ufw status numbered
+sudo ufw delete 3
+
+# Sintaksis bo'yicha
+sudo ufw delete allow 80/tcp
+```
+
+## 3. Application profillar
+
+```bash
+# Mavjud profillar
+sudo ufw app list
+
+# Misol:
+# Apache
+# Apache Full
+# Apache Secure
+# Nginx Full
+# Nginx HTTP
+# Nginx HTTPS
+# OpenSSH
+# Postfix
+# Postfix Submission
+# Postfix SMTPS
+```
+
+### Application qo'shish
+
+```bash
+sudo ufw allow 'Nginx Full'
+# Nginx HTTP (80) + HTTPS (443) bir buyruqda
+
+sudo ufw allow 'Apache Full'
+# 80 + 443
+
+sudo ufw allow OpenSSH    # 22
+```
+
+### Profile sintaksis
+
+`/etc/ufw/applications.d/` katalogida custom profile'lar.
+
+```bash
+sudo nano /etc/ufw/applications.d/myapp
+```
+
+```
+[MyApp]
+title=My Application
+description=Custom application
+ports=8080,8443/tcp
+```
+
+```bash
+sudo ufw app update MyApp
+sudo ufw allow MyApp
+```
+
+## 4. Subnet va CIDR
+
+```bash
+# Lokal tarmoq'dan SSH
+sudo ufw allow from 192.168.1.0/24 to any port 22
+
+# Office IP diapazon'idan ko'p portga
+sudo ufw allow from 203.0.113.0/24 to any port 22:25 proto tcp
+```
+
+### IPv6
+
+UFW default IPv6'ni ham yoqadi:
+
+```bash
+sudo nano /etc/default/ufw
+IPV6=yes
+```
+
+```bash
+sudo ufw reload
+```
+
+IPv6 manzili:
+
+```bash
+sudo ufw allow from 2001:db8::1 to any port 22
+```
+
+## 5. Logging
+
+```bash
+# Yoqish (default level)
+sudo ufw logging on
+
+# Levellar
+sudo ufw logging low      # blocked tashlanganlar
+sudo ufw logging medium   # + allowed
+sudo ufw logging high     # batafsil
+sudo ufw logging full     # hammasi (verbose)
+
+# O'chirish
+sudo ufw logging off
+```
+
+Loglar `/var/log/ufw.log`:
+
+```bash
+sudo tail -f /var/log/ufw.log
+# May 26 12:34:56 server kernel: [UFW BLOCK] IN=eth0 OUT= MAC=...
+#     SRC=1.2.3.4 DST=10.0.0.1 LEN=60 ...
+#     PROTO=TCP SPT=12345 DPT=22 ...
+```
+
+`[UFW BLOCK]` — bloklangan, `[UFW ALLOW]` — ruxsat etilgan, `[UFW LIMIT BLOCK]` — rate limit'dan o'tgan.
+
+## 6. Reset va backup
+
+```bash
+# Hamma qoidalarni reset
+sudo ufw reset
+
+# Status: inactive (boshqatdan boshlash)
+```
+
+```bash
+# Backup
+sudo cp /etc/ufw/user.rules /etc/ufw/user.rules.bak
+sudo cp /etc/ufw/user6.rules /etc/ufw/user6.rules.bak
+```
+
+## 7. Disable / Enable
+
+```bash
+sudo ufw disable
+sudo ufw enable
+sudo ufw reload    # qoidalarni qayta yuklash, holatni o'zgartirmasdan
+```
+
+## 8. NAT va port forwarding (advanced)
+
+UFW oddiy NAT'ni qo'llab-quvvatlaydi, lekin sintaksisi murakkab. Manual `/etc/ufw/before.rules`:
+
+```bash
+sudo nano /etc/ufw/before.rules
+```
+
+Birinchi qatorda (`*filter`'dan oldin):
+
+```
+*nat
+:POSTROUTING ACCEPT [0:0]
+-A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+COMMIT
+```
+
+`/etc/default/ufw`:
+
+```
+DEFAULT_FORWARD_POLICY="ACCEPT"
+```
+
+`/etc/ufw/sysctl.conf`:
+
+```
+net/ipv4/ip_forward=1
+```
+
+```bash
+sudo ufw reload
+```
+
+## 9. Real misol — production server
+
+Tipik LEMP server:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# Asosiy
+sudo ufw allow 22/tcp        # SSH
+sudo ufw limit 22/tcp        # SSH rate limit
+sudo ufw allow 'Nginx Full'  # HTTP + HTTPS
+
+# Specific IP'dan SSH (production)
+sudo ufw delete allow 22/tcp
+sudo ufw allow from 203.0.113.50 to any port 22
+
+# IPv6 ham
+sudo ufw allow from 2001:db8::/32 to any port 22
+
+# Logging
+sudo ufw logging medium
+
+# Yoqish
+sudo ufw enable
+
+# Tekshirish
+sudo ufw status verbose
+```
+
+## 10. UFW + fail2ban
+
+UFW — passive (qoidalar). fail2ban — active (loglar tahlili, dynamic bloklash).
+
+```bash
+sudo apt install fail2ban -y
+
+sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+sudo nano /etc/fail2ban/jail.local
+```
+
+```ini
+[sshd]
+enabled = true
+port    = 22
+filter  = sshd
+logpath = /var/log/auth.log
+maxretry = 5
+bantime  = 1h
+banaction = ufw     # UFW bilan birgalikda
+```
+
+```bash
+sudo systemctl restart fail2ban
+sudo fail2ban-client status sshd
+```
+
+## 11. Cloud provider firewall vs UFW
+
+AWS Security Group, DigitalOcean Cloud Firewall — bular **tarmoq darajasi** (instance'ga kelishidan oldin). UFW — instance darajasi (kelganidan keyin).
+
+Tavsiya: **ikkalasini birga**. Cloud firewall — birinchi qatlam, UFW — ikkinchi.
+
+## 12. Buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo ufw enable/disable` | Yoqish/o'chirish |
+| `sudo ufw status verbose` | Holat |
+| `sudo ufw allow <port>` | Port allow |
+| `sudo ufw deny <port>` | Deny |
+| `sudo ufw limit <port>` | Rate limit |
+| `sudo ufw delete <rule>` | O'chirish |
+| `sudo ufw reset` | Hammasini reset |
+| `sudo ufw reload` | Qoidalar qayta yuklash |
+| `sudo ufw logging <level>` | Logging |
+| `sudo ufw app list` | Profillar |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **SSH allow qilmasdan enable** — lock-out. Hech qachon avval SSH'ni ruxsat berishni unutmang.
+- **`/etc/default/ufw` IPv6=no** — IPv6 trafik bloklanmaydi.
+- **Application profile dublikatlari** — `app list` ko'p qator.
+- **`reload` va `enable` farqi** — reload qoidalarni qayta yuklaydi, enable boshlanish'ga teng.
+- **Cloud firewall'ni unutib UFW yoqish** — instance hech qachon kelmaydi.
+
+## 14. Eng yaxshi amaliyot
+
+- **Default deny incoming, allow outgoing** — standart.
+- **SSH'ga rate limit** — brute-force himoyasi.
+- **Production'da SSH'ni faqat ofis IP'dan** — eng xavfsiz.
+- **`Nginx Full` profillar** — yodlash oson, qator soni kamroq.
+- **Logging medium** — log noise va useful balansi.
+- **fail2ban bilan birga** — dynamic bloklash.
+- **Cloud + UFW birga** — defense in depth.
+- **Reset oldidan backup** — qoidalarni saqlash.
+
+## 15. Mashqlar
+
+1. **Status:** `sudo ufw status verbose` — sizdagi joriy holat?
+2. **SSH + HTTP:** Lab muhitda UFW yoqing, SSH va HTTP'ga ruxsat.
+3. **Rate limit:** `sudo ufw limit ssh` qo'ying va `ssh` ko'p urinishlar test qiling.
+4. **Application profillar:** `sudo ufw app list` — qaysi profillar mavjud?
+5. **Loglar:** `sudo tail -f /var/log/ufw.log` real-time kuzating, boshqa terminal'da bloklangan port'ga ulanib ko'ring.
+
+## 16. Bilim sinovi
+
+**Savol 1.** UFW ostida qaysi vosita ishlaydi?
+
+- a) Mustaqil firewall
+- b) iptables yoki nftables (distributiv versiyaga qarab)
+- c) IPS
+- d) WAF
+
+<Callout type="success" title="Javob">
+**(b)** UFW — wrapper. Modern Ubuntu'da nftables.[¹](https://documentation.ubuntu.com/server/how-to/security/firewall/)
+</Callout>
+
+**Savol 2.** `deny` va `reject` farqi:
+
+- a) Bir xil
+- b) deny — sukunat tashlash; reject — ICMP "refused" yuboradi
+- c) deny faqat TCP
+- d) reject faqat root
+
+<Callout type="success" title="Javob">
+**(b)** Deny — port scanner'ga ma'lumot kamroq beradi.
+</Callout>
+
+**Savol 3.** `ufw limit ssh` qancha ulanish ruxsat:
+
+- a) 6 ulanish 30 soniyada
+- b) 100 ulanish soat'da
+- c) Cheksiz
+- d) 1 ulanish
+
+<Callout type="success" title="Javob">
+**(a)** Default rate limit — brute-force himoyasi.
+</Callout>
+
+**Savol 4.** UFW yoqish'dan oldin nima qilish kerak?
+
+- a) Hech narsa
+- b) SSH ruxsatini berish (lock-out'dan saqlash)
+- c) Reboot
+- d) Cloud firewall yoqish
+
+<Callout type="success" title="Javob">
+**(b)** Birinchi `ufw allow ssh`, keyin `ufw enable`.
+</Callout>
+
+**Savol 5.** Cloud firewall va UFW bilan birga ishlatish:
+
+- a) Konflikt
+- b) Defense in depth — ikki qatlamli himoya
+- c) Faqat bittasi
+- d) UFW oversiz
+
+<Callout type="success" title="Javob">
+**(b)** Cloud — tarmoq darajasi; UFW — host darajasi.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Server Guide — UFW. [https://documentation.ubuntu.com/server/how-to/security/firewall/](https://documentation.ubuntu.com/server/how-to/security/firewall/)
+2. UFW Manual. [https://manpages.ubuntu.com/manpages/jammy/man8/ufw.8.html](https://manpages.ubuntu.com/manpages/jammy/man8/ufw.8.html)
+
+## Keyingi qadam
+
+👉 [fail2ban — brute force himoyasi](/ubuntu/security/fail2ban)

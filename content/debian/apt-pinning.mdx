@@ -1,0 +1,329 @@
+---
+title: "APT pinning va prioritetlar"
+description: "Debian'da apt pinning — paket versiyalarini cheklash, repository priority."
+order: 1
+level: "advanced"
+estimated_minutes: 9
+prerequisites:
+  - "/debian/apt-debian"
+learning_objectives:
+  - "Pin priority sintaksis"
+  - "Stable + Testing + Sid aralashma"
+  - "Backports prioriteti"
+  - "Apt-mark holding"
+tags: ["debian", "apt", "pinning", "preferences"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Reference — apt_preferences"
+    url: "https://manpages.debian.org/bookworm/apt/apt_preferences.5.en.html"
+  - title: "Debian Wiki — AptPreferences"
+    url: "https://wiki.debian.org/AptPreferences"
+---
+
+**APT pinning** — bir paketning aniq versiyasini boshqa repository'dan olish yoki manbani prioritetlash. Tipik holatda Debian Stable'da, lekin bitta paket Testing'dan kerak.[¹](https://manpages.debian.org/bookworm/apt/apt_preferences.5.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Pin priority qiymatlari (`< 0`, `1-100`, `100-500`, `500-1000`, `> 1000`).
+- Stable + Testing + Sid aralashma.
+- Backports priority.
+- `apt-mark hold` — paket muzlatish.
+</Callout>
+
+## 1. Priority qiymatlari
+
+APT har manba (repository) ga priority beradi. `/etc/apt/preferences.d/` orqali boshqarish.
+
+| Priority | Ma'no |
+|---|---|
+| `1001+` | Doim install (hatto downgrade) |
+| `990` | Default target release |
+| `500-989` | Install agar yangiroq versiya yo'q bo'lsa |
+| `100-499` | Install agar mavjud bo'lmagan paket |
+| `1-99` | Install qilmaslik (downgrade ham emas) |
+| `< 0` | Hech qachon |
+
+Default Stable'dan paket olish priority `500`. Testing — `500`.
+
+## 2. Stable + Testing aralashma
+
+`/etc/apt/sources.list`:
+
+```
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian unstable main contrib non-free non-free-firmware
+```
+
+`/etc/apt/preferences.d/00-default-release`:
+
+```
+Package: *
+Pin: release a=stable
+Pin-Priority: 990
+
+Package: *
+Pin: release a=testing
+Pin-Priority: 500
+
+Package: *
+Pin: release a=unstable
+Pin-Priority: 100
+```
+
+Endi default Stable'dan, lekin manual ravishda Testing yoki Sid'dan olish mumkin:
+
+```bash
+sudo apt install -t testing nodejs
+# Yoki
+sudo apt install nodejs/testing
+```
+
+## 3. Aniq paket Testing'dan
+
+Misol — har vaqt yangi Firefox Testing'dan:
+
+`/etc/apt/preferences.d/firefox`:
+
+```
+Package: firefox-esr
+Pin: release a=testing
+Pin-Priority: 1001
+```
+
+`1001` — downgrade ham OK. `apt update && apt upgrade` — Firefox Testing'dan.
+
+## 4. Backports priority
+
+Backports default'da `100` — manual install kerak.
+
+`/etc/apt/preferences.d/backports`:
+
+```
+Package: linux-image-amd64 linux-headers-amd64
+Pin: release a=bookworm-backports
+Pin-Priority: 990
+```
+
+Endi kernel'ni Backports'dan oladi avtomatik.
+
+## 5. `apt-mark` — paket holati
+
+```bash
+# Mavjud holatlar
+apt-mark showhold       # hold
+apt-mark showmanual     # qo'lda o'rnatilgan
+apt-mark showauto       # avtomatik (dependency)
+
+# Hold (yangilanmaydi)
+sudo apt-mark hold nginx
+
+# Unhold
+sudo apt-mark unhold nginx
+
+# Manual qilish (autoremove o'chirmaydi)
+sudo apt-mark manual python3-flask
+
+# Auto qilish (autoremove o'chirishi mumkin)
+sudo apt-mark auto python3-flask
+```
+
+`hold` — major version'larni saqlash uchun (database paketlari).
+
+## 6. Pin sintaksis chuqur
+
+```
+Package: <pkg>
+Pin: <type>
+Pin-Priority: <number>
+```
+
+`Pin:` turlari:
+
+```
+# Release archive (stable/testing/unstable)
+Pin: release a=testing
+
+# Release version
+Pin: release v=12
+
+# Origin (server)
+Pin: origin "deb.debian.org"
+
+# Codename
+Pin: release n=bookworm
+
+# Komponent (main/contrib/non-free)
+Pin: release c=main
+
+# Aniq versiya
+Pin: version 1.2.3-*
+
+# Wildcard
+Pin: release a=testing,n=trixie
+```
+
+### Wildcard package
+
+```
+Package: nodejs npm
+Pin: release a=testing
+Pin-Priority: 700
+```
+
+Yoki:
+
+```
+Package: nodejs*
+Pin: release a=testing
+Pin-Priority: 700
+```
+
+## 7. `apt-cache policy` — pinning natija
+
+```bash
+apt-cache policy firefox-esr
+# firefox-esr:
+#   Installed: 115.10.0esr-1~deb12u1
+#   Candidate: 128.0esr-1~deb12u1
+#   Version table:
+#      128.0esr-1~deb12u1 1001
+#         1001 http://deb.debian.org/debian trixie/main amd64 Packages
+#  *** 115.10.0esr-1~deb12u1 990
+#         990 http://deb.debian.org/debian bookworm/main amd64 Packages
+#         100 /var/lib/dpkg/status
+```
+
+`***` — hozir o'rnatilgan. `Candidate:` — keyingi `apt upgrade`'da o'rnatiladi.
+
+## 8. Per-package version
+
+```
+Package: nginx
+Pin: version 1.22.*
+Pin-Priority: 1001
+```
+
+Faqat 1.22.x versiyani o'rnatadi (1.24'ga emas).
+
+## 9. Foydali misollar
+
+### Kernel'ni saqlash
+
+```
+Package: linux-image-* linux-headers-*
+Pin: version 6.1.0-*
+Pin-Priority: 1001
+```
+
+### Eski paketni qaytarish
+
+```bash
+# Mavjud versiyalar
+apt-cache madison nginx
+
+# Aniq versiya
+sudo apt install nginx=1.22.0-1
+sudo apt-mark hold nginx     # yangilanishdan saqlash
+```
+
+### Repository priority
+
+Sponsor PPA past priority:
+
+```
+Package: *
+Pin: origin "ppa.launchpad.net"
+Pin-Priority: 100
+```
+
+## 10. Eng tez-tez uchraydigan xatolar
+
+- **`Pin-Priority` notog'ri sintaksis** — `Priority` emas, `Pin-Priority`.
+- **Stable+Testing'ni release pin'siz** — boshlovchilar uchun apt qaysi'sini olish kerakligini bilmaydi.
+- **`-t testing` flag faqat install'da** — `upgrade`'da ishlamaydi (pin kerak).
+- **`apt-mark hold` security update'ni ham bloklaydi** — production'da xavfli.
+- **`unstable` (Sid) Stable bilan** — ko'p dependency conflict.
+
+## 11. Eng yaxshi amaliyot
+
+- **`/etc/apt/preferences.d/*.pref`** — bitta katta fayl o'rniga modular.
+- **Stable + Backports** — eng oson.
+- **Stable + Testing aralashma** — ehtiyot bilan, faqat aniq paketlar uchun.
+- **`apt-cache policy` har o'zgartirish'dan keyin** — tekshirish.
+- **`/etc/apt/preferences.d/*` Git'da** — versiya nazorat.
+- **`apt-mark hold` reboot'siz upgrade** — kernel test.
+
+## 12. Mashqlar
+
+1. **Joriy priority:** `apt-cache policy firefox-esr` — ko'ring.
+2. **Backports yoqish:** `/etc/apt/sources.list` ga qo'shing va priority bering.
+3. **Hold test:** `sudo apt-mark hold nginx`. `apt upgrade` — nginx yangilanadimi?
+4. **Wildcard pin:** `Package: nodejs*` bilan testing'dan oling.
+5. **Tahlil:** `apt-mark showhold` va `apt-mark showmanual` natijasi qancha?
+
+## 13. Bilim sinovi
+
+**Savol 1.** Pin priority `1001+` ma'nosi:
+
+- a) Default priority
+- b) Doim install (hatto downgrade)
+- c) Hech qachon install
+- d) Optional
+
+<Callout type="success" title="Javob">
+**(b)** Eng yuqori — hech qanday cheklov yo'q.[¹](https://manpages.debian.org/bookworm/apt/apt_preferences.5.en.html)
+</Callout>
+
+**Savol 2.** Stable + Testing aralashma — qaysi fayl?
+
+- a) `/etc/apt/sources.list` faqat
+- b) `/etc/apt/sources.list` + `/etc/apt/preferences.d/*`
+- c) `/etc/apt/conf.d/`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Repository'lar + priority pinning birga.
+</Callout>
+
+**Savol 3.** `apt-mark hold` nima qiladi?
+
+- a) Paket'ni o'chiradi
+- b) Paket yangilanishdan to'xtatadi
+- c) Faqat security update
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Doimiy versiya — kernel, database uchun foydali.
+</Callout>
+
+**Savol 4.** `apt-cache policy <pkg>` — bu nima ko'rsatadi?
+
+- a) Faqat versiya
+- b) Joriy o'rnatilgan + candidate + barcha mavjud versiyalar + priority'lar
+- c) Faqat dependency'lar
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Pinning natijasi tekshirish.
+</Callout>
+
+**Savol 5.** Stable'dan boshqa repository'dan paket o'rnatish (bir martalik):
+
+- a) `apt install -t testing <pkg>`
+- b) `apt install <pkg>/testing`
+- c) Ikkalasi to'g'ri
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(c)** Ikkala sintaksis ishlatish mumkin.
+</Callout>
+
+## Manbalar
+
+1. apt_preferences(5). [https://manpages.debian.org/bookworm/apt/apt_preferences.5.en.html](https://manpages.debian.org/bookworm/apt/apt_preferences.5.en.html)
+2. Debian Wiki — AptPreferences. [https://wiki.debian.org/AptPreferences](https://wiki.debian.org/AptPreferences)
+
+## Keyingi qadam
+
+👉 [Debian Backports chuqur](/debian/backports-deep)

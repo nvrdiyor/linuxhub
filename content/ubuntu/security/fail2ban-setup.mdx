@@ -1,0 +1,411 @@
+---
+title: "fail2ban — brute force himoyasi"
+description: "fail2ban — log tahlili orqali avtomatik IP bloklash — SSH, nginx, postfix uchun."
+order: 2
+level: "intermediate"
+estimated_minutes: 10
+prerequisites:
+  - "/ubuntu/security/ufw-firewall"
+learning_objectives:
+  - "fail2ban arxitekturasi"
+  - "Jail va filter sozlash"
+  - "Email bildirishnoma"
+  - "Custom filter yaratish"
+tags: ["ubuntu", "security", "fail2ban", "brute-force"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "fail2ban Documentation"
+    url: "https://www.fail2ban.org/"
+---
+
+**fail2ban** — log fayllarni real-time kuzatib, qoidaga muvofiq IP'larni bloklaydigan vosita. SSH brute-force, web admin login, mail server attack — barchasiga himoya.[¹](https://www.fail2ban.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- fail2ban arxitekturasi — jail va filter.
+- SSH himoyasi (eng asosiy use case).
+- Nginx, Postfix uchun jail'lar.
+- Email notification.
+- Custom filter yaratish.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+sudo apt update
+sudo apt install fail2ban -y
+
+sudo systemctl enable --now fail2ban
+sudo systemctl status fail2ban
+```
+
+## 2. Konfiguratsiya — `jail.local`
+
+`/etc/fail2ban/jail.conf` — paket fayli (yangilanish'da o'zgaradi). **O'z sozlamalar uchun `jail.local`**:
+
+```bash
+sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+sudo nano /etc/fail2ban/jail.local
+```
+
+### Global default'lar `[DEFAULT]`
+
+```ini
+[DEFAULT]
+# Bloklash davri (soniya)
+bantime = 1h
+
+# Tekshirish oynasi
+findtime = 10m
+
+# Necha urinishdan keyin ban
+maxretry = 5
+
+# Banlangan IP'ni avtomatik unblock qilish: 3600 = 1 soat
+# bantime = -1 — doimiy
+
+# Hisobotlar
+destemail = admin@example.com
+sender = fail2ban@example.com
+action = %(action_mwl)s
+
+# Whitelist (sizning IP'lar)
+ignoreip = 127.0.0.1/8 ::1 192.168.1.0/24
+
+# Backend (log tahlili usuli)
+backend = systemd
+```
+
+`action_mwl` — Mail With Logs (email yuboradi + log qisqacha).
+
+## 3. SSH jail (eng muhim)
+
+```ini
+[sshd]
+enabled = true
+port    = 22
+filter  = sshd
+logpath = /var/log/auth.log
+maxretry = 5
+bantime  = 1h
+```
+
+`logpath` — qaysi log o'qiladi. systemd backend bilan `journalctl -u ssh`.
+
+```bash
+sudo systemctl restart fail2ban
+```
+
+### Status
+
+```bash
+sudo fail2ban-client status
+# Status
+# |- Number of jail:      1
+# `- Jail list:   sshd
+
+sudo fail2ban-client status sshd
+# Status for the jail: sshd
+# |- Filter
+# |  |- Currently failed: 0
+# |  |- Total failed:     12
+# |  `- File list:        /var/log/auth.log
+# `- Actions
+#    |- Currently banned: 1
+#    |- Total banned:     5
+#    `- Banned IP list:   1.2.3.4
+```
+
+### IP'ni qo'lda unblock
+
+```bash
+sudo fail2ban-client set sshd unbanip 1.2.3.4
+```
+
+### IP'ni qo'lda ban
+
+```bash
+sudo fail2ban-client set sshd banip 1.2.3.4
+```
+
+## 4. Nginx jail
+
+Nginx admin login (WordPress, Magento) brute-force'iga qarshi.
+
+`/etc/fail2ban/jail.local`:
+
+```ini
+[nginx-http-auth]
+enabled  = true
+filter   = nginx-http-auth
+port     = http,https
+logpath  = /var/log/nginx/error.log
+maxretry = 5
+
+[nginx-noscript]
+enabled  = true
+port     = http,https
+filter   = nginx-noscript
+logpath  = /var/log/nginx/access.log
+maxretry = 6
+
+[nginx-badbots]
+enabled  = true
+port     = http,https
+filter   = nginx-badbots
+logpath  = /var/log/nginx/access.log
+maxretry = 2
+```
+
+## 5. WordPress maxsus jail
+
+`/etc/fail2ban/filter.d/wordpress.conf`:
+
+```ini
+[Definition]
+failregex = ^<HOST> .* "POST .*wp-login\.php
+            ^<HOST> .* "POST .*xmlrpc\.php
+ignoreregex =
+```
+
+`/etc/fail2ban/jail.local`:
+
+```ini
+[wordpress]
+enabled  = true
+filter   = wordpress
+port     = http,https
+logpath  = /var/log/nginx/example.com-access.log
+maxretry = 5
+bantime  = 24h
+findtime = 30m
+```
+
+```bash
+sudo systemctl restart fail2ban
+```
+
+## 6. Postfix mail jail
+
+```ini
+[postfix]
+enabled  = true
+filter   = postfix
+logpath  = /var/log/mail.log
+maxretry = 3
+
+[postfix-sasl]
+enabled  = true
+filter   = postfix-sasl
+logpath  = /var/log/mail.log
+maxretry = 3
+```
+
+## 7. UFW bilan birga (banaction)
+
+Default — `iptables`. UFW ishlatilsa:
+
+```ini
+[DEFAULT]
+banaction = ufw
+banaction_allports = ufw
+```
+
+`/etc/fail2ban/action.d/ufw.conf` (default mavjud) — UFW orqali bloklash.
+
+## 8. Email bildirishnoma
+
+```ini
+[DEFAULT]
+destemail = admin@example.com
+sender = fail2ban@$(hostname -f)
+mta = sendmail
+action = %(action_mwl)s
+```
+
+Postfix yoki ssmtp o'rnatilgan bo'lishi kerak. Test:
+
+```bash
+echo "Test" | mail -s "Test from fail2ban host" admin@example.com
+```
+
+## 9. Custom filter
+
+Misol — admin URL'iga noto'g'ri urinish:
+
+`/etc/fail2ban/filter.d/myapp-admin.conf`:
+
+```ini
+[Definition]
+failregex = ^<HOST> .* "POST /admin/login.* 401
+            ^<HOST> .* "GET /admin.* 403
+ignoreregex =
+datepattern = {^LN-BEG}
+```
+
+`<HOST>` — fail2ban'ning IP placeholder'i.
+
+Test filter:
+
+```bash
+sudo fail2ban-regex /var/log/nginx/access.log /etc/fail2ban/filter.d/myapp-admin.conf
+```
+
+Mos kelgan qatorlar va loyalty'ni ko'rsatadi.
+
+Jail:
+
+```ini
+[myapp-admin]
+enabled = true
+filter  = myapp-admin
+port    = http,https
+logpath = /var/log/nginx/access.log
+maxretry = 3
+bantime = 1h
+```
+
+## 10. Geo-IP bloklash
+
+Ba'zi davlatlardan ban (advanced):
+
+```bash
+sudo apt install xtables-addons-common
+```
+
+`/etc/fail2ban/action.d/cf-block.conf` — Cloudflare API orqali ban (advanced).
+
+Yoki `iptables` GeoIP modul. Lekin oddiy fail2ban + UFW kifoya.
+
+## 11. Recidive jail — qaytalanuvchi IP
+
+```ini
+[recidive]
+enabled  = true
+filter   = recidive
+logpath  = /var/log/fail2ban.log
+action   = %(action_mwl)s
+bantime  = 1w
+findtime = 1d
+maxretry = 5
+```
+
+Bir IP 5 marta turli jail'larda ban bo'lsa, hafta'ga blok.
+
+## 12. Loglar
+
+```bash
+# fail2ban'ning o'z loglari
+sudo tail -f /var/log/fail2ban.log
+
+# Hozir banlangan IP'lar
+sudo fail2ban-client status sshd | grep "Banned IP list"
+
+# Hamma jail'lar
+for jail in $(sudo fail2ban-client status | grep "Jail list" | sed 's/.*://;s/,//g'); do
+    echo "=== $jail ==="
+    sudo fail2ban-client status $jail | grep "Banned IP"
+done
+```
+
+## 13. Buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo fail2ban-client status` | Hamma jail'lar |
+| `sudo fail2ban-client status <jail>` | Aniq jail |
+| `sudo fail2ban-client set <jail> banip <ip>` | Manual ban |
+| `sudo fail2ban-client set <jail> unbanip <ip>` | Unban |
+| `sudo fail2ban-client reload` | Konfiguratsiya reload |
+| `sudo fail2ban-regex <log> <filter>` | Filter test |
+| `sudo systemctl restart fail2ban` | Restart |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`maxretry` juda kichik** — legit user 3 urinishdan keyin ban (1 marta unutilgan parol).
+- **Email config xato** — bildirishnoma kelmaydi. Postfix yoki ssmtp o'rnatilgan bo'lishi kerak.
+- **`ignoreip` o'ziga qo'shmaslik** — fail2ban o'zingizni ham banlashi mumkin.
+- **`logpath` noto'g'ri** — log o'qilmaydi, filter ishlamaydi.
+- **`bantime = -1`** (forever) test paytida — IP'ni qaytarib bo'lmaydi.
+
+## 15. Eng yaxshi amaliyot
+
+- **SSH maxretry = 3-5, bantime = 1h+** — agressiv brute-force'ga himoya.
+- **Recidive jail yoqilgan** — qaytalanuvchi attacker'larga uzun ban.
+- **`ignoreip`ga office IP** — siz lock-out bo'lmaslik uchun.
+- **Email notification** — real-time alarm.
+- **Loglarni monitor** — fail2ban.log haftalik review.
+- **Cloudflare yoki AWS WAF** — DDoS uchun fail2ban yetarli emas.
+
+## 16. Mashqlar
+
+1. **O'rnatish:** fail2ban'ni o'rnating va SSH jail'ni yoqing.
+2. **Test ban:** Boshqa mashinadan SSH'ga 5 marta noto'g'ri parol kiriting. `fail2ban-client status sshd` — banlandi-mi?
+3. **Unban:** O'zingizni IP'ni qo'lda unban qiling.
+4. **Custom filter:** Yangi jail uchun filter yarating va `fail2ban-regex` bilan test qiling.
+5. **Status:** `for jail in ...; do ... done` skript bilan barcha jail'larni ko'ring.
+
+## 17. Bilim sinovi
+
+**Savol 1.** fail2ban qanday ishlaydi?
+
+- a) Firewall kabi paket filtering
+- b) Log fayllarni tahlil qilib, qoida bo'yicha IP'larni dinamik bloklaydi
+- c) Antivirus
+- d) WAF
+
+<Callout type="success" title="Javob">
+**(b)** Log analiz + dynamic ban.[¹](https://www.fail2ban.org/)
+</Callout>
+
+**Savol 2.** `jail.local` va `jail.conf` farqi:
+
+- a) Bir xil
+- b) `jail.conf` paket fayli (yangilanish'da o'zgaradi), `jail.local` foydalanuvchi sozlamalari
+- c) Faqat sintaksis
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Doim `jail.local`'ni tahrirlash.
+</Callout>
+
+**Savol 3.** `bantime = -1` ma'nosi:
+
+- a) Hech qachon ban qilmaslik
+- b) Doimiy ban (avtomatik unban yo'q)
+- c) 1 soniya
+- d) Default
+
+<Callout type="success" title="Javob">
+**(b)** Production'da ehtiyot bilan.
+</Callout>
+
+**Savol 4.** `recidive` jail nima?
+
+- a) Asosiy SSH jail
+- b) Qaytalanuvchi IP'lar uchun — N marta turli jail'larda ban bo'lganlarga uzun ban
+- c) WordPress himoyasi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Persistent attacker'lar uchun.
+</Callout>
+
+**Savol 5.** Filter sintaksis test:
+
+- a) `fail2ban-client check`
+- b) `fail2ban-regex <log> <filter>`
+- c) `fail2ban-test`
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(b)** Filter regex'ni real log bilan test qilish.
+</Callout>
+
+## Manbalar
+
+1. fail2ban Documentation. [https://www.fail2ban.org/](https://www.fail2ban.org/)
+
+## Keyingi qadam
+
+👉 [LUKS disk shifrlash](/ubuntu/security/luks-encryption)

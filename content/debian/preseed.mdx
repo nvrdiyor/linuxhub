@@ -1,0 +1,452 @@
+---
+title: "Debian Installer Preseed — avtomatlashtirilgan o'rnatish"
+description: "preseed.cfg bilan Debian o'rnatishni to'liq avtomatlashtirish."
+order: 6
+level: "advanced"
+estimated_minutes: 11
+prerequisites:
+  - "/debian/debconf"
+  - "/debian/installation"
+learning_objectives:
+  - "preseed.cfg format"
+  - "USB/PXE/network preseed"
+  - "Locale, disk, paketlar avtomatlashtirish"
+  - "Late command (post-install)"
+tags: ["debian", "preseed", "installer", "automation"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Preseed Documentation"
+    url: "https://www.debian.org/releases/stable/amd64/apb.en.html"
+  - title: "Preseed example"
+    url: "https://www.debian.org/releases/stable/example-preseed.txt"
+---
+
+**Debian preseed** — Debian Installer'ga barcha savollarning javobini oldindan beradigan konfiguratsiya fayli. Bir necha yuz server'ni avtomatik o'rnatish — ideal.[¹](https://www.debian.org/releases/stable/amd64/apb.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- preseed.cfg sintaksisi.
+- USB ISO ga preseed qo'shish.
+- PXE network boot bilan preseed.
+- Disk partitioning preseed.
+- Late command — post-install script.
+</Callout>
+
+## 1. Preseed nima beradi?
+
+- **Tezlik:** 100 ta server bir kunda.
+- **Bir xil konfiguratsiya:** Hammasi bir xil disk, paketlar, foydalanuvchi.
+- **Avtomatik:** Klaviatura tegmasdan.
+- **Versiya nazorat:** preseed.cfg Git'da.
+
+## 2. Minimal preseed.cfg
+
+```
+# Locale
+d-i debian-installer/locale string en_US.UTF-8
+d-i keyboard-configuration/xkb-keymap select us
+
+# Tarmoq
+d-i netcfg/choose_interface select auto
+d-i netcfg/get_hostname string debian
+d-i netcfg/get_domain string local
+
+# Mirror
+d-i mirror/country string manual
+d-i mirror/http/hostname string deb.debian.org
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+
+# Foydalanuvchi (root parol bo'sh — sudo orqali)
+d-i passwd/root-login boolean false
+d-i passwd/user-fullname string Diyor User
+d-i passwd/username string diyor
+d-i passwd/user-password password Pass123!
+d-i passwd/user-password-again password Pass123!
+
+# Vaqt
+d-i clock-setup/utc boolean true
+d-i time/zone string Asia/Tashkent
+d-i clock-setup/ntp boolean true
+
+# Disk (avtomatik LVM)
+d-i partman-auto/method string lvm
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+d-i partman-auto/choose_recipe select atomic
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+# APT
+d-i apt-setup/non-free boolean true
+d-i apt-setup/contrib boolean true
+
+# Paketlar
+tasksel tasksel/first multiselect standard, ssh-server
+d-i pkgsel/include string sudo vim curl wget htop git
+d-i pkgsel/upgrade select full-upgrade
+
+# Yakuniy
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean true
+d-i grub-installer/bootdev string /dev/sda
+d-i finish-install/reboot_in_progress note
+```
+
+## 3. Preseed yuklash usullari
+
+### 3a. URL'dan
+
+Boot loader'da:
+
+```
+preseed/url=http://example.com/preseed.cfg
+```
+
+Yoki:
+
+```
+auto url=preseed.example.com
+```
+
+### 3b. ISO ichida
+
+```bash
+# ISO o'zlashtirish
+mkdir /tmp/iso /tmp/iso-new
+sudo mount -o loop debian-12.iso /tmp/iso
+cp -r /tmp/iso/* /tmp/iso-new/
+sudo umount /tmp/iso
+
+# Initrd ga preseed qo'shish
+cp preseed.cfg /tmp/iso-new/
+
+# Boot menu (isolinux.cfg yoki grub.cfg)
+# Append: auto=true priority=critical preseed/file=/cdrom/preseed.cfg
+
+# Yangi ISO
+sudo apt install genisoimage
+genisoimage -o /tmp/custom-debian.iso \
+    -b isolinux/isolinux.bin \
+    -c isolinux/boot.cat \
+    -no-emul-boot -boot-load-size 4 -boot-info-table \
+    -J -R -V "Custom Debian" \
+    /tmp/iso-new/
+```
+
+### 3c. USB drive'da
+
+```bash
+# USB'ga ISO yozish
+sudo dd if=/tmp/custom-debian.iso of=/dev/sdX bs=4M status=progress
+
+# Yoki preseed.cfg ni USB partitsiyasiga qo'shing
+```
+
+## 4. PXE network boot
+
+PXE server (TFTP + DHCP):
+
+```bash
+# DHCP — preseed URL berish
+# /etc/dhcp/dhcpd.conf
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    range 192.168.1.100 192.168.1.200;
+    next-server 192.168.1.10;
+    filename "pxelinux.0";
+}
+
+# PXE boot kernel parametr
+# /var/lib/tftpboot/pxelinux.cfg/default
+APPEND vga=normal initrd=initrd.gz auto=true priority=critical \
+    preseed/url=http://192.168.1.10/preseed.cfg
+```
+
+## 5. Disk partitioning preseed
+
+### Atomic (oddiy)
+
+```
+d-i partman-auto/method string regular
+d-i partman-auto/choose_recipe select atomic
+```
+
+Bitta katta `/` partitsiya.
+
+### LVM bilan
+
+```
+d-i partman-auto/method string lvm
+d-i partman-auto-lvm/guided_size string max
+d-i partman-auto/choose_recipe select home
+```
+
+`home` — `/`, `/home`, `/var`, `/tmp` ajratilgan.
+
+### Custom recipe
+
+```
+d-i partman-auto/expert_recipe string                         \
+      boot-root ::                                            \
+              500 500 500 ext4                                \
+                      $primary{ } $bootable{ }                \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      mountpoint{ /boot }                     \
+              .                                               \
+              4096 4096 4096 ext4                             \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      mountpoint{ / }                         \
+              .                                               \
+              2048 2048 2048 linux-swap                       \
+                      method{ swap } format{ }                \
+              .                                               \
+              5000 10000 -1 ext4                              \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      mountpoint{ /home }                     \
+              .
+```
+
+## 6. Foydalanuvchi va SSH key
+
+```
+d-i passwd/root-login boolean false
+d-i passwd/make-user boolean true
+
+d-i passwd/user-fullname string DevOps Admin
+d-i passwd/username string admin
+d-i passwd/user-password-crypted password $6$saltsalt$hash...
+
+# Yoki cleartext (xavfsiz emas, lekin oson)
+d-i passwd/user-password password Pass123!
+d-i passwd/user-password-again password Pass123!
+```
+
+Parol hash yaratish:
+
+```bash
+mkpasswd -m sha-512 'YourPassword'
+# $6$abc123$XYZ...
+```
+
+## 7. Late command — post-install
+
+O'rnatish tugaganda script ishga tushirish:
+
+```
+d-i preseed/late_command string \
+    in-target sh -c 'echo "Hello from preseed" > /etc/motd'; \
+    in-target apt-get install -y docker.io; \
+    in-target systemctl enable docker
+```
+
+Yoki tashqi script:
+
+```
+d-i preseed/late_command string \
+    wget -O /target/tmp/setup.sh http://example.com/setup.sh; \
+    chmod +x /target/tmp/setup.sh; \
+    in-target /tmp/setup.sh
+```
+
+`in-target` — chroot ichida (o'rnatilgan tizim).
+
+## 8. SSH key qo'shish
+
+`/target/home/admin/.ssh/authorized_keys`:
+
+```
+d-i preseed/late_command string \
+    in-target mkdir -p /home/admin/.ssh; \
+    in-target chmod 700 /home/admin/.ssh; \
+    in-target sh -c 'echo "ssh-ed25519 AAAA... admin@laptop" > /home/admin/.ssh/authorized_keys'; \
+    in-target chmod 600 /home/admin/.ssh/authorized_keys; \
+    in-target chown -R admin:admin /home/admin/.ssh
+```
+
+## 9. Cloud-init bilan preseed
+
+Modern alternativ — `cloud-init`. Preseed Installer'ga, cloud-init birinchi boot'da:
+
+```yaml
+# user-data
+#cloud-config
+users:
+  - name: admin
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA...
+packages:
+  - docker.io
+runcmd:
+  - systemctl enable docker
+```
+
+Cloud-init Debian Cloud Image'da default — preseed kerak emas.
+
+## 10. Test qilish
+
+VirtualBox/QEMU'da:
+
+```bash
+# QEMU
+qemu-system-x86_64 \
+    -m 2048 \
+    -cdrom debian-12-preseed.iso \
+    -boot d \
+    -netdev user,id=net0 \
+    -device e1000,netdev=net0
+
+# Network preseed
+# Boot menu'da: auto url=http://10.0.2.2/preseed.cfg
+```
+
+## 11. Misol — to'liq lab preseed
+
+```
+# Locale
+d-i debian-installer/locale string en_US.UTF-8
+d-i keyboard-configuration/xkb-keymap select us
+
+# Tarmoq DHCP
+d-i netcfg/choose_interface select auto
+d-i netcfg/get_hostname string lab-server
+d-i netcfg/get_domain string lab.local
+
+# Mirror
+d-i mirror/country string manual
+d-i mirror/http/hostname string deb.debian.org
+d-i mirror/http/directory string /debian
+
+# Foydalanuvchi
+d-i passwd/root-login boolean false
+d-i passwd/user-fullname string Lab User
+d-i passwd/username string lab
+d-i passwd/user-password password labpass
+d-i passwd/user-password-again password labpass
+
+# Vaqt
+d-i clock-setup/utc boolean true
+d-i time/zone string Asia/Tashkent
+
+# Disk — barcha disk, atomic
+d-i partman-auto/disk string /dev/sda
+d-i partman-auto/method string regular
+d-i partman-auto/choose_recipe select atomic
+d-i partman/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+# Paketlar
+tasksel tasksel/first multiselect standard, ssh-server
+d-i pkgsel/include string sudo vim curl htop git docker.io
+
+# GRUB
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/bootdev string /dev/sda
+
+# Reboot
+d-i finish-install/reboot_in_progress note
+
+# Late commands
+d-i preseed/late_command string \
+    in-target usermod -aG sudo lab; \
+    in-target systemctl enable docker
+```
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Sintaksis xato** — bir noto'g'ri qator butun preseed buzadi.
+- **Disk path noto'g'ri** — `/dev/sda` o'rniga `/dev/nvme0n1`.
+- **`partman/confirm_*` o'tkazib yuborish** — installer interaktiv to'xtatadi.
+- **`tasksel`'da `desktop` standart bilan** — kerak bo'lmagan paketlar.
+- **Parol cleartext Git'da** — xavfsizlik buzilishi.
+
+## 13. Eng yaxshi amaliyot
+
+- **Test virtual mashina'da** — production'dan oldin.
+- **Parol hash** — `mkpasswd` yoki vault.
+- **Comments preseed.cfg'da** — har bo'limni izohlash.
+- **Modular preseed** — `late_command`'da turli skript.
+- **Cloud-init kelajak uchun** — preseed eski, cloud-init zamonaviy.
+
+## 14. Mashqlar
+
+1. **Minimal preseed:** O'zingiz uchun foydalanuvchi, hostname, paketlar.
+2. **VM test:** QEMU yoki VirtualBox'da preseed sinash.
+3. **Late command:** Docker o'rnatish va enable qilish.
+4. **SSH key:** authorized_keys ni preseed orqali joylash.
+5. **Disk recipe:** `/`, `/var`, `/home` ajratilgan custom recipe.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Preseed nima?
+
+- a) Yangi paket
+- b) Debian Installer avtomatlashtirilgan o'rnatish konfiguratsiya fayli
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Installer'ga oldindan javoblar berib avtomatik o'rnatish.[¹](https://www.debian.org/releases/stable/amd64/apb.en.html)
+</Callout>
+
+**Savol 2.** `in-target` nima qiladi?
+
+- a) Installer'da
+- b) O'rnatilgan tizim ichida (chroot)
+- c) Tarmoqda
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `late_command`'da o'rnatilgan tizim ichida buyruq ishlatish.
+</Callout>
+
+**Savol 3.** Preseed faylni boot loader'ga ulash:
+
+- a) `preseed=file.cfg`
+- b) `preseed/url=http://...` yoki `preseed/file=/cdrom/preseed.cfg`
+- c) `auto preseed`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** URL yoki file path orqali yuklanadi.
+</Callout>
+
+**Savol 4.** `partman-auto/choose_recipe select atomic` — qanday disk?
+
+- a) Encrypted
+- b) Bitta katta `/` partitsiya
+- c) LVM
+- d) RAID
+
+<Callout type="success" title="Javob">
+**(b)** Atomic — eng oddiy, faqat `/` va swap.
+</Callout>
+
+**Savol 5.** Cleartext parol preseed'da:
+
+- a) Tavsiya etiladi
+- b) Faqat development uchun, production'da hash ishlating
+- c) Hech qachon ishlatma
+- d) Default
+
+<Callout type="success" title="Javob">
+**(b)** `passwd/user-password-crypted` bilan hash ishlating.
+</Callout>
+
+## Manbalar
+
+1. Debian Preseed Documentation. [https://www.debian.org/releases/stable/amd64/apb.en.html](https://www.debian.org/releases/stable/amd64/apb.en.html)
+2. Preseed example. [https://www.debian.org/releases/stable/example-preseed.txt](https://www.debian.org/releases/stable/example-preseed.txt)
+
+## Keyingi qadam
+
+👉 [Debian Stable vs Testing](/debian/stable-vs-testing)

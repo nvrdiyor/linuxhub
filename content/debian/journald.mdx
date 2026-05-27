@@ -1,0 +1,412 @@
+---
+title: "systemd journald — log'lar boshqaruvi"
+description: "journald — Debian'da log'lar yig'ish, ko'rish va saqlash."
+order: 11
+level: "intermediate"
+estimated_minutes: 8
+prerequisites:
+  - "/fundamentals/systemd-deep"
+learning_objectives:
+  - "journald asoslari"
+  - "`journalctl` filter va format"
+  - "Persistent storage"
+  - "Log rotation va retention"
+tags: ["debian", "journald", "logs", "systemd"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "journald.conf(5)"
+    url: "https://manpages.debian.org/bookworm/systemd/journald.conf.5.en.html"
+  - title: "journalctl(1)"
+    url: "https://manpages.debian.org/bookworm/systemd/journalctl.1.en.html"
+---
+
+**systemd-journald** — barcha log'larni (kernel, services, user) bitta strukturalashgan binary formatda saqlaydi. `/var/log/syslog`'dan ilg'or alternativ.[¹](https://manpages.debian.org/bookworm/systemd/journald.conf.5.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- journald nima va u qanday ishlaydi.
+- `journalctl` — log'larni o'qish.
+- Persistent vs volatile storage.
+- Filter — service, priority, vaqt.
+- Forward to syslog (rsyslog).
+</Callout>
+
+## 1. journald asoslari
+
+systemd journal:
+
+- **Binary format** — `/var/log/journal/`.
+- **Indexed** — tez qidiruv.
+- **Strukturalashgan** — field'lar bilan (`_PID=`, `_SYSTEMD_UNIT=`).
+- **Kernel + userspace** — bitta joyda.
+
+Tekshirish:
+
+```bash
+systemctl status systemd-journald
+
+# Hajm
+journalctl --disk-usage
+```
+
+## 2. journalctl — asoslar
+
+```bash
+# Hammasi (eng eski → eng yangi)
+journalctl
+
+# Eng yangi'dan boshlab (-r reverse)
+journalctl -r
+
+# Boshqa pager
+journalctl | less
+
+# Faqat oxirgi 100 qator
+journalctl -n 100
+
+# Stream (real-time)
+journalctl -f
+```
+
+## 3. Service filter
+
+```bash
+# Bitta service
+journalctl -u nginx
+journalctl -u sshd
+
+# Bir nechta
+journalctl -u nginx -u php-fpm
+
+# Wildcard
+journalctl -u 'docker*'
+```
+
+## 4. Vaqt filter
+
+```bash
+# Bugun
+journalctl --since today
+journalctl --since "1 hour ago"
+journalctl --since "2026-05-26 14:00"
+journalctl --since "2026-05-26" --until "2026-05-27"
+
+# Boot
+journalctl -b           # joriy boot
+journalctl -b -1        # oldingi boot
+journalctl -b 0         # joriy
+journalctl --list-boots
+```
+
+## 5. Priority
+
+| Priority | Daraja |
+|---|---|
+| `0` | emerg |
+| `1` | alert |
+| `2` | crit |
+| `3` | err |
+| `4` | warning |
+| `5` | notice |
+| `6` | info |
+| `7` | debug |
+
+```bash
+# Faqat error+
+journalctl -p err
+
+# 0 dan 3 gacha (emerg → err)
+journalctl -p 0..3
+```
+
+## 6. Format
+
+```bash
+# Standart
+journalctl -u nginx
+
+# JSON
+journalctl -u nginx -o json
+journalctl -u nginx -o json-pretty
+
+# Short (default)
+journalctl -u nginx -o short
+
+# Verbose (barcha field'lar)
+journalctl -u nginx -o verbose
+
+# Cat (faqat xabar)
+journalctl -u nginx -o cat
+```
+
+## 7. Kernel log
+
+```bash
+# Kernel xabarlari
+journalctl -k
+
+# Yoki dmesg
+dmesg
+
+# Faqat error
+journalctl -k -p err
+```
+
+## 8. Persistent storage
+
+Default — `/run/log/journal/` (RAM, reboot'da yo'qoladi).
+
+Persistent yoqish:
+
+```bash
+sudo mkdir -p /var/log/journal
+sudo systemd-tmpfiles --create --prefix /var/log/journal
+sudo systemctl restart systemd-journald
+
+# Yoki: /etc/systemd/journald.conf
+[Journal]
+Storage=persistent
+```
+
+Endi `/var/log/journal/<machine-id>/` saqlanadi.
+
+## 9. `journald.conf` — sozlash
+
+`/etc/systemd/journald.conf`:
+
+```ini
+[Journal]
+# Storage tipi
+Storage=persistent          # auto|volatile|persistent|none
+
+# Hajm cheklov
+SystemMaxUse=2G             # umumiy
+SystemMaxFileSize=200M      # bitta fayl
+SystemMaxFiles=10           # fayl soni
+
+# Vaqt retention
+MaxRetentionSec=30day
+
+# Compress
+Compress=yes
+
+# Forward to syslog
+ForwardToSyslog=yes
+ForwardToWall=yes
+```
+
+```bash
+sudo systemctl restart systemd-journald
+```
+
+## 10. Disk hajmini boshqarish
+
+```bash
+# Joriy hajm
+journalctl --disk-usage
+
+# Vacuum (eski log'larni o'chirish)
+sudo journalctl --vacuum-time=7d        # 7 kundan eski
+sudo journalctl --vacuum-size=500M      # 500MB ga tushirish
+sudo journalctl --vacuum-files=5        # 5 ta fayl qoldirish
+```
+
+## 11. JSON parsing
+
+```bash
+# Bitta event
+journalctl -u nginx -o json | head -1 | jq .
+# {
+#   "MESSAGE": "...",
+#   "_PID": "1234",
+#   "_SYSTEMD_UNIT": "nginx.service",
+#   "_TRANSPORT": "stdout",
+#   "PRIORITY": "6",
+#   ...
+# }
+
+# Filter JSON'da
+journalctl -u nginx -o json | jq 'select(.PRIORITY == "3")'
+```
+
+## 12. Forward to rsyslog
+
+Eski tizimlar'da `rsyslog` ham ishlaydi:
+
+```bash
+sudo apt install -y rsyslog
+
+# journald → rsyslog → /var/log/syslog
+# /etc/systemd/journald.conf
+ForwardToSyslog=yes
+
+sudo systemctl restart systemd-journald rsyslog
+```
+
+`/var/log/syslog`'da:
+
+```bash
+tail -f /var/log/syslog
+```
+
+## 13. Custom log — `systemd-cat`
+
+Boshqa skript'lardan journald'ga yozish:
+
+```bash
+echo "Hello from script" | systemd-cat -t myapp -p info
+
+# journalctl -t myapp
+# May 26 14:00:00 server myapp[1234]: Hello from script
+```
+
+`-t` — tag, `-p` — priority.
+
+## 14. journald + remote
+
+Markaziy log server (advanced):
+
+```bash
+# Server: systemd-journal-remote
+sudo apt install -y systemd-journal-remote
+sudo systemctl enable --now systemd-journal-remote.socket
+
+# Client: systemd-journal-upload
+sudo apt install -y systemd-journal-remote
+
+# /etc/systemd/journal-upload.conf
+[Upload]
+URL=https://log-server:19532
+
+sudo systemctl enable --now systemd-journal-upload
+```
+
+## 15. Field'lar — qidiruv
+
+```bash
+# PID
+journalctl _PID=1234
+
+# Foydalanuvchi
+journalctl _UID=1000
+
+# Executable
+journalctl _COMM=nginx
+
+# Service
+journalctl _SYSTEMD_UNIT=nginx.service
+
+# Birgalikda
+journalctl _SYSTEMD_UNIT=nginx.service _PID=1234
+```
+
+## 16. Misol — debug
+
+Nginx muammo:
+
+```bash
+# 1. Status
+sudo systemctl status nginx
+
+# 2. Oxirgi 50 qator
+sudo journalctl -u nginx -n 50
+
+# 3. Error darajada
+sudo journalctl -u nginx -p err
+
+# 4. Hozirdan boshlab kuzatish
+sudo journalctl -u nginx -f
+
+# 5. Boshqa terminal'da ishga tushiring
+sudo systemctl restart nginx
+```
+
+## 17. Eng tez-tez uchraydigan xatolar
+
+- **Volatile storage — boot'da log yo'qoladi** — persistent yoqish kerak.
+- **Disk to'lib qoladi** — `SystemMaxUse` qo'ymaslik.
+- **`grep` ishlatish** — `journalctl` filter tezroq.
+- **`tail -f /var/log/syslog` faqat** — `journalctl -f` to'liqroq.
+- **`-u` tag noto'g'ri** — `nginx.service`, `nginx` yoki `nginx@*`.
+
+## 18. Eng yaxshi amaliyot
+
+- **Persistent storage** — `/var/log/journal/` yarating.
+- **`SystemMaxUse` belgilang** — disk to'liq emas.
+- **`journalctl -u` keyin filter** — vaqt va priority.
+- **Real-time kuzatish: `-f`** — debug'da.
+- **JSON output skript'lar uchun** — `jq` bilan parsing.
+
+## 19. Mashqlar
+
+1. **Status:** `journalctl --disk-usage` va `journalctl --list-boots`.
+2. **Filter:** Bugungi nginx error'larni ko'ring.
+3. **Persistent:** Volatile bo'lsa, persistent yoqing.
+4. **Custom log:** `systemd-cat` orqali xabar yuboring.
+5. **Vacuum:** 7 kundan eski log'larni o'chiring.
+
+## 20. Bilim sinovi
+
+**Savol 1.** journald qaerda saqlaydi (persistent)?
+
+- a) `/var/log/syslog`
+- b) `/var/log/journal/`
+- c) `/var/log/messages`
+- d) `/tmp/`
+
+<Callout type="success" title="Javob">
+**(b)** `/var/log/journal/<machine-id>/` — binary format.[¹](https://manpages.debian.org/bookworm/systemd/journald.conf.5.en.html)
+</Callout>
+
+**Savol 2.** `journalctl -u nginx -f`:
+
+- a) Faqat oxirgi 10
+- b) Real-time stream
+- c) JSON format
+- d) O'chirish
+
+<Callout type="success" title="Javob">
+**(b)** `tail -f` kabi — yangi log'larni kuzatish.
+</Callout>
+
+**Savol 3.** Disk hajmi cheklash:
+
+- a) `MaxSize=100M`
+- b) `SystemMaxUse=2G` (journald.conf'da)
+- c) `LimitSize`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** `SystemMaxUse` — umumiy maksimum hajm.
+</Callout>
+
+**Savol 4.** Volatile vs persistent:
+
+- a) Volatile diskda, persistent RAM'da
+- b) Volatile RAM'da (reboot'da yo'qoladi), persistent diskda
+- c) Bir xil
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** Default volatile (`/run/`), persistent (`/var/log/journal/`).
+</Callout>
+
+**Savol 5.** Eski boot log'larini ko'rish:
+
+- a) `journalctl --old`
+- b) `journalctl -b -1` (oldingi boot)
+- c) `journalctl --previous`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** `-b N` — boot index. `-b 0` joriy, `-b -1` oldingi.
+</Callout>
+
+## Manbalar
+
+1. journald.conf(5). [https://manpages.debian.org/bookworm/systemd/journald.conf.5.en.html](https://manpages.debian.org/bookworm/systemd/journald.conf.5.en.html)
+2. journalctl(1). [https://manpages.debian.org/bookworm/systemd/journalctl.1.en.html](https://manpages.debian.org/bookworm/systemd/journalctl.1.en.html)
+
+## Keyingi qadam
+
+👉 [Debian Cron va Anacron](/debian/cron-anacron)

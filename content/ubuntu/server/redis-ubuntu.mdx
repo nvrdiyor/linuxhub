@@ -1,0 +1,458 @@
+---
+title: "Redis Ubuntu'da"
+description: "Redis server o'rnatish, sozlash, persistence, clustering."
+order: 5
+level: "intermediate"
+estimated_minutes: 9
+prerequisites:
+  - "/fundamentals/redis"
+learning_objectives:
+  - "Redis o'rnatish"
+  - "Asosiy buyruqlar"
+  - "Persistence — RDB va AOF"
+  - "Master-replica replication"
+  - "Sentinel high availability"
+tags: ["ubuntu", "redis", "cache", "database"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Redis Documentation"
+    url: "https://redis.io/docs/"
+  - title: "Ubuntu Redis"
+    url: "https://ubuntu.com/server/docs/databases-redis"
+---
+
+**Redis** — yengil, tezkor in-memory key-value store. Cache, session, message queue, real-time analytics uchun ideal. Ubuntu'da bir necha buyruq bilan ishga tushadi.[¹](https://redis.io/docs/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Redis o'rnatish va `redis-cli`.
+- String, list, hash, set, sorted set.
+- Persistence — RDB va AOF.
+- Master-replica replication.
+- Redis Sentinel (HA).
+- Memory limit va eviction.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+sudo apt update
+sudo apt install -y redis-server
+
+sudo systemctl enable --now redis-server
+sudo systemctl status redis-server
+
+# Test
+redis-cli PING
+# PONG
+
+redis-cli --version
+# redis-cli 7.x.x
+```
+
+## 2. Eng yangi versiya (Redis rasmiy)
+
+```bash
+curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
+
+sudo apt update
+sudo apt install -y redis
+```
+
+## 3. `redis-cli` asosiy buyruqlar
+
+```bash
+redis-cli
+# 127.0.0.1:6379> SET name "Diyor"
+# OK
+# 127.0.0.1:6379> GET name
+# "Diyor"
+# 127.0.0.1:6379> EXISTS name
+# (integer) 1
+# 127.0.0.1:6379> DEL name
+# (integer) 1
+# 127.0.0.1:6379> EXIT
+```
+
+Bir qator:
+
+```bash
+redis-cli SET counter 10
+redis-cli INCR counter        # 11
+redis-cli INCRBY counter 5    # 16
+redis-cli GET counter         # "16"
+
+# TTL
+redis-cli SET token "abc" EX 60     # 60 soniya
+redis-cli TTL token                  # qancha qoldi
+```
+
+## 4. Ma'lumotlar turlari
+
+```bash
+# String
+SET name "Diyor"
+GET name
+APPEND name " User"     # "Diyor User"
+
+# List (queue)
+RPUSH tasks "task1" "task2" "task3"
+LRANGE tasks 0 -1       # hammasi
+LPOP tasks              # birinchi
+RPOP tasks              # oxirgi
+
+# Hash
+HSET user:1 name "Diyor" email "diyor@example.com" age 25
+HGET user:1 name
+HGETALL user:1
+
+# Set
+SADD tags "linux" "debian" "ubuntu"
+SMEMBERS tags
+SISMEMBER tags "linux"  # 1
+
+# Sorted Set
+ZADD leaderboard 100 "alice" 200 "bob" 150 "carol"
+ZRANGE leaderboard 0 -1 WITHSCORES
+ZINCRBY leaderboard 50 "alice"
+```
+
+## 5. Konfiguratsiya
+
+`/etc/redis/redis.conf`:
+
+```
+# Tarmoq
+bind 127.0.0.1 ::1
+port 6379
+protected-mode yes
+
+# Memory
+maxmemory 2gb
+maxmemory-policy allkeys-lru
+
+# Persistence — RDB
+save 3600 1
+save 300 100
+save 60 10000
+dbfilename dump.rdb
+dir /var/lib/redis
+
+# AOF
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec
+
+# Parol
+requirepass "StrongPass123!"
+
+# Log
+loglevel notice
+logfile /var/log/redis/redis-server.log
+```
+
+```bash
+sudo systemctl restart redis-server
+```
+
+## 6. Persistence — RDB
+
+Periodik snapshot (binary):
+
+```
+save 3600 1        # 1 soat ichida 1 ta o'zgarish bo'lsa snapshot
+save 300 100       # 5 daqiqa ichida 100 ta
+save 60 10000      # 1 daqiqa ichida 10000 ta
+```
+
+Manual:
+
+```bash
+redis-cli SAVE      # sync (blocking)
+redis-cli BGSAVE    # async (fork)
+
+# Status
+redis-cli LASTSAVE
+```
+
+Snapshot fayli: `/var/lib/redis/dump.rdb`.
+
+## 7. Persistence — AOF
+
+Har komandani log'lash:
+
+```
+appendonly yes
+appendfsync everysec   # always|everysec|no
+```
+
+- `always` — har komanda diskka (eng xavfsiz, sekin).
+- `everysec` — har soniyada (default, balance).
+- `no` — OS qachon flush qilsa.
+
+AOF rewrite:
+
+```bash
+redis-cli BGREWRITEAOF
+```
+
+Optimal — RDB + AOF birga.
+
+## 8. Authentication
+
+```
+# /etc/redis/redis.conf
+requirepass "StrongPass123!"
+```
+
+```bash
+sudo systemctl restart redis-server
+
+redis-cli
+# 127.0.0.1:6379> AUTH StrongPass123!
+# OK
+
+# Yoki bir martalik
+redis-cli -a StrongPass123! PING
+```
+
+ACL (Redis 6+) — multi-user:
+
+```
+user diyor on >password ~cached:* +@read
+```
+
+```bash
+redis-cli --user diyor --pass password
+```
+
+## 9. Master-replica
+
+### Master
+
+`/etc/redis/redis.conf`:
+
+```
+bind 0.0.0.0
+masterauth "ReplPass!"
+requirepass "MasterPass!"
+```
+
+### Replica
+
+```
+replicaof 10.0.0.10 6379
+masterauth "MasterPass!"
+requirepass "ReplPass!"
+replica-read-only yes
+```
+
+```bash
+sudo systemctl restart redis-server
+
+redis-cli INFO replication
+# role:slave
+# master_host:10.0.0.10
+# master_link_status:up
+```
+
+## 10. Redis Sentinel — high availability
+
+3 ta Sentinel host:
+
+`/etc/redis/sentinel.conf`:
+
+```
+port 26379
+sentinel monitor mymaster 10.0.0.10 6379 2
+sentinel auth-pass mymaster MasterPass!
+sentinel down-after-milliseconds mymaster 5000
+sentinel failover-timeout mymaster 60000
+sentinel parallel-syncs mymaster 1
+```
+
+```bash
+# Sentinel run
+redis-sentinel /etc/redis/sentinel.conf
+```
+
+Master failure'da Sentinel'lar uchrashib (quorum=2), yangi master tanlaydi.
+
+## 11. Memory va eviction
+
+```
+maxmemory 2gb
+maxmemory-policy allkeys-lru
+```
+
+Policies:
+
+- `noeviction` — yangi yozish'ni rad qiladi (default).
+- `allkeys-lru` — eng kam ishlatilgan key'larni o'chiradi.
+- `volatile-lru` — faqat TTL bilan key'lar.
+- `allkeys-lfu` — eng kam frequency.
+- `allkeys-random`, `volatile-random`.
+- `volatile-ttl` — eng yaqin TTL.
+
+```bash
+redis-cli INFO memory
+# used_memory_human:1.5G
+# maxmemory_human:2.0G
+```
+
+## 12. Monitoring
+
+```bash
+# Real-time stats
+redis-cli MONITOR
+
+# Top commands
+redis-cli --stat
+
+# Info
+redis-cli INFO
+redis-cli INFO stats
+redis-cli INFO clients
+
+# Slow log
+redis-cli SLOWLOG GET 10
+redis-cli CONFIG SET slowlog-log-slower-than 10000  # 10ms
+```
+
+## 13. Backup
+
+```bash
+# RDB snapshot
+sudo cp /var/lib/redis/dump.rdb /var/backups/dump-$(date +%Y%m%d).rdb
+
+# AOF
+sudo cp /var/lib/redis/appendonly.aof /var/backups/
+
+# Restore — Redis to'xtagan'da
+sudo systemctl stop redis-server
+sudo cp /var/backups/dump.rdb /var/lib/redis/
+sudo chown redis:redis /var/lib/redis/dump.rdb
+sudo systemctl start redis-server
+```
+
+## 14. Pub/Sub
+
+```bash
+# Subscriber
+redis-cli SUBSCRIBE news
+
+# Publisher (boshqa terminal)
+redis-cli PUBLISH news "Hello, world!"
+```
+
+## 15. Pipelining
+
+Yuzlab buyruq'ni bitta round-trip'da:
+
+```bash
+echo -e "SET key1 val1\nSET key2 val2\nGET key1" | redis-cli --pipe
+```
+
+Yoki Python:
+
+```python
+import redis
+r = redis.Redis()
+pipe = r.pipeline()
+for i in range(1000):
+    pipe.set(f"key:{i}", i)
+pipe.execute()
+```
+
+10-100x tezroq individual buyruq'lardan.
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **`bind 0.0.0.0` parolsiz** — XAVFLI! Avval `requirepass`, keyin bind.
+- **Memory limit'siz** — server RAM tugashi mumkin.
+- **AOF + RDB ikkalasi ham yo'q** — restart'da hammasi yo'qoladi.
+- **Sentinel quorum noto'g'ri** — failover ishlamaydi.
+- **Replica `replica-read-only no`** — write konflikt.
+
+## 17. Eng yaxshi amaliyot
+
+- **Parol har vaqt** — `requirepass`.
+- **`bind` aniq IP** — `0.0.0.0` faqat firewall bilan.
+- **AOF + RDB** — birga ishlatish.
+- **Memory limit** — `maxmemory` + policy.
+- **Sentinel 3+** — quorum'siz ishlamaydi.
+
+## 18. Mashqlar
+
+1. **O'rnatish:** Redis va `redis-cli PING`.
+2. **Ma'lumot:** Hash, list, set turli operatsiyalar.
+3. **Persistence:** RDB va AOF yoqilgan.
+4. **Master-replica:** 2 host bilan replication.
+5. **Pipelining:** 10000 SET buyruq pipe vs individual — vaqt farqi.
+
+## 19. Bilim sinovi
+
+**Savol 1.** Redis turi:
+
+- a) RDBMS
+- b) In-memory key-value store
+- c) Search engine
+- d) Message broker
+
+<Callout type="success" title="Javob">
+**(b)** Asosan in-memory key-value, lekin Pub/Sub, Streams ham bor.[¹](https://redis.io/docs/)
+</Callout>
+
+**Savol 2.** AOF `everysec`:
+
+- a) Har komanda diskka
+- b) Har soniyada flush (balance — speed vs durability)
+- c) Hech qachon
+- d) Faqat shutdown'da
+
+<Callout type="success" title="Javob">
+**(b)** Default — eng yaxshi balance.
+</Callout>
+
+**Savol 3.** `allkeys-lru` eviction:
+
+- a) Hech narsa
+- b) Memory to'lganda eng kam ishlatilgan key'lar o'chadi
+- c) Faqat TTL key'lar
+- d) Random
+
+<Callout type="success" title="Javob">
+**(b)** Least Recently Used — cache uchun ideal.
+</Callout>
+
+**Savol 4.** Sentinel quorum nima?
+
+- a) Backup
+- b) Failover qarori uchun kerakli minimum sentinel soni
+- c) Master IP
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Quorum (masalan 2) — shu sentinel master "o'lik" desa, failover boshlanadi.
+</Callout>
+
+**Savol 5.** Redis pipelining ishlamasligi mumkin sababli:
+
+- a) Network round-trip qisqartiradi
+- b) Bitta buyruqdan keyin javob kutib turish o'rniga ko'p buyruq oldindan jo'natish
+- c) Faqat lokal'da
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** RTT cheklov olib tashlanadi — 10-100x tezroq batch operatsiyalarda.
+</Callout>
+
+## Manbalar
+
+1. Redis Documentation. [https://redis.io/docs/](https://redis.io/docs/)
+2. Ubuntu Server Guide — Redis. [https://ubuntu.com/server/docs/databases-redis](https://ubuntu.com/server/docs/databases-redis)
+
+## Keyingi qadam
+
+👉 [Ubuntu Docker o'rnatish](/ubuntu/cloud/docker)

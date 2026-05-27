@@ -1,0 +1,411 @@
+---
+title: "LXD — system containers"
+description: "LXD — Linux system container manager, VM va Docker oraliq."
+order: 2
+level: "advanced"
+estimated_minutes: 11
+prerequisites:
+  - "/ubuntu/cloud/multipass"
+  - "/fundamentals/docker-basics"
+learning_objectives:
+  - "LXD va Docker farqi"
+  - "Container yaratish va boshqarish"
+  - "Profile va resource limits"
+  - "Network va storage"
+tags: ["ubuntu", "lxd", "container", "lxc"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "LXD Documentation"
+    url: "https://documentation.ubuntu.com/lxd/"
+  - title: "Canonical LXD"
+    url: "https://ubuntu.com/lxd"
+---
+
+**LXD** (Linux Container Daemon) — system container'lar uchun manager. Docker'dan farqli, LXD container'lari VM kabi to'liq OS — `systemd`, `cron`, ko'p service ichida.[¹](https://documentation.ubuntu.com/lxd/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- LXD va Docker farqi.
+- Container yaratish va shell.
+- Profile va resource cheklov.
+- Network bridge va port forwarding.
+- Snapshots va backup.
+</Callout>
+
+## 1. LXD vs Docker
+
+| | LXD | Docker |
+|---|---|---|
+| Tur | System container | Application container |
+| Init system | systemd ishlaydi | PID 1 — app |
+| Use case | Mini VM, lab, hosting | Microservices |
+| Resource | 50-200 MB RAM | 5-50 MB |
+| Boot | 2-5 sekund | 1-2 sekund |
+| Lifecycle | Long-lived | Ephemeral |
+
+LXD — "yengilroq VM". Container ichida `systemd`, multi-user, multiple services.
+
+## 2. O'rnatish
+
+```bash
+sudo snap install lxd
+
+# Foydalanuvchini lxd guruhiga
+sudo usermod -aG lxd $USER
+newgrp lxd
+```
+
+### Init
+
+```bash
+lxd init
+```
+
+Interaktiv setup:
+
+- **Use clustering:** no.
+- **New storage pool:** yes.
+- **Storage backend:** zfs (eng yaxshi) yoki dir/btrfs.
+- **Disk hajmi:** 30 GB.
+- **MAAS server:** no.
+- **Bridge network:** yes.
+- **IPv6 subnet:** auto.
+
+## 3. Birinchi container
+
+```bash
+# Ubuntu LTS
+lxc launch ubuntu:24.04 mycontainer
+
+# Yoki nom default ("c1", "c2")
+lxc launch ubuntu:24.04
+
+# Ro'yxat
+lxc list
+```
+
+`ubuntu:24.04` — image alias. Mavjud image'lar:
+
+```bash
+lxc image list ubuntu:
+# Ubuntu 22.04, 24.04, daily build va boshqalar
+```
+
+Boshqa distributiv:
+
+```bash
+lxc launch images:debian/12 mydebian
+lxc launch images:alpine/3.19 myalpine
+lxc launch images:centos/9-Stream mycentos
+```
+
+## 4. Container ichida ish
+
+```bash
+# Shell
+lxc exec mycontainer -- bash
+# yoki
+lxc shell mycontainer
+
+# Bir buyruq
+lxc exec mycontainer -- ls /etc
+lxc exec mycontainer -- systemctl status
+
+# File push/pull
+lxc file push myfile.txt mycontainer/root/
+lxc file pull mycontainer/etc/hostname ./
+
+# Edit fayl interaktiv
+lxc file edit mycontainer/etc/nginx/nginx.conf
+```
+
+## 5. Container boshqaruv
+
+```bash
+# Stop/Start/Restart
+lxc stop mycontainer
+lxc start mycontainer
+lxc restart mycontainer
+
+# Pause
+lxc pause mycontainer
+lxc unpause mycontainer
+
+# Delete (avval stop)
+lxc stop mycontainer
+lxc delete mycontainer
+
+# Yoki force
+lxc delete mycontainer --force
+```
+
+## 6. Resource limits
+
+```bash
+# RAM cheklash
+lxc config set mycontainer limits.memory 512MB
+
+# CPU
+lxc config set mycontainer limits.cpu 2
+lxc config set mycontainer limits.cpu.allowance 50%
+
+# Disk
+lxc config device set mycontainer root size=10GB
+
+# Ko'rish
+lxc config show mycontainer
+```
+
+## 7. Profile'lar — qayta foydalanish uchun
+
+```bash
+# Mavjud profillar
+lxc profile list
+
+# Yangi profile
+lxc profile create webserver
+lxc profile set webserver limits.memory 1GB
+lxc profile set webserver limits.cpu 2
+
+# Container'ga qo'llash
+lxc profile assign mycontainer default,webserver
+
+# Yoki yaratganda
+lxc launch ubuntu:24.04 web --profile default --profile webserver
+```
+
+## 8. Network
+
+```bash
+# Tarmoqlar ro'yxati
+lxc network list
+
+# Default bridge ko'rish
+lxc network show lxdbr0
+```
+
+Container default'da `lxdbr0` bridge'ga ulanadi. NAT orqali internet.
+
+### Port forwarding
+
+```bash
+# Host:8080 → container:80
+lxc config device add mycontainer myport80 proxy listen=tcp:0.0.0.0:8080 connect=tcp:127.0.0.1:80
+```
+
+### Static IP
+
+```bash
+lxc network attach lxdbr0 mycontainer eth0
+lxc config device set mycontainer eth0 ipv4.address 10.10.0.50
+```
+
+### Bridge to host network
+
+```bash
+# Yangi bridge profile
+lxc network create br0 ipv4.address=none ipv6.address=none
+lxc profile copy default homebr
+lxc profile device set homebr eth0 parent br0
+lxc launch ubuntu:24.04 nas --profile homebr
+```
+
+## 9. Storage
+
+```bash
+# Storage pool'lar
+lxc storage list
+
+# Volume yaratish (data persistence)
+lxc storage volume create default mydata
+
+# Container'ga attach
+lxc config device add mycontainer data disk source=mydata path=/data pool=default
+```
+
+## 10. Snapshot
+
+```bash
+# Snapshot
+lxc snapshot mycontainer snap1
+
+# Ro'yxat
+lxc info mycontainer
+
+# Restore
+lxc restore mycontainer snap1
+
+# Snapshot'dan yangi container (clone)
+lxc copy mycontainer/snap1 newcontainer
+
+# O'chirish
+lxc delete mycontainer/snap1
+```
+
+## 11. Container migratsiya
+
+```bash
+# Bitta host'dan boshqasiga
+lxc copy mycontainer remote:newhost
+
+# Live migration (running)
+lxc move mycontainer remote:newhost
+```
+
+`remote:` — boshqa LXD server (qo'shish: `lxc remote add ...`).
+
+## 12. Image va Cloud-init
+
+```bash
+# Container'dan image yaratish
+lxc publish mycontainer --alias mybaseimage
+
+# Image'dan launch
+lxc launch local:mybaseimage newcontainer
+```
+
+### Cloud-init
+
+```bash
+cat > cloud-init.yaml <<EOF
+#cloud-config
+package_update: true
+packages:
+  - nginx
+  - postgresql
+runcmd:
+  - systemctl enable --now nginx postgresql
+EOF
+
+lxc launch ubuntu:24.04 web --config=user.user-data="$(cat cloud-init.yaml)"
+```
+
+## 13. Misol — multi-tier app
+
+```bash
+# Database container
+lxc launch ubuntu:24.04 db
+lxc exec db -- apt install -y postgresql
+lxc exec db -- bash -c "systemctl enable --now postgresql"
+
+# App container
+lxc launch ubuntu:24.04 app
+lxc exec app -- apt install -y python3-pip
+lxc exec app -- pip install flask psycopg2
+
+# Web (nginx proxy)
+lxc launch ubuntu:24.04 web
+lxc exec web -- apt install -y nginx
+
+# Port forward — host:80 → web container
+lxc config device add web port80 proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
+```
+
+Hamma container'lar bir bridge'da — bir-biri bilan IP orqali ulanadi.
+
+## 14. Buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `lxd init` | Birinchi marotaba sozlash |
+| `lxc launch <image> <name>` | Yangi container |
+| `lxc list` | Ro'yxat |
+| `lxc shell <name>` | Interaktiv shell |
+| `lxc exec <name> -- <cmd>` | Buyruq |
+| `lxc file push/pull` | Fayl |
+| `lxc config set <name> limits.memory N` | Resource |
+| `lxc snapshot <name>` | Snapshot |
+| `lxc copy/move` | Klonash/ko'chirish |
+| `lxc network ...` | Tarmoq |
+| `lxc storage ...` | Storage |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`newgrp lxd` qilmaslik** — logout/login kerak.
+- **Storage pool ZFS — disk to'lib qoladi** — `lxc info <pool>` orqali monitor.
+- **Container ichida snap ishlamaydi** — privilege issue. `security.nesting=true` kerak.
+- **Network bridge konflikt Docker bilan** — IP diapazon'lar mos kelishi mumkin.
+- **`lxd init` qaytadan** — eski config'ni o'chiradi.
+
+## 16. Eng yaxshi amaliyot
+
+- **System service'lar uchun LXD** (NextCloud, GitLab) — Docker o'rniga.
+- **ZFS storage** — snapshots, copy-on-write, deduplication.
+- **Profile per app** — `webserver`, `database` va boshqalar.
+- **Snapshot major change'lardan oldin.**
+- **`lxc publish`** — custom image yaratish.
+- **`security.nesting=true`** — Docker LXD ichida bo'lsa.
+
+## 17. Mashqlar
+
+1. **Setup:** `lxd init` ni o'tkazib yuboring.
+2. **Container:** Ubuntu 24.04 LTS container yarating.
+3. **Web server:** Container ichida nginx o'rnating. Host'dan `curl http://<container-ip>` — ishlaydi-mi?
+4. **Resource limit:** `limits.memory 256MB` qo'ying. `free -h` ichkarida.
+5. **Snapshot:** Snapshot oling, fayl yarating, restore qiling.
+
+## 18. Bilim sinovi
+
+**Savol 1.** LXD va Docker farqi:
+
+- a) Bir xil
+- b) LXD — system container (full OS, systemd); Docker — app container (single binary)
+- c) LXD tezroq
+- d) Docker faqat Ubuntu
+
+<Callout type="success" title="Javob">
+**(b)** Use case farqi.[²](https://ubuntu.com/lxd)
+</Callout>
+
+**Savol 2.** LXD container'da systemd:
+
+- a) Ishlamaydi
+- b) Ishlaydi (system container)
+- c) Faqat root bilan
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Full OS muhit.
+</Callout>
+
+**Savol 3.** Storage pool'lar uchun eng yaxshi backend:
+
+- a) dir
+- b) zfs (snapshots, compression, dedup)
+- c) btrfs
+- d) ext4
+
+<Callout type="success" title="Javob">
+**(b)** ZFS — feature-rich, lekin RAM ko'p talab qiladi.
+</Callout>
+
+**Savol 4.** Live migration:
+
+- a) Yo'q
+- b) `lxc move <name> remote:host` — running container ko'chirish
+- c) Faqat snapshot
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** Container'lar bir tachog'idan ikkinchisiga ko'chiriladi.
+</Callout>
+
+**Savol 5.** Modern LXD alternativ:
+
+- a) Docker (boshqa use case)
+- b) Incus (LXD'ning community fork — 2023+)
+- c) Podman
+- d) Kubernetes
+
+<Callout type="success" title="Javob">
+**(b)** Canonical LXD'ni kompaniyalashtirgandan keyin community Incus'ga fork qilingan.
+</Callout>
+
+## Manbalar
+
+1. LXD Documentation. [https://documentation.ubuntu.com/lxd/](https://documentation.ubuntu.com/lxd/)
+2. Canonical LXD. [https://ubuntu.com/lxd](https://ubuntu.com/lxd)
+
+## Keyingi qadam
+
+👉 [MicroK8s — minimal Kubernetes](/ubuntu/cloud/microk8s)

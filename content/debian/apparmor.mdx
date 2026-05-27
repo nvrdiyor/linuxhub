@@ -1,0 +1,384 @@
+---
+title: "Debian AppArmor — MAC security"
+description: "AppArmor — Linux Mandatory Access Control va Debian'da sozlash."
+order: 10
+level: "advanced"
+estimated_minutes: 9
+prerequisites:
+  - "/debian/server-setup"
+  - "/fundamentals/permissions"
+learning_objectives:
+  - "AppArmor nima va u qanday ishlaydi"
+  - "Profile holatlari (enforce, complain, disabled)"
+  - "Custom profile yozish"
+  - "Logs va troubleshooting"
+tags: ["debian", "apparmor", "security", "mac"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "AppArmor Wiki"
+    url: "https://gitlab.com/apparmor/apparmor/-/wikis/home"
+  - title: "Debian Wiki — AppArmor"
+    url: "https://wiki.debian.org/AppArmor"
+---
+
+**AppArmor** — Linux Mandatory Access Control (MAC) system. Standard DAC (egasi/guruh)'dan tashqari, profile orqali har dasturning nima qila olishini cheklab beradi. Debian 10+'da default yoqilgan.[¹](https://gitlab.com/apparmor/apparmor/-/wikis/home)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- AppArmor vs SELinux farqi.
+- Profile holatlari — enforce, complain, disabled.
+- `aa-status`, `aa-enforce`, `aa-complain`.
+- Custom profile yaratish.
+- Log'lar — `dmesg`, `journalctl`, `aa-logprof`.
+</Callout>
+
+## 1. AppArmor nima?
+
+DAC (an'anaviy Linux) — fayl egasi va ruxsatlar:
+
+```
+-rw-r--r-- 1 root root /etc/passwd
+```
+
+Lekin agar nginx'ni hack qilingan bo'lsa va root sifatida ishlab tursa — `/etc/passwd`'ni o'qiy oladi. AppArmor — har dasturga **profile** berib, faqat ruxsat etilgan fayllarni o'qiy oladi.
+
+**AppArmor vs SELinux:**
+
+- **AppArmor** — path-based, sodda, Debian/Ubuntu.
+- **SELinux** — label-based, kompleks, RedHat/Fedora.
+
+## 2. Tekshirish
+
+```bash
+# Status
+sudo aa-status
+
+# apparmor module: Yes
+# loaded profiles: 25
+# profiles in enforce mode: 20
+# profiles in complain mode: 5
+# processes have profiles defined: 8
+# processes in enforce mode: 7
+```
+
+## 3. Profile fayllari
+
+```bash
+ls /etc/apparmor.d/
+# bin.ping
+# usr.sbin.nginx
+# usr.sbin.tcpdump
+# ...
+```
+
+Fayl nomi — dastur path'i `.` bilan (`/usr/sbin/nginx` → `usr.sbin.nginx`).
+
+## 4. Profile holatlari
+
+| Holat | Tavsif |
+|---|---|
+| `enforce` | Profile qoidalari kuchiyaada (ruxsat berilmagan amal — denied) |
+| `complain` | Ogohlantirish log, lekin ruxsat beriladi |
+| `disabled` | Profile yo'q |
+| `unconfined` | Dastur ish ishlaydi, lekin profile yo'q |
+
+```bash
+# Enforce
+sudo aa-enforce /usr/sbin/nginx
+
+# Complain (test uchun)
+sudo aa-complain /usr/sbin/nginx
+
+# Disable
+sudo aa-disable /usr/sbin/nginx
+```
+
+## 5. Profile sintaksisi
+
+`/etc/apparmor.d/usr.sbin.nginx` (qisqartirilgan):
+
+```
+#include <tunables/global>
+
+/usr/sbin/nginx {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+
+  capability dac_override,
+  capability net_bind_service,
+  capability setuid,
+  capability setgid,
+
+  /usr/sbin/nginx mr,
+  /etc/nginx/** r,
+  /var/log/nginx/*.log w,
+  /var/www/** r,
+  /run/nginx.pid w,
+
+  network inet stream,
+  network inet6 stream,
+
+  # Denied by default
+  deny /etc/shadow r,
+  deny /home/** rw,
+}
+```
+
+Ruxsatlar:
+
+- `r` — read
+- `w` — write
+- `x` — execute
+- `m` — memory map
+- `k` — lock
+- `l` — link
+- `ix`, `Px`, `Cx`, `Ux` — exec turlari
+
+## 6. Capability'lar
+
+Profile'da ruxsat etilgan Linux capability'lar:
+
+```
+capability net_bind_service,    # 80 port
+capability dac_override,        # owner override
+capability setuid,
+```
+
+Yo'q bo'lsa — `EPERM` xatosi.
+
+## 7. Profile generatsiya — aa-genprof
+
+```bash
+sudo apt install -y apparmor-utils
+
+# Yangi dastur uchun
+sudo aa-genprof /usr/local/bin/myapp
+
+# Boshqa terminal'da
+/usr/local/bin/myapp
+
+# Avval terminal'ga qayting — S (Scan) bosing
+# Har syscall uchun Allow/Deny tanlang
+# Yakuniy F (Finish) bosing
+```
+
+## 8. Log'lardan profile yangilash — aa-logprof
+
+```bash
+# Complain mode'da dasturni ishga tushiring
+sudo aa-complain /usr/sbin/nginx
+# nginx ishlatib ko'ring
+
+# Log'larni o'qib profile'ga qo'shish
+sudo aa-logprof
+# Allow/Deny savollarini ko'rsatadi
+```
+
+## 9. Reload profile
+
+```bash
+# Bitta
+sudo apparmor_parser -r /etc/apparmor.d/usr.sbin.nginx
+
+# Hammasi
+sudo systemctl reload apparmor
+```
+
+## 10. Log'lar
+
+```bash
+# dmesg
+sudo dmesg | grep DENIED
+# audit: type=1400 audit(1234.567:89): apparmor="DENIED" operation="open" \
+#   profile="/usr/sbin/nginx" name="/etc/shadow" pid=1234 \
+#   comm="nginx" requested_mask="r" denied_mask="r" fsuid=33 ouid=0
+
+# journalctl
+sudo journalctl -k | grep apparmor
+
+# audit.log
+sudo grep apparmor /var/log/audit/audit.log
+```
+
+DENIED qatorlari — profile'ga qo'shish kerak bo'lgan ruxsatlar.
+
+## 11. Misol — custom profile
+
+`/etc/apparmor.d/usr.local.bin.myapp`:
+
+```
+#include <tunables/global>
+
+/usr/local/bin/myapp {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+
+  /usr/local/bin/myapp mr,
+  /etc/myapp/** r,
+  /var/log/myapp/** w,
+  /var/lib/myapp/** rw,
+  /tmp/myapp-*.tmp rw,
+
+  network inet stream,
+
+  deny /etc/shadow r,
+  deny /home/** rw,
+  deny capability sys_admin,
+}
+```
+
+```bash
+# Yuklash
+sudo apparmor_parser -r /etc/apparmor.d/usr.local.bin.myapp
+
+# Tekshirish
+sudo aa-status | grep myapp
+```
+
+## 12. Profile namespace
+
+Bir nechta dastur uchun shared rules:
+
+`/etc/apparmor.d/abstractions/myapp-common`:
+
+```
+/etc/myapp/** r,
+/var/log/myapp/** w,
+```
+
+Profile'da:
+
+```
+/usr/local/bin/myapp {
+  #include <abstractions/myapp-common>
+  ...
+}
+```
+
+## 13. Hat (subprofile)
+
+Subprocess'lar uchun mahalliy profile:
+
+```
+/usr/local/bin/myapp {
+  ...
+  ^worker {
+    /var/cache/myapp/** rw,
+    deny network,
+  }
+}
+```
+
+Dastur `change_hat` syscall bilan kirib boradi (advanced).
+
+## 14. Hozirgi profile'lar (mavjud)
+
+Debian'da default'da profile'lar:
+
+- `usr.sbin.tcpdump`
+- `usr.bin.firefox`
+- `usr.sbin.cups-browsed`
+- `usr.bin.evince` (PDF viewer)
+- `usr.sbin.libvirtd`
+
+Ko'p paket `apparmor-profiles-extra`'da:
+
+```bash
+sudo apt install -y apparmor-profiles apparmor-profiles-extra
+sudo systemctl reload apparmor
+```
+
+## 15. Foydalanuvchi profile vs dastur
+
+AppArmor faqat dasturlar uchun, foydalanuvchi'lar uchun emas. SELinux — foydalanuvchi role'lar bor.
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **Profile noto'g'ri yuklangan** — `apparmor_parser` sintaksis xatolari.
+- **Path noto'g'ri** — `/usr/sbin/nginx` o'rniga `usr.sbin.nginx`.
+- **Complain mode'da production** — qoldirilgan, ruxsat beriladi (xavfli).
+- **`/proc/*` ruxsati yo'q** — ko'p dastur kerak.
+- **Log'larni tekshirmaslik** — DENIED uzoq vaqt sezilmaydi.
+
+## 17. Eng yaxshi amaliyot
+
+- **Complain → enforce** — avval log'lar, keyin enforce.
+- **`abstractions/base`** — default inclusion.
+- **Deny explicit** — `/etc/shadow`, `/root/**` kabi.
+- **Profile Git'da** — `/etc/apparmor.d/` versiya nazorat.
+- **Regular `aa-status` audit** — qaysi profile complain?
+
+## 18. Mashqlar
+
+1. **Status:** `sudo aa-status` — qancha profile?
+2. **Complain mode:** Nginx'ni complain'ga o'tkazing, ishlatib ko'ring, log'larga qarang.
+3. **Custom profile:** Oddiy bash script uchun profile yozing.
+4. **`aa-logprof`:** Log'lardan yangi qoidalar generatsiya.
+5. **Disable test:** Bitta profile'ni disable qilib oqibatini kuzating.
+
+## 19. Bilim sinovi
+
+**Savol 1.** AppArmor turi:
+
+- a) DAC
+- b) MAC (Mandatory Access Control)
+- c) Firewall
+- d) Antivirus
+
+<Callout type="success" title="Javob">
+**(b)** MAC — root ham profile qoidalariga bo'ysunadi.[¹](https://gitlab.com/apparmor/apparmor/-/wikis/home)
+</Callout>
+
+**Savol 2.** `aa-complain` rejimi:
+
+- a) Hech narsa qilmaydi
+- b) Profile qoidalari log'lanadi, lekin ruxsat beriladi
+- c) Profile enforce
+- d) O'chiradi
+
+<Callout type="success" title="Javob">
+**(b)** Test rejimi — production'ga o'tishdan oldin.
+</Callout>
+
+**Savol 3.** Path-based vs label-based:
+
+- a) AppArmor label, SELinux path
+- b) AppArmor path, SELinux label
+- c) Ikkalasi label
+- d) Ikkalasi path
+
+<Callout type="success" title="Javob">
+**(b)** AppArmor fayl path'iga qarab, SELinux har fayl uchun label.
+</Callout>
+
+**Savol 4.** DENIED log'ni qaerda topish:
+
+- a) `/var/log/wtmp`
+- b) `dmesg` yoki `journalctl -k`
+- c) `/etc/passwd`
+- d) Hech qaerda
+
+<Callout type="success" title="Javob">
+**(b)** Kernel log — `dmesg | grep DENIED` yoki `journalctl -k`.
+</Callout>
+
+**Savol 5.** Yangi profile yaratish vositasi:
+
+- a) `aa-genprof`
+- b) `nginx -t`
+- c) `iptables`
+- d) `ufw`
+
+<Callout type="success" title="Javob">
+**(a)** Interaktiv profile generatsiya — dastur ishlatib, har syscall'ni qabul/rad qilish.
+</Callout>
+
+## Manbalar
+
+1. AppArmor Wiki. [https://gitlab.com/apparmor/apparmor/-/wikis/home](https://gitlab.com/apparmor/apparmor/-/wikis/home)
+2. Debian Wiki — AppArmor. [https://wiki.debian.org/AppArmor](https://wiki.debian.org/AppArmor)
+
+## Keyingi qadam
+
+👉 [Debian systemd journald](/debian/journald)

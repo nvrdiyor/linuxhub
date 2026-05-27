@@ -1,0 +1,361 @@
+---
+title: "dpkg chuqur — Debian paket boshqaruvi"
+description: "dpkg low-level — paket o'rnatish, holatlar, troubleshooting."
+order: 3
+level: "intermediate"
+estimated_minutes: 10
+prerequisites:
+  - "/debian/dpkg-fundamentals"
+learning_objectives:
+  - "dpkg holatlari (states)"
+  - "dpkg-reconfigure va dpkg-divert"
+  - "dpkg-statoverride"
+  - "Buzuq paket'ni tuzatish"
+tags: ["debian", "dpkg", "deb", "low-level"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "dpkg(1) manpage"
+    url: "https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html"
+  - title: "Debian Policy — dpkg"
+    url: "https://www.debian.org/doc/debian-policy/"
+---
+
+**`dpkg`** — Debian'ning low-level paket vositasi. APT — `dpkg`'ning yuqori darajadagi wrapper'i. Buzuq paketlarni tuzatish, manual `.deb` o'rnatish, va paket holatini chuqur tahlil qilish uchun `dpkg` zarur.[¹](https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- dpkg holatlari (installed, half-installed, half-configured...).
+- `dpkg --configure -a` — buzuq paketni tuzatish.
+- `dpkg-reconfigure` — paket'ni qayta sozlash.
+- `dpkg-divert` — fayl yo'lini almashtirish.
+- `dpkg-statoverride` — fayl ruxsatlarini boshqarish.
+</Callout>
+
+## 1. dpkg holatlari
+
+Har bir paket ma'lum bir holatda:
+
+| Holat | Ma'no |
+|---|---|
+| `not-installed` | O'rnatilmagan |
+| `config-files` | Olib tashlangan, lekin config qoldi |
+| `half-installed` | Qisman o'rnatildi (xatolik) |
+| `unpacked` | Fayllar yozildi, lekin sozlanmadi |
+| `half-configured` | Sozlanmoqda edi, to'xtab qoldi |
+| `triggers-awaited` | Trigger'lar kutmoqda |
+| `triggers-pending` | Trigger'lar bajarish kerak |
+| `installed` | To'liq o'rnatildi |
+
+Tekshirish:
+
+```bash
+dpkg -l | awk '{print $1, $2}' | head
+# ii nginx          # installed
+# rc old-package    # config-files only
+# iU broken-package # unpacked
+```
+
+`dpkg -l` flag'lar:
+
+- 1-belgi: **Desired** (n=none, i=install, h=hold, r=remove, p=purge)
+- 2-belgi: **Status** (n, i, c, U, F, H, W, t)
+- 3-belgi: **Error** (R=reinst-required, =OK)
+
+## 2. Buzuq paketni tuzatish
+
+```bash
+# Yarim o'rnatilgan paketlar
+sudo dpkg --configure -a
+
+# Yana ham buzuq bo'lsa
+sudo apt --fix-broken install
+
+# Hech narsa yordam bermasa
+sudo dpkg --purge --force-all paket
+sudo apt install paket
+```
+
+`dpkg --configure -a` — barcha "unpacked but not configured" paketlarni sozlaydi.
+
+## 3. Aniq paket sozlash
+
+```bash
+# Yangi paket o'rnatildi, lekin config qilinmadi
+sudo dpkg --configure nginx
+
+# Qayta sozlash (debconf savollarini qayta so'raydi)
+sudo dpkg-reconfigure nginx
+sudo dpkg-reconfigure tzdata    # vaqt zonasini qayta tanlash
+sudo dpkg-reconfigure locales   # locale'larni qayta tanlash
+```
+
+## 4. dpkg-reconfigure
+
+Paket interaktiv config'i — odatda o'rnatish vaqtida ko'ringan savollar:
+
+```bash
+sudo dpkg-reconfigure -plow paket
+# priority: low, medium, high, critical
+```
+
+Misollar:
+
+```bash
+sudo dpkg-reconfigure -plow keyboard-configuration  # klaviatura
+sudo dpkg-reconfigure -plow locales                 # tillar
+sudo dpkg-reconfigure -plow tzdata                  # vaqt zonasi
+sudo dpkg-reconfigure -plow openssh-server          # SSH key qayta yaratish
+```
+
+## 5. dpkg-divert — fayl yo'lini almashtirish
+
+Paket fayli'ni boshqa joyga ko'chirish (paket update'da overwrite bo'lmaydi):
+
+```bash
+# Misol: /usr/bin/foo ni saqlash, paket update'da almashmasin
+sudo dpkg-divert --add --rename --divert /usr/bin/foo.real /usr/bin/foo
+
+# Endi /usr/bin/foo o'zingiz qo'ygan, /usr/bin/foo.real — paketning
+sudo cp my-foo /usr/bin/foo
+
+# Diverts ro'yxati
+dpkg-divert --list
+
+# Bekor qilish
+sudo dpkg-divert --remove --rename /usr/bin/foo
+```
+
+Foydali — masalan, paketning script'ini almashtirish kerak.
+
+## 6. dpkg-statoverride — fayl ruxsatlari
+
+Default'dan boshqa ruxsat berish:
+
+```bash
+# /usr/bin/special yuqori ruxsat (suid)
+sudo dpkg-statoverride --add --update root staff 4755 /usr/bin/special
+
+# Ro'yxat
+dpkg-statoverride --list
+
+# Bekor qilish
+sudo dpkg-statoverride --remove /usr/bin/special
+```
+
+`--update` — agar fayl mavjud bo'lsa, darhol ruxsatlarni o'zgartiradi.
+
+## 7. Paket ichidagi fayllar
+
+```bash
+# Mavjud paket
+dpkg -L nginx | head
+# /etc/nginx/...
+# /usr/sbin/nginx
+# ...
+
+# .deb fayl ichidagi fayllar
+dpkg-deb -c paket.deb
+
+# Paket info
+dpkg -s nginx        # holat + meta
+dpkg-deb -I paket.deb  # .deb info
+dpkg-deb -I paket.deb control
+```
+
+## 8. Fayl egasini topish
+
+```bash
+# Bu fayl qaysi paketdan?
+dpkg -S /usr/bin/curl
+# curl: /usr/bin/curl
+
+# Wildcard
+dpkg -S '/usr/bin/python*'
+```
+
+## 9. .deb fayl tarkibi
+
+```bash
+# Faqat data
+dpkg-deb -x paket.deb /tmp/extracted/
+
+# Hammasi (data + control)
+dpkg-deb -R paket.deb /tmp/full/
+ls /tmp/full/DEBIAN/    # control, postinst, prerm...
+ls /tmp/full/usr/...    # data
+```
+
+## 10. Force flag'lar (XAVFLI)
+
+```bash
+# Faqat zarur paytda!
+sudo dpkg --install --force-all paket.deb         # hech narsa tekshirmaydi
+sudo dpkg --install --force-confold paket.deb     # eski config saqlash
+sudo dpkg --install --force-confnew paket.deb     # yangi config olish
+sudo dpkg --install --force-overwrite paket.deb   # fayllarni qayta yozish
+```
+
+<Callout type="warning" title="Force flag'lar xavfli">
+`--force-all` sizning tizimingizni buzishi mumkin. Faqat aniq bilsangiz ishlating.
+</Callout>
+
+## 11. Config faylga o'zgartirish
+
+Paket update'da:
+
+```bash
+Configuration file '/etc/foo/foo.conf'
+ ==> Modified (by you or by a script) since installation.
+ ==> Package distributor has shipped an updated version.
+   What would you like to do about it ?  Your options are:
+    Y or I  : install the package maintainer's version
+    N or O  : keep your currently-installed version
+      D     : show the differences between the versions
+      Z     : start a shell to examine the situation
+```
+
+Tanlash:
+
+- **N** — sizning config'ingiz saqlanadi (default xavfsiz).
+- **Y** — yangi config (sizning o'zgarishlaringiz `.dpkg-old`'ga).
+- **D** — diff.
+
+Avtomatik tanlash:
+
+```bash
+sudo apt-get install -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" paket
+```
+
+## 12. Paket'ni purge qilish
+
+```bash
+# Faqat fayllar
+sudo apt remove nginx
+# yoki
+sudo dpkg --remove nginx
+# nginx config'i qoladi
+
+# Hammasi (config'lar bilan)
+sudo apt purge nginx
+# yoki
+sudo dpkg --purge nginx
+```
+
+Purge'dan keyin `dpkg -l | grep nginx` — hech narsa qaytarmaydi.
+
+## 13. Trigger'lar
+
+Paket'lar trigger'larni o'zgartirsa, boshqa paket update qiladi. Misol — `man-db` har yangi paket'dan keyin yangilanadi.
+
+Manual ishga tushirish:
+
+```bash
+sudo dpkg --triggers-only paket
+sudo dpkg --triggers-only --pending
+```
+
+## 14. Misol — `dpkg --get-selections` backup
+
+Paketlar ro'yxatini saqlash va qayta o'rnatish:
+
+```bash
+# Backup
+dpkg --get-selections > paketlar.txt
+
+# Yangi tizimda
+sudo apt update
+sudo dpkg --set-selections < paketlar.txt
+sudo apt-get dselect-upgrade
+```
+
+Foydali server migratsiyada.
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`dpkg: error processing package`** — `dpkg --configure -a` ishga tushiring.
+- **`--force-all` har vaqt** — tizimni buzadi.
+- **Config'larni Y bosish** — sizning config'ingiz yo'qoladi.
+- **`.deb` o'rnatish'da dependency'lar** — `apt install -f` keyingi.
+- **`dpkg -i` o'rnatib `apt update` ishlatmaslik** — kelajakda muammo.
+
+## 16. Eng yaxshi amaliyot
+
+- **APT'ni har vaqt afzal** — `dpkg` faqat low-level.
+- **`dpkg --configure -a` boshlash** — har xatolik'dan keyin.
+- **Config'larda N** — agar shubhada bo'lsangiz.
+- **`.deb` faqat trusted source** — `signed-by` yo'q sirini ishlatma.
+- **Backup `dpkg --get-selections`** — server migratsiya.
+
+## 17. Mashqlar
+
+1. **Paket holatlari:** `dpkg -l | awk '{print $1}' | sort | uniq -c`.
+2. **Buzuq paket:** Atayin yarim o'rnatib, `dpkg --configure -a` bilan tuzating.
+3. **Reconfigure:** `sudo dpkg-reconfigure tzdata` — vaqt zonangizni o'zgartiring.
+4. **Divert:** `/usr/bin/curl` ni divert qiling va custom script qo'ying.
+5. **Backup:** `dpkg --get-selections > /tmp/paketlar.txt`.
+
+## 18. Bilim sinovi
+
+**Savol 1.** `dpkg --configure -a` nima qiladi?
+
+- a) Tizimni qayta yuklaydi
+- b) Barcha "unpacked but not configured" paketlarni sozlaydi
+- c) Hamma paketni o'chiradi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Yarim o'rnatilgan paketlarni configure bosqichigacha olib boradi.[¹](https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html)
+</Callout>
+
+**Savol 2.** `dpkg -l` da `rc` holati:
+
+- a) Removed, config-files saqlangan
+- b) Reconfigured
+- c) Required, configured
+- d) Read-only
+
+<Callout type="success" title="Javob">
+**(a)** Paket o'chirilgan, lekin config'lar qoldi (purge qilinmagan).
+</Callout>
+
+**Savol 3.** `dpkg-divert` qachon kerak?
+
+- a) Paket o'chirish
+- b) Fayl yo'lini almashtirish (paket update'da overwrite bo'lmasligi uchun)
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Fayl yo'lini saqlab, customize qilish uchun.
+</Callout>
+
+**Savol 4.** `dpkg-reconfigure tzdata`:
+
+- a) `tzdata` paketini o'chiradi
+- b) Vaqt zonasi savolini qayta so'raydi
+- c) Yangilaydi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Interaktiv konfiguratsiya — masalan vaqt zona qayta tanlash.
+</Callout>
+
+**Savol 5.** Config fayl prompt'ida `N` bosish:
+
+- a) Yangi config saqlanadi
+- b) Sizning config'ingiz saqlanadi
+- c) Diff ko'rsatadi
+- d) Shell ochadi
+
+<Callout type="success" title="Javob">
+**(b)** N (No) — sizning hozirgi config'ingiz saqlanadi (xavfsiz default).
+</Callout>
+
+## Manbalar
+
+1. dpkg(1). [https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html](https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html)
+2. Debian Policy. [https://www.debian.org/doc/debian-policy/](https://www.debian.org/doc/debian-policy/)
+
+## Keyingi qadam
+
+👉 [Debian alternatives system](/debian/alternatives)

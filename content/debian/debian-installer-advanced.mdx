@@ -1,0 +1,349 @@
+---
+title: "Debian Installer — ilg'or imkoniyatlar"
+description: "Expert install, rescue mode, OEM mode, FAI."
+order: 12
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/debian/installation"
+  - "/debian/preseed"
+learning_objectives:
+  - "Expert install rejimi"
+  - "Rescue mode — buzilgan tizimni tuzatish"
+  - "OEM mode — pre-loading"
+  - "FAI — Fully Automated Installation"
+tags: ["debian", "installer", "rescue", "fai"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Installer"
+    url: "https://www.debian.org/devel/debian-installer/"
+  - title: "FAI — Fully Automatic Installation"
+    url: "https://fai-project.org/"
+---
+
+**Debian Installer (d-i)** — eng moslashtirilgan Linux o'rnatuvchilaridan biri. Standart "Graphical install" tashqarida — **Expert**, **Rescue**, **OEM** rejimlari va to'liq avtomatlashtirilgan **FAI**.[¹](https://www.debian.org/devel/debian-installer/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Expert install rejimi — har savolni nazorat qilish.
+- Rescue mode — buzilgan tizimni tuzatish (chroot).
+- OEM install — kompyuter sotuvchilari uchun.
+- FAI — keng masshtabli avtomatik o'rnatish.
+</Callout>
+
+## 1. Boot menu
+
+Debian ISO bootlanganda:
+
+```
+Debian GNU/Linux installer menu (BIOS mode)
+  Graphical install
+  Install
+  Advanced options >
+  Accessible dark contrast installer menu
+  Help
+  Install with speech synthesis
+```
+
+`Advanced options`:
+
+```
+  Graphical expert install
+  Expert install
+  Graphical rescue mode
+  Rescue mode
+  Graphical automated install
+  Automated install
+  ...
+```
+
+## 2. Expert install
+
+Standart install'dan farqi — **har savol so'raladi**, hech narsa default'da o'tib ketmaydi.
+
+**Qachon foydali:**
+
+- Network sozlamalar maxsus (proxy, static IP).
+- Disk layout (LVM, RAID, LUKS encryption).
+- Kernel modullarini tanlash.
+- Initrd modullarini tanlash.
+
+Misol — `partman` Expert rejimida:
+
+```
+Partitioning method:
+  Guided - use entire disk
+  Guided - use entire disk and set up LVM
+  Guided - use entire disk and set up encrypted LVM
+  Manual                              ← Expert default
+```
+
+Manual'da har disk, partitsiya, va filesystem alohida tanlanadi.
+
+## 3. Rescue mode
+
+Tizim buzilgan — boot bo'lmaydi, GRUB yo'q, parol esdan chiqdi:
+
+```
+Boot menu → Advanced options → Rescue mode
+```
+
+**Bosqichlar:**
+
+1. Locale va klaviatura.
+2. Tarmoq (DHCP yoki manual).
+3. Root partitsiyani tanlash — `/dev/sda1` masalan.
+4. Shell ochiladi:
+   ```
+   Choose: Execute a shell in /dev/sda1
+   ```
+
+Endi siz `chroot` ichida — buzilgan tizimni tuzatishingiz mumkin:
+
+```bash
+# GRUB qayta o'rnatish
+grub-install /dev/sda
+update-grub
+
+# Parol o'zgartirish
+passwd
+
+# Paket muammosi
+apt update
+apt --fix-broken install
+dpkg --configure -a
+
+# fstab tuzatish
+nano /etc/fstab
+
+# Initrd qayta yaratish
+update-initramfs -u
+```
+
+Chiqish: `exit` — installer'ga qaytadi, **Reboot** tanlang.
+
+## 4. Rescue mode misoli — GRUB tuzatish
+
+Windows GRUB'ni overwrite qildi:
+
+1. Debian ISO bilan boot.
+2. Rescue mode.
+3. Root partitsiya: `/dev/sda3` (masalan).
+4. Shell:
+   ```bash
+   grub-install /dev/sda
+   update-grub
+   exit
+   ```
+5. Reboot — GRUB qaytdi.
+
+## 5. Rescue mode misoli — parol
+
+Root paroli unutildi:
+
+1. Rescue mode.
+2. Root partitsiya tanlang.
+3. Shell:
+   ```bash
+   passwd root
+   # Yangi parol
+   passwd diyor
+   exit
+   ```
+
+## 6. OEM mode
+
+Kompyuter sotuvchilari uchun — Debian'ni oldindan o'rnatib, lekin **birinchi boot'da yangi foydalanuvchi yaratish**:
+
+Boot kernel parametr:
+
+```
+oem-config-prepare=true
+```
+
+Yoki preseed'da:
+
+```
+d-i preseed/early_command string \
+    debconf-set oem-config/enable true
+```
+
+Foydalanuvchi sotib oladi va birinchi boot'da:
+
+- Locale tanlash
+- Foydalanuvchi nomi
+- Parol
+- Vaqt zonasi
+
+(Worden — Ubuntu OEM rejimiga o'xshash).
+
+## 7. FAI — Fully Automatic Installation
+
+Preseed'dan ham kuchli — **classes** tizimi bilan:
+
+```bash
+sudo apt install -y fai-quickstart
+
+# Server quring (NFS + DHCP + TFTP)
+sudo fai-setup
+```
+
+Class fayllar:
+
+```
+/srv/fai/config/
+├── class/
+│   ├── 50-host-classes
+│   └── ...
+├── files/
+├── hooks/
+├── package_config/
+│   ├── DEFAULT
+│   ├── WEBSERVER
+│   ├── DATABASE
+│   └── ...
+└── scripts/
+```
+
+`package_config/WEBSERVER`:
+
+```
+PACKAGES install
+nginx
+php-fpm
+mariadb-server
+certbot
+```
+
+Host'lar uchun:
+
+```
+# /srv/fai/config/class/50-host-classes
+case $HOSTNAME in
+    web*) echo "WEBSERVER" ;;
+    db*)  echo "DATABASE" ;;
+    *)    echo "DEFAULT" ;;
+esac
+```
+
+PXE boot — har host avtomatik to'g'ri profile'ni oladi.
+
+## 8. Preseed vs FAI
+
+| Xususiyat | Preseed | FAI |
+|---|---|---|
+| Sozlash | Bitta `.cfg` fayl | Class tizimi |
+| Skala | 10-50 host | 100-1000+ |
+| Murakkablik | Sodda | Kompleks |
+| Tezlik | O'rta | Tez |
+| Heterogenelik | Bitta tip | Ko'p tip (web/db/...) |
+
+## 9. Speech synthesis
+
+Ko'r foydalanuvchi'lar uchun:
+
+```
+Boot menu → Install with speech synthesis
+```
+
+Espeak orqali o'qib beradi. Brl displayni qo'llab-quvvatlaydi.
+
+## 10. Live CD vs Installer
+
+| Live | Installer |
+|---|---|
+| RAM'da ishlaydi | Diskka o'rnatadi |
+| Test uchun | Doimiy |
+| `live` user, paroli `live` | Custom user |
+
+Live ISO ham installer'ni o'z ichiga oladi — Desktop'dan ishga tushirsa bo'ladi.
+
+## 11. Eng tez-tez uchraydigan xatolar
+
+- **Expert install'da default'siz** — Standard tomonidan kerak bo'lmagan paketlar.
+- **Rescue mode'da `chroot` o'rnatilmagan** — Execute a shell in `/dev/sda1` tanlash kerak.
+- **FAI'da DHCP yo'q** — PXE boot ishlamaydi.
+- **OEM mode `early_command`** — `oem-config/enable` yo'q bo'lsa ishlamaydi.
+- **Preseed file'ni installer ko'rmaydi** — URL noto'g'ri, kernel parametr `preseed/url=`.
+
+## 12. Eng yaxshi amaliyot
+
+- **Expert install ko'p disk** — RAID, LVM, LUKS sozlash.
+- **Rescue mode har vaqt mavjud** — ISO USB tayyor saqlang.
+- **FAI 50+ server** — preseed yetarli emas.
+- **OEM mode tijorat uchun** — uskuna sotuvchilari.
+- **Test virtual mashina** — har sozlash sinash.
+
+## 13. Mashqlar
+
+1. **Expert install:** VM'da Expert install — har savolni o'qing.
+2. **Rescue:** Atayin GRUB'ni o'chiring, rescue mode bilan tuzating.
+3. **Parol reset:** Test parolni rescue mode bilan o'zgartiring.
+4. **FAI lab:** 3 ta VM uchun FAI server quring.
+5. **Preseed kombinatsiya:** preseed + late_command bilan to'liq sozlash.
+
+## 14. Bilim sinovi
+
+**Savol 1.** Rescue mode nima beradi?
+
+- a) Yangi tizim o'rnatadi
+- b) Buzilgan tizimni `chroot` qilib tuzatish imkonini
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Mavjud tizimni boot bo'lmasidan ham kira olib, GRUB/parol/fstab tuzatish.[¹](https://www.debian.org/devel/debian-installer/)
+</Callout>
+
+**Savol 2.** OEM mode nima uchun?
+
+- a) Server farm
+- b) Kompyuter sotuvchilari — birinchi boot'da yangi foydalanuvchi sozlash
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Oldindan o'rnatib, birinchi yoqilgan'da foydalanuvchi'ni sozlash.
+</Callout>
+
+**Savol 3.** FAI'ning preseed'dan asosiy farqi:
+
+- a) Tezroq
+- b) Class tizimi — ko'p tipdagi server'lar uchun
+- c) Bepul
+- d) Kichikroq
+
+<Callout type="success" title="Javob">
+**(b)** Heterogen tarmoq — web, db, app server alohida class.
+</Callout>
+
+**Savol 4.** Expert install:
+
+- a) Default'lar bilan tez
+- b) Har savolni nazorat — eng moslashtirilgan
+- c) Headless faqat
+- d) GUI yo'q
+
+<Callout type="success" title="Javob">
+**(b)** Hamma savol, hech narsa default'da o'tib ketmaydi.
+</Callout>
+
+**Savol 5.** Rescue mode'da parol qayta o'rnatish:
+
+- a) Imkonsiz
+- b) `passwd USER` chroot ichida
+- c) `/etc/shadow` o'zgartirish
+- d) Faqat single-user mode
+
+<Callout type="success" title="Javob">
+**(b)** Rescue → shell → `passwd USER`.
+</Callout>
+
+## Manbalar
+
+1. Debian Installer. [https://www.debian.org/devel/debian-installer/](https://www.debian.org/devel/debian-installer/)
+2. FAI Project. [https://fai-project.org/](https://fai-project.org/)
+
+## Keyingi qadam
+
+👉 [Debian Cron va Anacron](/debian/cron-anacron)

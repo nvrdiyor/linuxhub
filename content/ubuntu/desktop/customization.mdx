@@ -1,0 +1,383 @@
+---
+title: "GNOME desktop customization"
+description: "Ubuntu GNOME ish stolini sozlash — themes, extensions, shortcuts, dock."
+order: 1
+level: "beginner"
+estimated_minutes: 9
+prerequisites:
+  - "/ubuntu/gnome-desktop"
+learning_objectives:
+  - "GNOME Extensions o'rnatish va boshqarish"
+  - "Theme, icon, font o'zgartirish"
+  - "Klaviatura shortcuts"
+  - "Dock va workspace"
+tags: ["ubuntu", "desktop", "gnome", "customization"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNOME — User Documentation"
+    url: "https://help.gnome.org/users/gnome-help/stable/"
+  - title: "Ubuntu Community — UbuntuGnome"
+    url: "https://help.ubuntu.com/community/UbuntuGnome"
+---
+
+GNOME ish stoli — Ubuntu'ning default desktop. Tuzilishi minimal, lekin **GNOME Extensions** va **GSettings** orqali to'liq moslashtirish mumkin.[¹](https://help.gnome.org/users/gnome-help/stable/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- GNOME Tweaks va Extensions o'rnatish.
+- Theme va icon pack.
+- Workspace va virtual desktop sozlash.
+- Klaviatura shortcuts.
+- Dock customization.
+</Callout>
+
+## 1. GNOME Tweaks
+
+GNOME default Settings cheklangan. Tweaks — qo'shimcha sozlamalar.
+
+```bash
+sudo apt install gnome-tweaks gnome-shell-extension-manager -y
+```
+
+Activities → "Tweaks" yoki `gnome-tweaks`.
+
+Tweaks orqali:
+
+- **Appearance:** Theme, icons, cursor, shell theme.
+- **Fonts:** Default font va antialiasing.
+- **Top Bar:** Battery percentage, weekday, date.
+- **Window titlebars:** Min/max tugmalar.
+- **Workspaces:** Static yoki dynamic.
+
+## 2. GNOME Extensions
+
+Modular plugin tizimi.
+
+### Manager orqali
+
+```bash
+sudo apt install gnome-shell-extension-manager -y
+```
+
+`Extension Manager` — barcha mavjud extensions, install, settings.
+
+### Veb-saytdan
+
+[extensions.gnome.org](https://extensions.gnome.org) — extension website. Browser plugin'ni o'rnatish kerak (Chrome / Firefox).
+
+Mashhur extensions:
+
+| Extension | Maqsad |
+|---|---|
+| **Dash to Panel** | Windows-uslubdagi panel |
+| **Dash to Dock** | Mac-uslubdagi dock |
+| **Caffeine** | Screensaver vaqtinchalik o'chirish |
+| **Clipboard Indicator** | Clipboard history |
+| **GSConnect** | Android telefon bilan integratsiya |
+| **Tray Icons: Reloaded** | System tray (legacy ilovalar) |
+| **Vitals** | CPU/RAM/temperature top bar'da |
+| **User Themes** | Custom shell themes |
+| **Sound Input & Output Device Chooser** | Audio device tanlash |
+| **Workspace Indicator** | Workspace switcher panel'da |
+
+## 3. Themes va icon pack
+
+`gnome-look.org` — eng katta GNOME themes repository.
+
+Manual o'rnatish:
+
+```bash
+# Download .tar.xz
+cd ~/Downloads
+tar -xJf my-theme.tar.xz
+
+# Themes — global yoki user
+mkdir -p ~/.themes
+mv my-theme ~/.themes/
+
+# Icons
+mkdir -p ~/.icons
+mv my-icons ~/.icons/
+
+# Cursors
+mkdir -p ~/.local/share/icons
+mv my-cursor ~/.local/share/icons/
+```
+
+So'ng Tweaks → Appearance → Theme tanlang.
+
+### Mashhur theme'lar
+
+- **Yaru** — Ubuntu default.
+- **Adwaita** — GNOME pure.
+- **WhiteSur** — macOS Big Sur uslubi.
+- **Pop GTK** — System76 Pop OS theme.
+- **Orchis** — modern, qoramtir.
+
+### Icon'lar
+
+- **Papirus** — eng mashhur, ko'p ilova qo'llab-quvvatlash.
+- **Tela** — flat, hozirgi zamonaviy.
+- **Numix** — keng tarqalgan.
+
+```bash
+# Papirus PPA
+sudo add-apt-repository ppa:papirus/papirus
+sudo apt install papirus-icon-theme -y
+```
+
+## 4. Fonts
+
+```bash
+# Mashhur fontlar
+sudo apt install fonts-firacode fonts-jetbrains-mono fonts-cascadia-code fonts-roboto -y
+
+# Microsoft fonts (litsenziya bilan)
+sudo apt install ttf-mscorefonts-installer -y
+```
+
+Tweaks → Fonts → Monospace Font: `JetBrains Mono` (developer'lar uchun ideal).
+
+### Custom font
+
+```bash
+mkdir -p ~/.local/share/fonts
+cp my-font.ttf ~/.local/share/fonts/
+fc-cache -fv     # cache yangilash
+```
+
+## 5. Klaviatura shortcuts
+
+Settings → Keyboard → View and Customize Shortcuts.
+
+Foydali default shortcuts:
+
+| Shortcut | Vazifa |
+|---|---|
+| `Super` | Activities Overview |
+| `Super + Tab` | Application switcher |
+| `Alt + Tab` | Window switcher |
+| `Super + D` | Show desktop |
+| `Super + L` | Lock screen |
+| `Super + Up/Down` | Maximize/restore |
+| `Super + Left/Right` | Snap window |
+| `Super + Page Up/Down` | Workspace switch |
+| `Ctrl + Alt + T` | Terminal (custom set qilish kerak) |
+
+### Custom shortcut
+
+Settings → Keyboard → Custom Shortcuts → `+`.
+
+Misol: `Ctrl + Alt + T` → `gnome-terminal`.
+
+## 6. Workspace sozlash
+
+Settings → Multitasking.
+
+- **Workspaces:** Dynamic (avtomatik yangi) yoki Fixed (aniq son).
+- **Display:** Workspaces har display'da yoki primary'da.
+- **App switching:** Joriy workspace yoki barcha workspace'lar.
+
+### Custom workspace count
+
+```bash
+gsettings set org.gnome.mutter dynamic-workspaces false
+gsettings set org.gnome.desktop.wm.preferences num-workspaces 6
+```
+
+## 7. Dock customization
+
+Ubuntu default dock — Dash to Dock'ning modifikatsiyalangan versiyasi.
+
+```bash
+# Dock o'rni
+gsettings set org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM'
+
+# Auto-hide
+gsettings set org.gnome.shell.extensions.dash-to-dock dock-fixed false
+
+# Icon hajmi
+gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 32
+
+# Faqat primary monitor
+gsettings set org.gnome.shell.extensions.dash-to-dock multi-monitor false
+```
+
+## 8. gsettings — CLI sozlash
+
+GNOME'ning hamma sozlamalari `gsettings` orqali:
+
+```bash
+# Hammasini ko'rish (juda ko'p)
+gsettings list-recursively | less
+
+# Aniq schema
+gsettings list-keys org.gnome.desktop.interface
+
+# Qiymat o'qish
+gsettings get org.gnome.desktop.interface color-scheme
+
+# O'zgartirish
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+
+# Reset
+gsettings reset org.gnome.desktop.interface color-scheme
+```
+
+### Dark mode
+
+```bash
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+gsettings set org.gnome.desktop.interface gtk-theme 'Yaru-dark'
+```
+
+### Night Light
+
+```bash
+gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
+gsettings set org.gnome.settings-daemon.plugins.color night-light-temperature 4000
+```
+
+## 9. Conky — desktop widget
+
+```bash
+sudo apt install conky-all -y
+
+# Test
+conky
+```
+
+`~/.conkyrc` — konfiguratsiya. Ko'p tayyor theme'lar mavjud GitHub'da.
+
+Autostart:
+
+```bash
+mkdir -p ~/.config/autostart
+cat > ~/.config/autostart/conky.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Exec=conky
+Hidden=false
+X-GNOME-Autostart-enabled=true
+Name=Conky
+EOF
+```
+
+## 10. Wallpaper
+
+Settings → Background. Yoki CLI:
+
+```bash
+gsettings set org.gnome.desktop.background picture-uri 'file:///home/ali/Pictures/wall.jpg'
+gsettings set org.gnome.desktop.background picture-uri-dark 'file:///home/ali/Pictures/wall-dark.jpg'
+```
+
+Dynamic wallpaper (vaqt'ga qarab):
+
+```bash
+sudo apt install gnome-shell-extension-bing-wallpaper-changer -y
+# Yoki Variety
+sudo apt install variety -y
+```
+
+## 11. Buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `gnome-tweaks` | Tweaks GUI |
+| `extension-manager` | Extensions GUI |
+| `gsettings get/set` | CLI sozlash |
+| `fc-cache -fv` | Font cache |
+| `gnome-shell --replace` | Shell restart (X11'da) |
+| `Alt+F2 r Enter` | Shell restart (X11) — Wayland'da yo'q |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Extension Wayland'da ishlamaydi** — ba'zi eski extension'lar faqat X11 uchun.
+- **Shell theme uchun User Themes extension** kerak — built-in emas.
+- **`fc-cache` qilmaslik** — font o'rnatdik, lekin ko'rinmaydi.
+- **GNOME versiyalar incompatibility** — extension faqat aniq GNOME versiyalarda ishlaydi.
+- **Tweaks o'rniga Settings** — ko'p sozlamalar Settings'da yo'q.
+
+## 13. Eng yaxshi amaliyot
+
+- **Backup `dconf`** — sozlamalarni saqlash: `dconf dump / > backup.dconf`.
+- **Tiklash:** `dconf load / < backup.dconf`.
+- **Extension'larni minimal** — har bittasi RAM va shell'ga ta'sir.
+- **Wayland default** — agar extension Wayland'da ishlamasa, X11'ga o'tib turing.
+- **`gsettings` skript** — yangi mashinada bir buyruq bilan sozlash.
+
+## 14. Mashqlar
+
+1. **Tweaks:** O'rnating va Appearance bo'limini o'rganing.
+2. **Dark mode:** `gsettings` orqali yoqing.
+3. **Extension:** Caffeine yoki Vitals'ni Extension Manager orqali o'rnating.
+4. **Theme:** Papirus icon'larini o'rnating va qo'llang.
+5. **Custom shortcut:** `Ctrl+Alt+T` ni `gnome-terminal` ga bog'lang.
+6. **Backup:** `dconf dump / > ~/dconf-backup` qiling.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Tweaks va Settings farqi:
+
+- a) Bir xil
+- b) Tweaks — qo'shimcha, advanced sozlamalar
+- c) Tweaks faqat root uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Tweaks GNOME'ning standart Settings'iga qo'shimcha.
+</Callout>
+
+**Savol 2.** GNOME sozlamalarini CLI'dan boshqarish:
+
+- a) `gconftool-2`
+- b) `gsettings`
+- c) `dconf`
+- d) (b) va (c) ikkalasi
+
+<Callout type="success" title="Javob">
+**(d)** `gsettings` yuqori qatlam, `dconf` quyi qatlam.
+</Callout>
+
+**Savol 3.** Shell theme uchun:
+
+- a) Tweaks
+- b) User Themes extension'ni o'rnatish + Tweaks
+- c) Faqat themes papka
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** User Themes extension majburiy.
+</Callout>
+
+**Savol 4.** Font cache yangilash:
+
+- a) Avtomatik
+- b) `fc-cache -fv`
+- c) Reboot
+- d) `font-update`
+
+<Callout type="success" title="Javob">
+**(b)** `fc-cache -fv` — font cache rebuild.
+</Callout>
+
+**Savol 5.** Sozlamalar backup:
+
+- a) `cp -r ~/.config`
+- b) `dconf dump / > backup.dconf`
+- c) Imkonsiz
+- d) Cloud sync
+
+<Callout type="success" title="Javob">
+**(b)** `dconf dump` — declarative backup.
+</Callout>
+
+## Manbalar
+
+1. GNOME Help. [https://help.gnome.org/users/gnome-help/stable/](https://help.gnome.org/users/gnome-help/stable/)
+2. Ubuntu Community — UbuntuGnome. [https://help.ubuntu.com/community/UbuntuGnome](https://help.ubuntu.com/community/UbuntuGnome)
+
+## Keyingi qadam
+
+👉 [Multimedia kodeklar va dasturlar](/ubuntu/desktop/multimedia)

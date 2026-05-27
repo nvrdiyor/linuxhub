@@ -1,0 +1,393 @@
+---
+title: "Gaming Ubuntu'da — Steam va Lutris"
+description: "Steam, Proton, Wine, Lutris bilan Ubuntu'da o'yin o'ynash."
+order: 3
+level: "intermediate"
+estimated_minutes: 10
+prerequisites:
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "Steam Linux native va Proton"
+  - "Wine va Lutris bilan Windows o'yinlar"
+  - "GPU drayverlar (NVIDIA, AMD, Intel)"
+  - "Gamemode va performance"
+tags: ["ubuntu", "desktop", "gaming", "steam", "wine"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Proton DB"
+    url: "https://www.protondb.com/"
+  - title: "Lutris"
+    url: "https://lutris.net/"
+  - title: "Ubuntu — Gaming"
+    url: "https://ubuntu.com/blog/ubuntu-gaming-the-ultimate-distro"
+---
+
+Linux gaming so'nggi yillarda katta o'zgardi — **Steam Proton** (Valve loyihasi) tufayli 15000+ Windows o'yin Linux'da ishlaydi. Bu darsda Ubuntu'da gaming setup'ni o'rganamiz.[¹](https://www.protondb.com/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Steam Linux'da + Proton.
+- Lutris — universal launcher.
+- Wine bilan Windows o'yinlar.
+- GPU drayverlar.
+- Performance va Gamemode.
+</Callout>
+
+## 1. GPU drayverlar — birinchi qadam
+
+```bash
+# Mavjud drayverlar
+ubuntu-drivers devices
+
+# Avtomatik o'rnatish
+sudo ubuntu-drivers autoinstall
+
+# Reboot
+sudo reboot
+```
+
+### NVIDIA
+
+```bash
+# Tavsiya etilgan (latest stable)
+sudo apt install nvidia-driver-545 -y
+
+# Yoki manual: Software & Updates → Additional Drivers
+```
+
+NVIDIA Settings'ni o'rnatib monitor sozlash:
+
+```bash
+sudo apt install nvidia-settings -y
+nvidia-settings
+```
+
+### AMD
+
+Open-source drayverlar default kelishi (Mesa). Test:
+
+```bash
+glxinfo | grep "OpenGL renderer"
+```
+
+Vulkan support:
+
+```bash
+sudo apt install vulkan-tools mesa-vulkan-drivers -y
+vulkaninfo | head
+```
+
+### Intel
+
+Default Mesa drayverlar yetarli. Performance uchun:
+
+```bash
+sudo apt install intel-media-va-driver-non-free -y
+```
+
+## 2. Steam
+
+```bash
+# Multiverse'ni yoqish
+sudo add-apt-repository multiverse
+sudo apt update
+sudo apt install steam -y
+
+# Yoki Snap
+sudo snap install steam
+
+# Yoki Flatpak
+flatpak install flathub com.valvesoftware.Steam
+```
+
+Login → Steam library.
+
+### Proton
+
+Valve'ning Wine-asoslangan compatibility layer. Steam Settings:
+
+- **Steam → Settings → Compatibility:**
+- **Enable Steam Play for supported titles:** Yoqilgan.
+- **Enable Steam Play for all other titles:** Yoqing (eng yangi Proton ishlatadi).
+
+Endi har Windows o'yini "Play" tugmasi orqali ishlaydi.
+
+### ProtonDB
+
+[protondb.com](https://www.protondb.com/) — har o'yin uchun Proton mosligi:
+
+- **Platinum** — ideal ishlaydi.
+- **Gold** — biroz sozlash kerak.
+- **Silver** — ishlaydi, lekin muammolar.
+- **Bronze** — ishlaydi, lekin yomon.
+- **Borked** — ishlamaydi.
+
+ProtonDB foydalanuvchi `protontricks` orqali maxsus sozlash:
+
+```bash
+sudo apt install protontricks -y
+protontricks <app-id> winetricks
+```
+
+## 3. Lutris — universal launcher
+
+Steam'dan tashqari (Epic, Battle.net, GOG, Itch.io) — Lutris bilan.
+
+```bash
+sudo apt install lutris -y
+
+# Yoki Flatpak (yangi versiya)
+flatpak install flathub net.lutris.Lutris
+```
+
+Lutris'da o'yin qo'shish:
+
+1. `+ Add Game` yoki "Install from Lutris.net".
+2. Lutris.net'da o'yin nomini qidiring (masalan, "Battle.net").
+3. Install — Lutris avtomatik Wine, dependencies, installer'ni boshqaradi.
+
+### Wine prefix
+
+Har o'yin alohida "prefix" (Wine muhiti). `~/Games/<o'yin>/drive_c/` Windows C disk.
+
+```bash
+# Lutris prefix
+ls ~/.local/share/lutris/runners/wine
+```
+
+## 4. Wine — Windows ilovalar uchun
+
+```bash
+# Wine'ni o'rnatish (latest stable)
+sudo dpkg --add-architecture i386
+sudo apt update
+
+wget -nc https://dl.winehq.org/wine-builds/winehq.key
+sudo apt-key add winehq.key
+sudo add-apt-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ $(lsb_release -cs) main"
+sudo apt update
+sudo apt install --install-recommends winehq-stable -y
+```
+
+```bash
+wine --version
+# wine-9.0
+```
+
+### Wine prefix yaratish
+
+```bash
+# Default prefix ~/.wine
+winecfg
+
+# Custom prefix
+WINEPREFIX=~/my-game wine setup.exe
+```
+
+### Winetricks — qo'shimcha komponenlar
+
+```bash
+sudo apt install winetricks -y
+
+winetricks dotnet48 vcrun2019 dxvk
+```
+
+Ko'p o'yinlar `.NET`, Visual C++ Redistributable, DXVK (DirectX → Vulkan) talab qiladi.
+
+## 5. Gamemode — performance optimization
+
+[Gamemode](https://github.com/FeralInteractive/gamemode) — Feral Interactive tomonidan. O'yin ishga tushganda CPU governor'ni `performance`'ga o'tkazadi.
+
+```bash
+sudo apt install gamemode -y
+```
+
+Steam launch options:
+
+```
+gamemoderun %command%
+```
+
+Lutris: Game settings → System options → "Wrap command in" → `gamemoderun`.
+
+## 6. MangoHud — performance overlay
+
+FPS, CPU, GPU, temperature ko'rsatuvchi overlay.
+
+```bash
+sudo apt install mangohud -y
+```
+
+Launch options:
+
+```
+MANGOHUD=1 %command%
+```
+
+`F12` — overlay ko'rsatish/yashirish.
+
+## 7. DXVK va VKD3D — DirectX → Vulkan
+
+DXVK — DirectX 9/10/11 ni Vulkan'ga tarjima.
+VKD3D-Proton — DirectX 12 ni Vulkan'ga.
+
+Steam Proton automatic ishlatadi. Lutris'da:
+
+```bash
+WINEDLLOVERRIDES="d3d11=n,b" wine game.exe
+```
+
+## 8. Custom Proton — GE-Proton
+
+Glorious Eggroll's Proton — community Proton fork, ko'p custom patches.
+
+```bash
+# ProtonUp-Qt
+flatpak install flathub net.davidotek.pupgui2
+```
+
+ProtonUp-Qt orqali GE-Proton versiyalar o'rnatish.
+
+## 9. Anti-cheat — eng katta muammo
+
+Multiplayer o'yinlar (CS:GO, Apex Legends, Fortnite) Easy Anti-Cheat (EAC) yoki BattlEye'dan foydalanadi:
+
+- **EAC** — 2021'dan Linux support (developer'lar yoqishi kerak).
+- **BattlEye** — 2021'dan Linux support.
+
+[areweanticheatyet.com](https://areweanticheatyet.com/) — har o'yin uchun status.
+
+**Ishlaydigan multiplayer'lar:** CS2, Dota 2, Team Fortress 2, Apex Legends, Valheim, Stardew Valley.
+
+**Ishlamaydigan:** Fortnite, Valorant, Destiny 2, PUBG.
+
+## 10. Wayland va gaming
+
+Wayland gaming uchun X11'dan biroz cheklangan:
+
+- **NVIDIA + Wayland** — 545+ drayver bilan yaxshi, lekin ba'zi muammolar.
+- **X11 fallback** — login screen'da "Ubuntu on Xorg" tanlash.
+
+Hozircha **gaming uchun X11 tavsiya**, lekin tezda Wayland yetib oladi.
+
+## 11. Heroic Games Launcher — Epic, GOG
+
+```bash
+flatpak install flathub com.heroicgameslauncher.hgl
+```
+
+Epic Games Store va GOG'dan o'yinlar o'rnatish.
+
+## 12. Bottles — Wine prefix manager
+
+Modern GUI Wine prefix uchun:
+
+```bash
+flatpak install flathub com.usebottles.bottles
+```
+
+## 13. Buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `ubuntu-drivers devices` | Mavjud drayverlar |
+| `glxinfo | grep "OpenGL renderer"` | GPU drayver |
+| `vulkaninfo` | Vulkan support |
+| `winecfg` | Wine sozlash |
+| `winetricks` | Wine komponenlari |
+| `protontricks` | Proton komponenlari |
+| `gamemoderun <cmd>` | Performance mode |
+| `MANGOHUD=1 <cmd>` | Overlay |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **GPU drayver yo'q** — Vulkan ishlamaydi, ko'p o'yin yuklanmaydi.
+- **32-bit support yo'q** — Wine 32-bit ilovalar uchun: `dpkg --add-architecture i386`.
+- **EAC/BattlEye anti-cheat** — multiplayer o'yinlar Linux'da rad qilishi mumkin.
+- **`/tmp` to'lib qoldi** — Wine ko'p vaqtinchalik fayllar.
+- **NVIDIA + Wayland** — ba'zi o'yinlar X11'da yaxshi.
+
+## 15. Eng yaxshi amaliyot
+
+- **NVIDIA drayveri latest** — gaming uchun majburiy.
+- **Vulkan kerak** — ko'p modern o'yin.
+- **Steam + Proton** — birinchi tanlov.
+- **Lutris** — Epic, Battle.net, GOG uchun.
+- **GameMode + MangoHud** — performance va monitoring.
+- **ProtonDB tekshirish** — o'yin oldidan.
+- **X11 multiplayer'lar uchun** — Wayland'dan yaxshiroq hozircha.
+
+## 16. Mashqlar
+
+1. **GPU:** `ubuntu-drivers autoinstall` ni bajaring.
+2. **Steam o'rnatish:** Steam'ni o'rnating va kichik free o'yin o'rnating (Team Fortress 2).
+3. **Proton:** Settings → Compatibility — yoqing.
+4. **ProtonDB:** Sevimli o'yinlaringizning rating'ini tekshiring.
+5. **Lutris:** O'rnating va Battle.net yoki GOG o'yinini sinab ko'ring.
+
+## 17. Bilim sinovi
+
+**Savol 1.** Proton nima?
+
+- a) Linux distributiv
+- b) Valve'ning Wine-asoslangan Windows o'yinlarni Linux'da ishlatish layer'i
+- c) Anti-cheat
+- d) GPU drayver
+
+<Callout type="success" title="Javob">
+**(b)** Wine + DXVK + boshqa patches.[¹](https://www.protondb.com/)
+</Callout>
+
+**Savol 2.** Lutris nima qiladi?
+
+- a) Faqat Steam o'yinlar
+- b) Universal launcher — Steam, Epic, GOG, Battle.net, Itch.io
+- c) GPU benchmark
+- d) Anti-cheat
+
+<Callout type="success" title="Javob">
+**(b)** Multi-store launcher.[²](https://lutris.net/)
+</Callout>
+
+**Savol 3.** DXVK nima qiladi?
+
+- a) DirectX'ni Vulkan'ga tarjima qiladi (Linux'da Windows o'yinlar uchun)
+- b) GPU drayveri
+- c) Audio
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** Performance kalit komponent.
+</Callout>
+
+**Savol 4.** GameMode nima beradi:
+
+- a) Yangi o'yinlar
+- b) O'yin ishga tushganda performance optimization (CPU governor, va h.k.)
+- c) Anti-cheat bypass
+- d) Cheat code
+
+<Callout type="success" title="Javob">
+**(b)** Feral Interactive performance daemon.
+</Callout>
+
+**Savol 5.** Fortnite Linux'da:
+
+- a) Ishlaydi
+- b) Ishlamaydi — Easy Anti-Cheat developer tomonidan Linux uchun yoqilmagan
+- c) Faqat root bilan
+- d) Steam orqali
+
+<Callout type="success" title="Javob">
+**(b)** Anti-cheat eng katta to'siq.
+</Callout>
+
+## Manbalar
+
+1. Proton DB. [https://www.protondb.com/](https://www.protondb.com/)
+2. Lutris. [https://lutris.net/](https://lutris.net/)
+3. Ubuntu Gaming. [https://ubuntu.com/blog/ubuntu-gaming-the-ultimate-distro](https://ubuntu.com/blog/ubuntu-gaming-the-ultimate-distro)
+
+## Keyingi qadam
+
+👉 [Multipass — Ubuntu virtual mashinalar](/ubuntu/cloud/multipass)

@@ -1,0 +1,308 @@
+---
+title: "Debian Stable vs Testing vs Sid"
+description: "Debian release branch'lari — qaysi'sini tanlash va qachon."
+order: 7
+level: "beginner"
+estimated_minutes: 7
+prerequisites:
+  - "/debian/release-cycle"
+learning_objectives:
+  - "Stable, Testing, Sid (Unstable) farqi"
+  - "Har birining maqsadi"
+  - "Qachon qaysi'sini tanlash"
+  - "Experimental va Old-stable"
+tags: ["debian", "stable", "testing", "sid", "branches"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Releases"
+    url: "https://www.debian.org/releases/"
+  - title: "Debian FAQ — Branches"
+    url: "https://www.debian.org/doc/manuals/debian-faq/ftparchives.en.html"
+---
+
+**Debian** uchta asosiy release branch'i bor: **Stable**, **Testing**, **Sid (Unstable)**. Tushunmaslik — noto'g'ri tanlov, va keyin muammolar.[¹](https://www.debian.org/releases/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Stable — production, server, ish stantsiyasi.
+- Testing — kelajak Stable, desktop power-user.
+- Sid (Unstable) — eng yangi, developer/test.
+- Experimental — eng risk'li, sinov.
+- Old-stable va Old-old-stable.
+</Callout>
+
+## 1. Debian branch'lar xaritasi
+
+```
+Experimental → Sid (Unstable) → Testing → Stable → Old-stable → archived
+                                              ↓
+                                       Security + point release
+```
+
+Har paket avval Sid'ga keladi, keyin Testing'ga ko'chiriladi (asynchronously), keyin Stable'ga "freeze" vaqtida.
+
+## 2. Stable — production uchun
+
+**Joriy:** Debian 12 (`bookworm`), 2023-06-10'da chiqdi.
+
+**Xususiyatlari:**
+
+- **Sinab tekshirilgan** — 2+ yillik test.
+- **Eski paketlar** — kernel 6.1, GIMP 2.10, GCC 12.
+- **Security support** — 5 yil (2 yil rasmiy + 3 yil LTS).
+- **Bug fix'lar faqat** — yangi feature yo'q.
+- **Point release** — har 2-3 oyda kichik fix'lar (12.1, 12.2, ...).
+
+**Qachon tanlash:**
+
+- Production server (web, database, mail).
+- Ish stantsiyasi (office, browsing).
+- Embedded tizimlar.
+- IT junior'lar uchun (kam muammo).
+
+## 3. Testing — kelajak Stable
+
+**Joriy:** Debian 13 (`trixie`), kelajakda 2027 atrofida Stable bo'ladi.
+
+**Xususiyatlari:**
+
+- **Yangiroq paketlar** — kernel 6.5+, yangi GNOME/KDE.
+- **Test bosqichi** — Sid'dan migration (10 kun stabil bo'lsa).
+- **Daily updates** — paketlar tez-tez yangilanadi.
+- **Freeze** — release'dan oldin to'xtatiladi.
+
+**Security:**
+
+- **Rasmiy security team support YO'Q.**
+- `testing-security` — kechiktirilgan fix'lar.
+- Production'da xavfsiz emas.
+
+**Qachon tanlash:**
+
+- Yangi hardware test.
+- Developer ish stantsiyasi.
+- Yangi paketlarni sinash.
+
+## 4. Sid (Unstable)
+
+**Joriy:** har vaqt `unstable` (codename `sid`, Toy Story'dagi yomon bola).
+
+**Xususiyatlari:**
+
+- **Eng yangi paketlar** — soatlar ichida.
+- **Sinab tekshirilmagan** — buzilish ehtimoli yuqori.
+- **Daily updates** — yuzlab paket har kuni.
+- **Hech qachon Stable bo'lmaydi** — Testing'ga migration boshlanadi.
+
+**Qachon tanlash:**
+
+- Debian Developer (paket sinash).
+- Bleeding-edge experimental.
+- Hech qachon production.
+
+## 5. Experimental
+
+**Eng yangi/eksperimental** paketlar (alfa, beta versiyalar). Sid'ga ham qabul qilinmagan.
+
+```
+deb http://deb.debian.org/debian experimental main
+```
+
+Default priority `1` — manual install kerak (`apt install -t experimental paket`).
+
+**Hech qachon Stable bilan aralashtirmang.**
+
+## 6. Old-stable va Old-old-stable
+
+| Branch | Joriy | LTS oxirgi |
+|---|---|---|
+| **Stable** | Debian 12 (bookworm) | 2028-yilgacha |
+| **Old-stable** | Debian 11 (bullseye) | 2026-yilgacha |
+| **Old-old-stable** | Debian 10 (buster) | 2024-yil tugadi |
+
+LTS — **Debian LTS Team** tomonidan extended support (rasmiy security team emas).
+
+## 7. Branch tanlash matritsasi
+
+| Foydalanish | Tavsiya |
+|---|---|
+| Production server | **Stable** |
+| Office desktop | **Stable** |
+| Power-user desktop | **Stable + Backports** |
+| Developer workstation | **Testing** (yoki Stable + Backports) |
+| Debian developer | **Sid** |
+| Embedded / IoT | **Stable** |
+| Old hardware | **Stable** |
+| Yangi hardware | **Testing** yoki Stable + Backports kernel |
+
+## 8. Stable + Backports — eng yaxshi balans
+
+Stable'ning barqarorligi + ba'zi paketlar Backports'dan yangiroq.
+
+```
+deb http://deb.debian.org/debian bookworm main
+deb http://deb.debian.org/debian bookworm-backports main
+deb http://security.debian.org/debian-security bookworm-security main
+```
+
+```bash
+# Yangi kernel
+sudo apt install -t bookworm-backports linux-image-amd64
+
+# Yangi Firefox
+sudo apt install -t bookworm-backports firefox-esr
+```
+
+## 9. Branch o'rtasida ko'chish
+
+### Stable → Testing (rasmiyan tavsiya etilmaydi)
+
+```bash
+# sources.list
+sudo sed -i 's/bookworm/trixie/g' /etc/apt/sources.list
+sudo apt update
+sudo apt full-upgrade
+sudo reboot
+```
+
+Lekin: ko'p paket o'zgaradi, ba'zi'lari ishlamasligi mumkin.
+
+### Testing → Stable
+
+Imkonsiz oson — paketlar downgrade qilinishi kerak. Eng yaxshi — qaytadan o'rnatish.
+
+### Sid → Testing
+
+```bash
+sudo sed -i 's/unstable/testing/g' /etc/apt/sources.list
+sudo apt update
+sudo apt full-upgrade
+```
+
+Eski paketlar saqlanadi, lekin Testing yangiroq paketlar kelganda almashadi.
+
+## 10. Stable freeze davri
+
+Release'dan oldin Stable kelajaki versiya freeze qilinadi:
+
+1. **Soft freeze** — yangi paketlar Sid → Testing migration sekinlashadi.
+2. **Hard freeze** — faqat bug fix.
+3. **Full freeze** — faqat critical security.
+4. **Release** — Testing → Stable.
+
+Freeze odatda 6-12 oy davom etadi.
+
+## 11. Codename versiya tarixi
+
+| Codename | Versiya | Release |
+|---|---|---|
+| `buzz` | 1.1 | 1996 |
+| `rex` | 1.2 | 1996 |
+| `bo` | 1.3 | 1997 |
+| `hamm` | 2.0 | 1998 |
+| `slink` | 2.1 | 1999 |
+| `potato` | 2.2 | 2000 |
+| `woody` | 3.0 | 2002 |
+| `sarge` | 3.1 | 2005 |
+| `etch` | 4.0 | 2007 |
+| `lenny` | 5.0 | 2009 |
+| `squeeze` | 6.0 | 2011 |
+| `wheezy` | 7 | 2013 |
+| `jessie` | 8 | 2015 |
+| `stretch` | 9 | 2017 |
+| `buster` | 10 | 2019 |
+| `bullseye` | 11 | 2021 |
+| `bookworm` | 12 | 2023 |
+| `trixie` | 13 | 2025/2026 (kelajak) |
+
+Codename — Toy Story personajlari.
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Production'da Testing/Sid** — security support yo'q.
+- **Stable + Testing aralashma pin'siz** — dependency hell.
+- **Sid'da Backports yoqish** — Backports faqat Stable uchun.
+- **Codename'larni adashtirish** — `bullseye` (11) emas `bookworm` (12).
+- **`apt full-upgrade` Testing'ga o'tib** — orqaga yo'l yo'q.
+
+## 13. Eng yaxshi amaliyot
+
+- **Production: Stable + security** — har vaqt.
+- **Desktop power-user: Stable + Backports** — eng yaxshi balans.
+- **Developer: alohida Testing VM** — Stable host, Testing virtual.
+- **Sid faqat developer** — production'da hech qachon.
+- **Backups Testing/Sid'da** — har vaqt.
+
+## 14. Mashqlar
+
+1. **Joriy versiya:** `cat /etc/debian_version` — qaysi?
+2. **Codename:** `lsb_release -cs` — sizning codename.
+3. **Branch sources:** `cat /etc/apt/sources.list` — Stable, Testing yoki Sid?
+4. **Mahalliy backports yoqing:** `bookworm-backports` qo'shing.
+5. **Mavjud paket version'lari:** `apt-cache madison firefox-esr` — Stable va Testing'da farq.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Debian Stable security support:
+
+- a) 1 yil
+- b) 5 yil (2 rasmiy + 3 LTS)
+- c) 10 yil
+- d) Hech qachon
+
+<Callout type="success" title="Javob">
+**(b)** 2 yil rasmiy + 3 yil LTS (Debian LTS Team).[¹](https://www.debian.org/releases/)
+</Callout>
+
+**Savol 2.** Production server uchun qaysi branch?
+
+- a) Sid
+- b) Stable
+- c) Testing
+- d) Experimental
+
+<Callout type="success" title="Javob">
+**(b)** Stable — sinab tekshirilgan, security support'i bor.
+</Callout>
+
+**Savol 3.** Sid codename qaerdan?
+
+- a) Linux kernel developer
+- b) Toy Story'dagi yomon bola
+- c) Random
+- d) Debian founder
+
+<Callout type="success" title="Javob">
+**(b)** Toy Story'dagi o'yinchoqlarni buzadigan bola — "Sid" = "Still In Development".
+</Callout>
+
+**Savol 4.** Testing security support:
+
+- a) To'liq Stable kabi
+- b) Rasmiy support yo'q (testing-security delay)
+- c) Faqat kernel
+- d) 24/7
+
+<Callout type="success" title="Javob">
+**(b)** Production'da Testing — xavfsiz emas.
+</Callout>
+
+**Savol 5.** Stable + Backports kombinatsiya:
+
+- a) Xavfli
+- b) Eng yaxshi balans — barqarorlik + ba'zi yangi paketlar
+- c) Imkonsiz
+- d) Hech narsa farq qilmaydi
+
+<Callout type="success" title="Javob">
+**(b)** Stable'ning barqarorligi + Backports'dan yangi paketlar.
+</Callout>
+
+## Manbalar
+
+1. Debian Releases. [https://www.debian.org/releases/](https://www.debian.org/releases/)
+2. Debian FAQ — Branches. [https://www.debian.org/doc/manuals/debian-faq/ftparchives.en.html](https://www.debian.org/doc/manuals/debian-faq/ftparchives.en.html)
+
+## Keyingi qadam
+
+👉 [Debian Server o'rnatish](/debian/server-setup)

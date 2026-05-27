@@ -1,0 +1,476 @@
+---
+title: "LAMP stack o'rnatish — Apache, MySQL, PHP"
+description: "Ubuntu Server'da LAMP stack — Apache HTTP, MySQL/MariaDB, PHP — to'liq sozlash."
+order: 1
+level: "intermediate"
+estimated_minutes: 14
+prerequisites:
+  - "/ubuntu/introduction"
+  - "/ubuntu/apt-basics"
+learning_objectives:
+  - "Apache HTTP Server o'rnatish va sozlash"
+  - "MySQL/MariaDB o'rnatish va xavfsizlik"
+  - "PHP va modullarini o'rnatish"
+  - "PhpMyAdmin va virtual host'lar"
+tags: ["ubuntu", "server", "lamp", "apache", "mysql", "php"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu Server Guide — LAMP"
+    url: "https://documentation.ubuntu.com/server/how-to/web-services/install-and-configure-apache/"
+  - title: "Ubuntu Server Guide — MySQL"
+    url: "https://documentation.ubuntu.com/server/how-to/databases/install-mysql/"
+---
+
+**LAMP** = Linux + Apache + MySQL + PHP. Eng klassik veb-server stack. WordPress, Drupal, ko'p PHP framework'lari uchun standart muhit.[¹](https://documentation.ubuntu.com/server/how-to/web-services/install-and-configure-apache/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Apache HTTP Server o'rnatish.
+- MySQL/MariaDB o'rnatish va `mysql_secure_installation`.
+- PHP va kerakli modullar.
+- PhpMyAdmin GUI orqali DB boshqaruvi.
+- Virtual host va Let's Encrypt.
+</Callout>
+
+## 1. Tizim yangilash
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+## 2. Apache o'rnatish
+
+```bash
+sudo apt install apache2 -y
+sudo systemctl enable --now apache2
+sudo systemctl status apache2
+```
+
+Test:
+
+```bash
+curl http://localhost
+```
+
+"Apache2 Ubuntu Default Page" HTML qaytishi kerak.
+
+### Firewall
+
+```bash
+sudo ufw allow Apache
+# Yoki batafsil
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+```
+
+`ufw allow Apache` `Apache`, `Apache Full` (80+443), `Apache Secure` (443) profillarini taklif qiladi.
+
+## 3. MySQL yoki MariaDB
+
+### MySQL
+
+```bash
+sudo apt install mysql-server -y
+sudo systemctl enable --now mysql
+```
+
+### MariaDB (engil alternativ, drop-in mos)
+
+```bash
+sudo apt install mariadb-server -y
+sudo systemctl enable --now mariadb
+```
+
+Ikkalasi ham `mysql` CLI ishlatadi.
+
+### Xavfsizlik sozlash
+
+```bash
+sudo mysql_secure_installation
+```
+
+Savollar:
+
+1. **Set root password?** — Yes, kuchli parol kiriting.
+2. **Remove anonymous users?** — Yes.
+3. **Disallow root login remotely?** — Yes (production).
+4. **Remove test database?** — Yes.
+5. **Reload privilege tables?** — Yes.
+
+### Ulanish test
+
+```bash
+sudo mysql -u root -p
+# yoki socket auth bilan
+sudo mysql
+```
+
+```sql
+SHOW DATABASES;
+CREATE DATABASE testdb;
+CREATE USER 'webuser'@'localhost' IDENTIFIED BY 'webpass';
+GRANT ALL PRIVILEGES ON testdb.* TO 'webuser'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+## 4. PHP o'rnatish
+
+```bash
+sudo apt install php libapache2-mod-php php-mysql -y
+
+# Ko'pincha kerakli modullar
+sudo apt install php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-intl -y
+```
+
+Apache PHP modulini avtomatik yoqadi.
+
+### Test PHP
+
+```bash
+sudo nano /var/www/html/info.php
+```
+
+```php
+<?php
+phpinfo();
+?>
+```
+
+Brauzer'da `http://localhost/info.php` — PHP info sahifasi.
+
+<Callout type="warning">
+Test'dan keyin `info.php`'ni o'chiring — PHP konfiguratsiyasi internet'da ochiq bo'lishi xavfsizlik xavfi.
+</Callout>
+
+```bash
+sudo rm /var/www/html/info.php
+```
+
+### PHP versiyasi
+
+```bash
+php --version
+# PHP 8.3.x ...
+```
+
+Ubuntu 24.04 — PHP 8.3. Boshqa versiya kerak bo'lsa:
+
+```bash
+sudo add-apt-repository ppa:ondrej/php
+sudo apt update
+sudo apt install php8.2  # masalan
+```
+
+## 5. PhpMyAdmin
+
+```bash
+sudo apt install phpmyadmin -y
+```
+
+Installer savol beradi:
+
+- **Web server to configure** — `apache2` ni tanlang (Space bilan belgilash, Tab Enter).
+- **Configure database for phpmyadmin with dbconfig-common?** — Yes.
+- **Phpmyadmin user password** — kiriting.
+
+PhpMyAdmin: `http://localhost/phpmyadmin`.
+
+### Xavfsizlik — PhpMyAdmin'ni cheklash
+
+Default'da hammaga ochiq. Cheklash:
+
+```bash
+sudo nano /etc/apache2/conf-enabled/phpmyadmin.conf
+```
+
+Quyidagini qo'shing:
+
+```apache
+<Directory /usr/share/phpmyadmin>
+    Order Deny,Allow
+    Deny from all
+    Allow from 192.168.1.0/24
+    Allow from 127.0.0.1
+</Directory>
+```
+
+So'ng:
+
+```bash
+sudo systemctl reload apache2
+```
+
+## 6. Virtual host yaratish
+
+Yangi sayt — `example.com`:
+
+```bash
+sudo mkdir -p /var/www/example.com/public_html
+sudo chown -R www-data:www-data /var/www/example.com
+echo "<h1>Salom example.com</h1>" | sudo tee /var/www/example.com/public_html/index.html
+```
+
+Apache config:
+
+```bash
+sudo nano /etc/apache2/sites-available/example.com.conf
+```
+
+```apache
+<VirtualHost *:80>
+    ServerName example.com
+    ServerAlias www.example.com
+    ServerAdmin admin@example.com
+    DocumentRoot /var/www/example.com/public_html
+
+    <Directory /var/www/example.com/public_html>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/example.com-error.log
+    CustomLog ${APACHE_LOG_DIR}/example.com-access.log combined
+</VirtualHost>
+```
+
+```bash
+sudo a2ensite example.com.conf
+sudo a2dissite 000-default.conf      # default o'chirish
+sudo apache2ctl configtest           # sintaksis test
+sudo systemctl reload apache2
+```
+
+Lokal test uchun:
+
+```bash
+echo "127.0.0.1 example.com" | sudo tee -a /etc/hosts
+curl http://example.com
+```
+
+## 7. `.htaccess` va `mod_rewrite`
+
+WordPress va boshqa CMS'lar uchun `mod_rewrite` zarur:
+
+```bash
+sudo a2enmod rewrite
+sudo systemctl reload apache2
+```
+
+Virtual host'da `AllowOverride All` qo'shilgan bo'lishi kerak (yuqorida).
+
+Test `.htaccess`:
+
+```bash
+sudo nano /var/www/example.com/public_html/.htaccess
+```
+
+```apache
+RewriteEngine On
+RewriteRule ^test/?$ /index.html [L]
+```
+
+`http://example.com/test` → `index.html`'ga yo'naltiriladi.
+
+## 8. Let's Encrypt — HTTPS
+
+```bash
+sudo apt install certbot python3-certbot-apache -y
+
+sudo certbot --apache -d example.com -d www.example.com
+```
+
+Email so'raydi (kalit muddati tugashi haqida bildirishnoma). HTTPS avtomatik:
+
+- Sertifikat olinadi.
+- Yangi `<VirtualHost *:443>` virtual host yaratiladi.
+- HTTP → HTTPS redirect.
+- 90 kunda avtomatik yangilanish (cron via `certbot.timer`).
+
+Test:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+## 9. PHP-FPM (modern alternative `mod_php`)
+
+`mod_php` — Apache prefork bilan. Tezroq variant — PHP-FPM:
+
+```bash
+sudo apt install php-fpm libapache2-mod-fcgid -y
+
+# mod_php o'chirish
+sudo a2dismod php8.3
+sudo a2dismod mpm_prefork
+
+# Event MPM + FastCGI
+sudo a2enmod mpm_event proxy_fcgi setenvif
+sudo a2enconf php8.3-fpm
+
+sudo systemctl restart apache2 php8.3-fpm
+```
+
+PHP-FPM faqat PHP fayllar uchun. Static fayllar Apache tomonidan to'g'ridan-to'g'ri.
+
+## 10. MySQL backup
+
+```bash
+# Bitta database
+mysqldump -u root -p mydb > /backup/mydb-$(date +%F).sql
+
+# Hamma
+mysqldump -u root -p --all-databases > /backup/all-$(date +%F).sql
+
+# Avtomatik (cron)
+sudo nano /etc/cron.daily/mysql-backup
+```
+
+```bash
+#!/bin/bash
+TIMESTAMP=$(date +%Y%m%d)
+BACKUP_DIR="/backup/mysql"
+mkdir -p "$BACKUP_DIR"
+
+mysqldump --defaults-file=/etc/mysql/debian.cnf --all-databases \
+    --routines --triggers --events \
+    | gzip > "$BACKUP_DIR/all-$TIMESTAMP.sql.gz"
+
+# 30 kundan eski backup'larni o'chirish
+find "$BACKUP_DIR" -name "all-*.sql.gz" -mtime +30 -delete
+```
+
+```bash
+sudo chmod +x /etc/cron.daily/mysql-backup
+```
+
+`debian.cnf` — Ubuntu/Debian root credential fayli (avtomatik, parolsiz).
+
+## 11. WordPress o'rnatish (LAMP foydalanish misoli)
+
+```bash
+cd /tmp
+wget https://wordpress.org/latest.tar.gz
+tar -xzf latest.tar.gz
+sudo cp -r wordpress/* /var/www/example.com/public_html/
+sudo chown -R www-data:www-data /var/www/example.com
+```
+
+Database:
+
+```sql
+CREATE DATABASE wp;
+CREATE USER 'wp'@'localhost' IDENTIFIED BY 'wppass';
+GRANT ALL PRIVILEGES ON wp.* TO 'wp'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+`http://example.com/wp-admin/install.php` — Wordpress wizard.
+
+## 12. Asosiy buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo systemctl status apache2` | Apache holati |
+| `sudo apache2ctl configtest` | Config sintaksis |
+| `sudo a2ensite <fayl>.conf` | Sayt yoqish |
+| `sudo a2enmod rewrite` | Modul yoqish |
+| `sudo mysql -u root -p` | MySQL CLI |
+| `mysqldump -u root -p <db>` | Backup |
+| `sudo certbot --apache` | Let's Encrypt |
+| `sudo tail -f /var/log/apache2/error.log` | Real-time log |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`/var/www/html` ruxsatlari** — `www-data` user file'larga kira olmaydi. `chown -R www-data:www-data /var/www`.
+- **`info.php` qoldirish** — production'da xavfli.
+- **MySQL root parolini saqlamaslik** — qayta tiklash murakkab.
+- **`mod_rewrite` yoqilmagan** — WordPress permalink'lari ishlamaydi.
+- **`AllowOverride None`** — `.htaccess` faylga e'tibor berilmaydi.
+
+## 14. Eng yaxshi amaliyot
+
+- **PHP-FPM > mod_php** — modern, tezroq.
+- **MySQL root remote login disable.**
+- **Har sayt uchun alohida MySQL user va DB.**
+- **Let's Encrypt har domain'ga.**
+- **`mysql_secure_installation`** majburiy.
+- **Backup avtomatik (cron).**
+- **`/var/log/apache2/error.log`** muntazam tekshirish.
+- **`ufw allow Apache Full`** — 80 va 443.
+
+## 15. Mashqlar
+
+1. **LAMP o'rnatish:** Yuqoridagi qadamlar bo'yicha LAMP stack o'rnating.
+2. **Test:** `curl http://localhost` va `info.php` orqali PHP ishlashi tasdiqlang.
+3. **Virtual host:** `example.com` uchun virtual host yarating.
+4. **Database:** MySQL'da yangi DB va user yarating.
+5. **WordPress (ixtiyoriy):** WordPress'ni o'rnating va wizard'ni o'tkazib yuboring.
+
+## 16. Bilim sinovi
+
+**Savol 1.** LAMP nimadan iborat?
+
+- a) Linux, Apple, Microsoft, Python
+- b) Linux, Apache, MySQL/MariaDB, PHP
+- c) Linux, Apache, MongoDB, Python
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(b)** Klassik veb-server stack.[¹](https://documentation.ubuntu.com/server/how-to/web-services/install-and-configure-apache/)
+</Callout>
+
+**Savol 2.** `mysql_secure_installation` nima qiladi?
+
+- a) MySQL'ni o'rnatadi
+- b) Default xavfsizlik sozlamalari: root parol, anonim user'lar, test DB
+- c) MySQL backup oladi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Production'ga tayyorlash uchun majburiy.
+</Callout>
+
+**Savol 3.** Apache `.htaccess` faylga e'tibor berishi uchun:
+
+- a) `AllowOverride None`
+- b) `AllowOverride All` virtual host'da
+- c) Faqat root uchun
+- d) Hech qachon
+
+<Callout type="success" title="Javob">
+**(b)** `AllowOverride All` — `.htaccess` ruxsat.
+</Callout>
+
+**Savol 4.** PHP-FPM va mod_php farqi:
+
+- a) Bir xil
+- b) PHP-FPM alohida jarayon (tezroq, modern); mod_php Apache ichida
+- c) mod_php tezroq
+- d) PHP-FPM faqat Nginx uchun
+
+<Callout type="success" title="Javob">
+**(b)** PHP-FPM event MPM bilan tezroq.
+</Callout>
+
+**Savol 5.** Let's Encrypt sertifikat muddati:
+
+- a) 1 yil
+- b) 90 kun (avtomatik yangilanadi)
+- c) Doimiy
+- d) 1 oy
+
+<Callout type="success" title="Javob">
+**(b)** 90 kun, `certbot.timer` orqali avtomatik.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Server Guide — Apache. [https://documentation.ubuntu.com/server/how-to/web-services/install-and-configure-apache/](https://documentation.ubuntu.com/server/how-to/web-services/install-and-configure-apache/)
+2. Ubuntu Server Guide — MySQL. [https://documentation.ubuntu.com/server/how-to/databases/install-mysql/](https://documentation.ubuntu.com/server/how-to/databases/install-mysql/)
+
+## Keyingi qadam
+
+👉 [LEMP stack — Nginx bilan](/ubuntu/server/lemp-stack)

@@ -1,0 +1,294 @@
+---
+title: "Debian Backports chuqur"
+description: "bookworm-backports — Stable'ga yangiroq paketlar olib kelish."
+order: 1
+level: "intermediate"
+estimated_minutes: 8
+prerequisites:
+  - "/debian/backports"
+  - "/debian/apt-pinning"
+learning_objectives:
+  - "Backports repository qo'shish"
+  - "Backports'dan paket o'rnatish"
+  - "Backports priority sozlash"
+  - "Backports xavfsizlik holatlari"
+tags: ["debian", "backports", "stable", "apt"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Backports"
+    url: "https://backports.debian.org/"
+  - title: "Backports Instructions"
+    url: "https://backports.debian.org/Instructions/"
+---
+
+**Debian Backports** — Stable release uchun yangiroq dasturlarning rasmiy port'lari. Stable'ning barqarorligini saqlab, yangi kernel, GIMP, Firefox, Docker, va boshqa paketlarni olish.[¹](https://backports.debian.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Backports nima va qachon ishlatish.
+- `sources.list` ga backports qo'shish.
+- `apt install -t` orqali Backports'dan o'rnatish.
+- Backports priority pin'lash.
+- Security update'lar Backports'da yo'q (eslab qoling!).
+</Callout>
+
+## 1. Backports nima?
+
+Debian Stable — eski versiya, lekin sinab tekshirilgan. Lekin ba'zan yangi kernel (yangi hardware uchun) yoki yangi dastur (Docker yangi versiyasi) kerak bo'ladi.
+
+Backports — Stable'ga port qilingan **kelajak Stable / Testing**dan kelgan paketlar.
+
+Misol: `bookworm` (Stable 12) Backports — `trixie` (Testing 13)'dan port qilingan paketlar.
+
+## 2. Backports yoqish
+
+`/etc/apt/sources.list` ga qo'shing:
+
+```
+deb http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+```
+
+Yangilang:
+
+```bash
+sudo apt update
+```
+
+## 3. Backports'dan paket o'rnatish
+
+Default priority **100** — backports'dan o'rnatish uchun aniq aytish kerak:
+
+```bash
+sudo apt install -t bookworm-backports linux-image-amd64
+sudo apt install -t bookworm-backports firefox-esr
+sudo apt install -t bookworm-backports docker.io
+```
+
+`-t` flag — target release. Bu paket Stable'dan emas, Backports'dan olinadi (dependency'lar ham agar kerak).
+
+## 4. Mavjud paketlar
+
+Backports'dagi paketlar:
+
+```bash
+# Brauzer'da
+# https://packages.debian.org/bookworm-backports/
+
+# CLI'da
+apt-cache search ^firefox
+apt list -a firefox-esr
+```
+
+## 5. Aniq paket version
+
+```bash
+apt-cache madison firefox-esr
+# firefox-esr | 128.0esr-1~deb12u1 | bookworm-backports
+# firefox-esr | 115.10.0esr-1~deb12u1 | bookworm/main
+
+sudo apt install firefox-esr=128.0esr-1~deb12u1
+```
+
+## 6. Backports priority avtomatik
+
+Agar har vaqt Backports'dan kerak (masalan kernel):
+
+`/etc/apt/preferences.d/backports-kernel`:
+
+```
+Package: linux-image-amd64 linux-headers-amd64
+Pin: release a=bookworm-backports
+Pin-Priority: 990
+```
+
+Endi `apt upgrade` avtomatik Backports kernel'iga ko'taradi.
+
+## 7. Backports'dan paket ro'yxati
+
+```bash
+# Mavjud
+apt-cache policy | grep backports
+
+# O'rnatilgan
+apt list --installed 2>/dev/null | grep bpo
+# bpo = backports suffix
+```
+
+## 8. Backports xavfsizlik holatlari
+
+<Callout type="warning" title="Muhim ogohlantirish">
+**Backports'da rasmiy security support YO'Q.** Stable security team faqat Stable'ni qo'llab-quvvatlaydi. Backports security update'lari Testing'dan keladi (vaqt o'tib).
+</Callout>
+
+Production server'da:
+
+- **Asosiy paketlar Stable** — security guaranteed.
+- **Aniq paketlar Backports** — qachon zarur.
+- **Kernel** — yangi hardware uchun OK, lekin tezroq yangilanishi mumkin.
+
+## 9. Backports'dan olib tashlash
+
+```bash
+sudo apt install -t bookworm linux-image-amd64
+# Yoki
+sudo apt install linux-image-amd64=6.1.0-21-amd64
+```
+
+Yoki to'liq Backports'siz:
+
+```bash
+sudo sed -i '/backports/d' /etc/apt/sources.list
+sudo apt update
+sudo apt upgrade
+```
+
+## 10. Backports build qilish (advanced)
+
+Backports'da yo'q paketni o'zi port qilish:
+
+```bash
+# Testing'dan source
+sudo apt-get source -t testing nginx
+
+# Build
+cd nginx-*
+sudo apt-get build-dep nginx
+dpkg-buildpackage -us -uc -b
+
+# .deb paketi
+ls ../*.deb
+sudo dpkg -i ../nginx_*.deb
+```
+
+Lekin bu yer'da — `bpo` suffix yo'q (rasmiy emas).
+
+## 11. `sloppy` backports
+
+`bookworm-backports-sloppy` — eski release'dan port (kamroq foydalanadi).
+
+`/etc/apt/sources.list`:
+
+```
+deb http://deb.debian.org/debian bookworm-backports-sloppy main
+```
+
+## 12. Apt-mark hold backports
+
+Backports kernel'ni saqlash:
+
+```bash
+sudo apt install -t bookworm-backports linux-image-amd64
+sudo apt-mark hold linux-image-amd64
+# Endi apt upgrade kernel'ni o'zgartirmaydi
+```
+
+## 13. Misol — Docker Backports'dan
+
+```bash
+# Repository qo'shildi
+sudo apt update
+
+# O'rnatish
+sudo apt install -t bookworm-backports docker.io docker-compose
+
+# Tekshirish
+docker --version
+# Docker version 24.x.x
+
+# Foydalanuvchi guruh
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Test
+docker run hello-world
+```
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`-t` flag'siz install** — Stable'dan olinadi (Backports priority 100 past).
+- **Backports security update kutish** — yo'q, security uchun Stable'da qoling.
+- **Hammasini Backports'dan o'rnatish** — Stable'ning barqarorligi yo'qoladi.
+- **Backports'dan downgrade'siz** — `apt install paket=stable_version` qilish kerak.
+
+## 15. Eng yaxshi amaliyot
+
+- **Faqat aniq paketlar uchun** — kernel, brauzer, hardware drivers.
+- **Server'da minimal foydalanish** — production'da xatarli.
+- **Desktop'da OK** — yangi software'lar.
+- **`apt-cache policy` har o'zgartirish'dan keyin** — to'g'ri versiya?
+- **Security update'lar Stable'dan** — Backports'da emas.
+
+## 16. Mashqlar
+
+1. **Backports yoqing:** `sources.list` ga qo'shing, `apt update`.
+2. **Kernel yangilash:** `apt install -t bookworm-backports linux-image-amd64`.
+3. **Aniq priority:** Firefox Backports priority `990` qiling.
+4. **Tekshirish:** `apt-cache policy firefox-esr` — Backports priority qancha?
+5. **Backports paket ro'yxati:** `apt list --installed | grep bpo`.
+
+## 17. Bilim sinovi
+
+**Savol 1.** Backports nima?
+
+- a) Beta versiya
+- b) Stable uchun port qilingan yangiroq paketlar
+- c) Eskirgan paketlar
+- d) Testing'ning to'liq nusxasi
+
+<Callout type="success" title="Javob">
+**(b)** Testing'dan Stable'ga port qilingan paketlar.[¹](https://backports.debian.org/)
+</Callout>
+
+**Savol 2.** Backports'dan paket o'rnatish:
+
+- a) `apt install paket`
+- b) `apt install -t bookworm-backports paket`
+- c) `apt install paket --backports`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** `-t` flag bilan target release ko'rsatish.
+</Callout>
+
+**Savol 3.** Backports security support:
+
+- a) To'liq Stable kabi
+- b) Rasmiy support yo'q (Testing'dan keladi)
+- c) Faqat kernel
+- d) Hech qachon yo'q
+
+<Callout type="success" title="Javob">
+**(b)** Backports'da rasmiy security team yo'q.
+</Callout>
+
+**Savol 4.** Backports priority default:
+
+- a) 500
+- b) 990
+- c) 100
+- d) 1001
+
+<Callout type="success" title="Javob">
+**(c)** `100` — install qilmaslik, lekin manual o'rnatish mumkin.
+</Callout>
+
+**Savol 5.** Backports paket'ning versiya suffiksi:
+
+- a) `~stable`
+- b) `~bpo`
+- c) `~backports`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** `~bpoXX+Y` — backports suffix (masalan `~bpo12+1`).
+</Callout>
+
+## Manbalar
+
+1. Debian Backports. [https://backports.debian.org/](https://backports.debian.org/)
+2. Backports Instructions. [https://backports.debian.org/Instructions/](https://backports.debian.org/Instructions/)
+
+## Keyingi qadam
+
+👉 [Debian Sources.list to'liq](/debian/sources-list)
