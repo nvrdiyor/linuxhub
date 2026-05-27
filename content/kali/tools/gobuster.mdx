@@ -1,0 +1,354 @@
+---
+title: "Gobuster — directory va DNS enum"
+description: "Gobuster — web direktoriya, subdomain, virtual host topish."
+order: 9
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/kali/ethical-hacking"
+learning_objectives:
+  - "Gobuster mode'lari"
+  - "Directory bruteforce (dir mode)"
+  - "DNS subdomain enumeration"
+  - "Virtual host discovery"
+  - "Wordlist tanlash"
+tags: ["kali", "gobuster", "recon", "web"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Gobuster GitHub"
+    url: "https://github.com/OJ/gobuster"
+  - title: "Kali Tools — Gobuster"
+    url: "https://www.kali.org/tools/gobuster/"
+---
+
+**Gobuster** — Go tilida yozilgan, tezkor web direktoriya va DNS subdomain bruteforce vositasi. Penetration testing va bug bounty'da recon bosqichi uchun ideal.[¹](https://github.com/OJ/gobuster)
+
+<Callout type="warning" title="QONUNIY OGOHLANTIRISH">
+Gobuster faqat **yozma ruxsat** olingan saytlar uchun. Bug bounty platformlar (HackerOne, Bugcrowd) — qonuniy.
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Gobuster mode'lari (dir, dns, vhost, fuzz, s3).
+- Web directory bruteforce.
+- DNS subdomain enumeration.
+- Wordlist va tezlik.
+</Callout>
+
+## 1. O'rnatish
+
+Kali'da default. Boshqa Linux'da:
+
+```bash
+sudo apt install -y gobuster
+
+# Yoki Go bilan
+go install github.com/OJ/gobuster/v3@latest
+```
+
+Versiya:
+
+```bash
+gobuster version
+# Version 3.x.x
+```
+
+## 2. Mode'lar
+
+```bash
+gobuster --help
+# Available Commands:
+#   dir         Uses directory/file enumeration mode
+#   dns         Uses DNS subdomain enumeration mode
+#   fuzz        Uses fuzzing mode
+#   gcs         Uses Google Cloud Storage mode
+#   s3          Uses AWS S3 bucket enumeration mode
+#   tftp        Uses TFTP enumeration mode
+#   vhost       Uses virtual host enumeration mode
+```
+
+## 3. Directory bruteforce
+
+```bash
+gobuster dir -u http://target.com -w /usr/share/wordlists/dirb/common.txt
+
+# Bigger wordlist
+gobuster dir -u http://target.com -w /usr/share/seclists/Discovery/Web-Content/big.txt
+
+# Threads
+gobuster dir -u http://target.com -w wordlist.txt -t 50
+
+# Extensions
+gobuster dir -u http://target.com -w wordlist.txt -x php,html,txt,bak
+
+# Cookie (autentifikatsiya)
+gobuster dir -u http://target.com -w wordlist.txt -c "session=abc123"
+
+# Output
+gobuster dir -u http://target.com -w wordlist.txt -o results.txt
+```
+
+Natija:
+
+```
+/admin                (Status: 301) [Size: 312] [--> /admin/]
+/api                  (Status: 200) [Size: 1234]
+/backup.zip           (Status: 200) [Size: 1048576]
+/.git                 (Status: 403) [Size: 277]
+/config.php.bak       (Status: 200) [Size: 256]
+```
+
+## 4. DNS subdomain enumeration
+
+```bash
+gobuster dns -d example.com -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt
+
+# Threads
+gobuster dns -d example.com -w wordlist.txt -t 50
+
+# Resolver
+gobuster dns -d example.com -w wordlist.txt -r 1.1.1.1
+
+# Wildcard detection
+gobuster dns -d example.com -w wordlist.txt --wildcard
+```
+
+Natija:
+
+```
+Found: api.example.com
+Found: dev.example.com
+Found: admin.example.com
+Found: staging.example.com
+```
+
+## 5. Virtual host
+
+Server bir nechta sayt qabul qiladi (Host header asosida):
+
+```bash
+gobuster vhost -u http://target.com -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt
+
+# Append base domain
+gobuster vhost -u http://target.com -w wordlist.txt --append-domain
+```
+
+Natija:
+
+```
+Found: admin.target.com Status: 200 [Size: 1234]
+Found: api.target.com Status: 200 [Size: 567]
+```
+
+## 6. Fuzz mode
+
+Aniq parameter'ni fuzz:
+
+```bash
+gobuster fuzz -u http://target.com/page?FUZZ=test -w wordlist.txt
+gobuster fuzz -u http://target.com/FUZZ -w wordlist.txt
+```
+
+`FUZZ` keyword — wordlist'dan har qator joylashtiriladi.
+
+## 7. S3 bucket
+
+AWS S3 bucket'larni topish:
+
+```bash
+gobuster s3 -w buckets-wordlist.txt
+gobuster s3 -w /usr/share/seclists/Discovery/Web-Content/quickhits.txt --maxfiles 50
+```
+
+## 8. Wordlist'lar
+
+```bash
+# Kali default
+/usr/share/wordlists/dirb/common.txt          # 4600
+/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt  # 220K
+
+# SecLists (eng katta)
+sudo apt install -y seclists
+ls /usr/share/seclists/Discovery/Web-Content/
+ls /usr/share/seclists/Discovery/DNS/
+```
+
+## 9. HTTP options
+
+```bash
+# User-Agent
+gobuster dir -u http://target -w list.txt -a "Mozilla/5.0..."
+
+# Headers
+gobuster dir -u http://target -w list.txt -H "X-Custom: value"
+
+# Status code filter
+gobuster dir -u http://target -w list.txt -s "200,301,302"
+
+# Negative filter
+gobuster dir -u http://target -w list.txt -b "404,403"
+
+# Discard (only show)
+gobuster dir -u http://target -w list.txt --no-error
+```
+
+## 10. Yashirin endpoint'lar
+
+```bash
+# `.git` directory'lari
+gobuster dir -u http://target -w wordlist.txt -x git
+
+# Backup fayllar
+gobuster dir -u http://target -w wordlist.txt -x bak,old,backup,sql,zip,tar.gz
+```
+
+Topilsa — ko'pincha jiddiy zaiflik.
+
+## 11. Misol — to'liq recon
+
+Bug bounty target (yozma ruxsatli):
+
+```bash
+# 1. Subdomain
+gobuster dns -d target.com -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt \
+    -o subdomains.txt
+
+# 2. Har subdomain'da directory
+for sub in $(cat subdomains.txt | awk '{print $2}'); do
+    echo "[*] Scanning $sub"
+    gobuster dir -u "https://$sub" -w /usr/share/wordlists/dirb/common.txt \
+        -o "dirs-$sub.txt" -q --no-error
+done
+
+# 3. Yashirin fayllar
+gobuster dir -u "https://target.com" -w /usr/share/seclists/Discovery/Web-Content/quickhits.txt \
+    -x bak,old,zip,sql -o sensitive.txt
+```
+
+## 12. Tezlik balansi
+
+```bash
+# Tez (lekin server qiynaladi)
+gobuster dir -u http://target -w wordlist.txt -t 100
+
+# Sekin (xushmuomalalik)
+gobuster dir -u http://target -w wordlist.txt -t 10 --delay 100ms
+```
+
+WAF / fail2ban'ni qo'zg'amaslik uchun sekin.
+
+## 13. Defensive — directory listing
+
+Web server'ingiz'da nima qilish:
+
+**Nginx:**
+
+```nginx
+location / {
+    autoindex off;     # default
+}
+
+# 404 page
+error_page 404 /404.html;
+location = /404.html {
+    internal;
+}
+```
+
+**Apache:**
+
+```apache
+Options -Indexes
+```
+
+`.git`, `.env`, `.bak` kabi fayllarni server'ga qo'ymang.
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Wordlist tanlash** — `common.txt` (4600) tezroq, `big.txt` (1M) kengroq.
+- **`-t 100` server crash** — sekin boshlash kerak.
+- **HTTPS sertifikat xato** — `-k` flag.
+- **WAF blok** — IP banlanadi, VPN/Tor ishlatish (faqat lab'da).
+- **`.git/` topish bilan kifoyalanish** — exploitation alohida.
+
+## 15. Eng yaxshi amaliyot
+
+- **Wordlist target'ga moslab** — texnology stack (`wordpress.txt`, `nodejs.txt`).
+- **Tezlik o'rta** — `-t 30-50`.
+- **Output saqlash** — `-o file.txt`.
+- **Bug bounty platform** — qonuniy yo'l.
+- **Tor / VPN** — anonimlik (faqat o'z lab'da yoki ruxsat).
+
+## 16. Mashqlar
+
+1. **Lokal:** Nginx ishga tushirib, `gobuster dir` skan.
+2. **SecLists:** O'rnatib, har wordlist'ni sinab ko'ring.
+3. **DNS:** Bug bounty platform'dagi target subdomain'lar.
+4. **Sensitive files:** `.bak`, `.git` topish.
+5. **Defensive:** O'z saytingiz qaysi yashirin fayllarni "tanitayotgan"?
+
+## 17. Bilim sinovi
+
+**Savol 1.** Gobuster `dir` mode:
+
+- a) Subdomain
+- b) Web directory/file enumeration
+- c) DNS
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Wordlist'dan har path'ni HTTP request bilan tekshirish.[¹](https://github.com/OJ/gobuster)
+</Callout>
+
+**Savol 2.** Subdomain enum mode:
+
+- a) `gobuster sub`
+- b) `gobuster dns`
+- c) `gobuster subdomain`
+- d) Hech qaysi
+
+<Callout type="success" title="Javob">
+**(b)** DNS subdomain enumeration.
+</Callout>
+
+**Savol 3.** SecLists nima?
+
+- a) Yangi Linux distro
+- b) Penetration testing wordlist'lari to'plami
+- c) Antivirus
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Eng katta security wordlists kolleksiyasi.
+</Callout>
+
+**Savol 4.** `.git/` topilsa:
+
+- a) Hech narsa
+- b) Source code, history, secret'lar oshkor — jiddiy zaiflik
+- c) Backup
+- d) Faqat warning
+
+<Callout type="success" title="Javob">
+**(b)** GitHub'da deploy'da `.git` qoldirish — keng tarqalgan xato.
+</Callout>
+
+**Savol 5.** Defensive — directory listing:
+
+- a) `Options +Indexes`
+- b) `Options -Indexes` (Apache), `autoindex off` (nginx)
+- c) Hech narsa
+- d) PHP qilish
+
+<Callout type="success" title="Javob">
+**(b)** Directory listing o'chirilishi kerak production'da.
+</Callout>
+
+## Manbalar
+
+1. Gobuster GitHub. [https://github.com/OJ/gobuster](https://github.com/OJ/gobuster)
+2. Kali Tools — Gobuster. [https://www.kali.org/tools/gobuster/](https://www.kali.org/tools/gobuster/)
+
+## Keyingi qadam
+
+👉 [Kali — Nikto web scanner](/kali/tools/nikto)
