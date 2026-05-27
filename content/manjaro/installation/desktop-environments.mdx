@@ -1,0 +1,170 @@
+---
+title: "Manjaro Desktop muhitlari"
+description: "Manjaro XFCE, GNOME, KDE Plasma va boshqa rasmiy DE — qaysi biri sizga mos."
+order: 3
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/manjaro/installation/requirements"
+learning_objectives:
+  - "Rasmiy va community DE'larni bilish"
+  - "Resurs talablari bo'yicha solishtirish"
+  - "DE'ni o'rnatilgan tizimga qo'shish"
+tags: ["manjaro", "desktop", "xfce", "gnome", "kde"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Download"
+    url: "https://manjaro.org/download/"
+  - title: "Manjaro Wiki"
+    url: "https://wiki.manjaro.org/"
+---
+
+Manjaro bir necha rasmiy va community DE'larini taklif qiladi. Tanlash sizning didingiz va apparat resurslaringizga bog'liq.[¹](https://manjaro.org/download/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- 3 ta rasmiy DE: XFCE, GNOME, KDE.
+- Community DE'lar (i3, Sway, Cinnamon va boshqalar).
+- O'rnatilgan tizimga DE qo'shish.
+</Callout>
+
+## 1. Rasmiy Manjaro DE'lar
+
+### XFCE
+
+- **Falsafa:** Yengil, klassik, sodda.
+- **RAM:** ~600 MB ishga tushganda.
+- **Default Manjaro DE.**
+- **Mos:** eski apparat, batareya tejash, klassik UX.
+
+### GNOME
+
+- **Falsafa:** Modern, sodda, mobile-uslubdagi.
+- **RAM:** ~1.5 GB.
+- **Mos:** Modern apparat, sodda UX, hozirgi standart.
+
+### KDE Plasma
+
+- **Falsafa:** To'liq, moslashtirish imkoniyatlari ko'p.
+- **RAM:** ~700 MB (oxirgi versiyalar yengilroq).
+- **Mos:** Moslashtirishni xohlaganlar, Windows'dan o'tgan foydalanuvchilar.
+
+## 2. Community DE'lar
+
+Manjaro Community Editions [manjaro.org/download](https://manjaro.org/download/) sahifasining pastida:
+
+- **Cinnamon** — Mint asosida, Windows-uslubdagi.
+- **Budgie** — Solus loyihasi.
+- **MATE** — GNOME 2 ning davomi.
+- **i3** — tile window manager (klaviatura).
+- **Sway** — Wayland tile WM.
+- **LXQt** — eng yengil.
+
+## 3. DE solishtirish
+
+| DE | RAM | CPU | UX |
+|---|---|---|---|
+| XFCE | 600 MB | Past | Klassik |
+| MATE | 700 MB | Past | Klassik (GNOME 2) |
+| LXQt | 400 MB | Eng past | Minimal |
+| Cinnamon | 800 MB | O'rta | Windows-uslubdagi |
+| KDE Plasma | 700 MB | O'rta | To'liq, moslashtirish |
+| GNOME | 1.5 GB | O'rta-yuqori | Modern |
+| Budgie | 1 GB | O'rta | Mac-uslubdagi |
+| i3/Sway | 200 MB | Eng past | Klaviatura, tile |
+
+## 4. O'rnatilgan tizimga DE qo'shish
+
+Bir DE'dan boshlab boshqasini sinab ko'rish mumkin:
+
+```bash
+# XFCE
+sudo pacman -S manjaro-xfce-settings xfce4 xfce4-goodies
+
+# GNOME
+sudo pacman -S gnome gnome-extra manjaro-gnome-settings
+
+# KDE Plasma
+sudo pacman -S plasma kde-applications manjaro-kde-settings
+
+# i3
+sudo pacman -S i3-gaps i3status i3lock dmenu rofi
+
+# Display manager (login screen) ni o'zgartirish (agar kerak)
+sudo systemctl disable lightdm
+sudo systemctl enable sddm    # KDE uchun
+# yoki
+sudo systemctl enable gdm     # GNOME uchun
+```
+
+Logout va login ekranida DE'ni tanlash mumkin.
+
+## 5. Display Manager
+
+| DM | Default bilan |
+|---|---|
+| LightDM | XFCE, Cinnamon |
+| GDM | GNOME |
+| SDDM | KDE Plasma |
+| ly | i3, Sway (CLI uslubdagi) |
+
+## 6. Tavsiyalar
+
+| Vaziyat | Tavsiya |
+|---|---|
+| 2-4 GB RAM, eski apparat | XFCE yoki MATE |
+| 4-8 GB RAM, kundalik | KDE Plasma yoki GNOME |
+| 8 GB+, dizayn | GNOME |
+| Server yoki minimal | i3/Sway |
+| Windows'dan o'tgan | Cinnamon yoki KDE |
+| Mac'dan o'tgan | Budgie yoki GNOME |
+
+## 7. Manjaro standart sozlash
+
+Manjaro har DE'da o'zining temalari va sozlamalarini qo'shadi:
+
+- **Matcha** rangi — yashil aksent.
+- **Papirus** iconlari.
+- **Cantarell / Noto** shriftlar.
+- **Plank** dock (XFCE'da).
+
+Bu Manjaro'ni tanib olishni osonlashtiradi.
+
+## 8. Mashqlar
+
+1. Hozirgi DE'ningiz nima? `echo $XDG_CURRENT_DESKTOP` — natijani yozing.
+2. [manjaro.org/download](https://manjaro.org/download/) ni oching va community editions ro'yxatini sanang.
+3. (Ixtiyoriy) Test VM'da boshqa DE'ni qo'shib ko'ring (masalan, XFCE asosida GNOME).
+
+## 9. Bilim sinovi
+
+**Savol 1.** Manjaro default DE qaysi?
+
+- a) GNOME
+- b) KDE
+- c) XFCE
+- d) Cinnamon
+
+<Callout type="success" title="Javob">
+**(c)** XFCE — yengilligi va klassik UX uchun default.
+</Callout>
+
+**Savol 2.** Eng kichik RAM ishlatadigan DE:
+
+- a) KDE
+- b) GNOME
+- c) i3 (window manager)
+- d) Cinnamon
+
+<Callout type="success" title="Javob">
+**(c)** i3 — tile window manager, faqat ~200 MB RAM.
+</Callout>
+
+## Manbalar
+
+1. Manjaro Download. [https://manjaro.org/download/](https://manjaro.org/download/)
+2. Manjaro Wiki. [https://wiki.manjaro.org/](https://wiki.manjaro.org/)
+
+## Keyingi qadam
+
+👉 [Pacman bilan ishlash](/manjaro/packages/pacman)

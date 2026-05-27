@@ -1,0 +1,104 @@
+---
+title: "Ad hoc shell muhitlari"
+description: "nix-shell bilan vaqtinchalik, izolyatsiyalangan dasturlash muhiti yaratish."
+order: 2
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/tutorials/first-steps"
+learning_objectives:
+  - "Ad hoc shell tushunchasi"
+  - "`nix-shell -p` bilan vaqtinchalik dastur olish"
+  - "Bir nechta dasturni birga sinab ko'rish"
+tags: ["nixos", "nix-shell", "ad-hoc"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Ad hoc shell environments"
+    url: "https://nix.dev/tutorials/first-steps/ad-hoc-shell-environments.html"
+---
+
+Ad hoc — "joriy holat uchun" degan ma'no. `nix-shell -p` orqali siz **vaqtinchalik** muhit yaratasiz — kerakli dasturlar shu shell sessiyasida mavjud bo'ladi, lekin tizimga o'rnatilmaydi.[¹](https://nix.dev/tutorials/first-steps/ad-hoc-shell-environments.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Ad hoc shell — vaqtinchalik muhit.
+- `nix-shell -p` bilan dastur va versiyalar.
+- Bir nechta dasturlarni birga.
+</Callout>
+
+## 1. Misol — `cowsay` ni sinab ko'rish
+
+```bash
+# Cowsay tizimda yo'q, lekin shu shellda mavjud
+nix-shell -p cowsay
+
+# Endi `cowsay` ishlatishingiz mumkin
+cowsay "Salom NixOS!"
+
+# Chiqish (Ctrl+D yoki `exit`)
+exit
+```
+
+Chiqgandan keyin `cowsay` yana tizimda yo'q. Tozalanmaydi (Nix store'da qoladi), lekin PATH'ga qo'shilmaydi.
+
+## 2. Bir nechta dastur
+
+```bash
+nix-shell -p cowsay lolcat figlet
+
+figlet "Hello" | lolcat
+echo "World" | cowsay
+```
+
+## 3. Aniq versiya
+
+```bash
+# Eski Node.js
+nix-shell -p nodejs_18
+
+# Yangi
+nix-shell -p nodejs_22
+```
+
+## 4. Buyruq + shell
+
+```bash
+# Buyruqni shu muhitda bajarib chiqish (shellga kirmasdan)
+nix-shell -p cowsay --run "cowsay hello"
+```
+
+## 5. Skript shebang sifatida
+
+```bash
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p cowsay lolcat
+
+cowsay "Salom" | lolcat
+```
+
+## 6. Mashq
+
+1. `nix-shell -p hello` — `hello` programkasi paydo bo'ladi.
+2. `nix-shell -p tree` — `tree` ni sinab ko'ring.
+3. `nix-shell -p python3 --run "python3 -c 'print(2+2)'"` — natija nima?
+
+## 7. Bilim sinovi
+
+**Savol 1.** `nix-shell -p` shelldan chiqgandan keyin dastur:
+
+- a) Tizimda qoladi
+- b) PATH'dan yo'qoladi, lekin Nix store'da qoladi
+- c) Butunlay o'chiriladi
+- d) Faqat reboot'da yo'qoladi
+
+<Callout type="success" title="Javob">
+**(b)** Nix store'da qoladi (boshqa shell uchun tezroq), PATH'dan tushadi.[¹](https://nix.dev/tutorials/first-steps/ad-hoc-shell-environments.html)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Ad hoc shell environments. [https://nix.dev/tutorials/first-steps/ad-hoc-shell-environments.html](https://nix.dev/tutorials/first-steps/ad-hoc-shell-environments.html)
+
+## Keyingi qadam
+
+👉 [Takrorlanadigan skriptlar](/nixos/tutorials/reproducible-scripts)

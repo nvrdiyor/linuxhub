@@ -1,0 +1,544 @@
+---
+title: "Brokerlar — Redis va RabbitMQ"
+description: "Redis (cache + pub/sub) va RabbitMQ (message queue) — modern arxitekturada asosiy komponentlar."
+order: 139
+level: "intermediate"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/services"
+learning_objectives:
+  - "Cache va message queue tushunchasi"
+  - "Redis o'rnatish va asosiy buyruqlar"
+  - "RabbitMQ va AMQP protokoli"
+  - "Use case'lar"
+tags: ["intermediate", "redis", "rabbitmq", "cache", "queue"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Redis Documentation"
+    url: "https://redis.io/docs/"
+  - title: "RabbitMQ Documentation"
+    url: "https://www.rabbitmq.com/documentation.html"
+---
+
+Modern arxitekturada **cache** va **message queue** — asosiy komponentlar. Redis — in-memory key-value store + ko'p data type. RabbitMQ — message broker. Bu darsda ikkalasi bilan tanishamiz.[¹](https://redis.io/docs/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Redis — keys, types, pub/sub.
+- RabbitMQ — queue, exchange, routing.
+- Use case'lar: session storage, cache, background jobs.
+- Asosiy CLI buyruqlar.
+</Callout>
+
+## 1. Redis nima?
+
+**Redis** (Remote Dictionary Server) — in-memory data structure store. RAM'da ishlaydi — eng tezkor (mikrosekund). Persistence — diskka ham yozadi.
+
+Foydalanish:
+
+- **Cache** — DB so'rovlarni tezlashtirish.
+- **Session storage** — user sessiyalari.
+- **Pub/Sub** — real-time xabarlar.
+- **Queue** — oddiy job queue.
+- **Rate limiting** — API throttling.
+- **Real-time analytics** — counters, leaderboards.
+
+## 2. Redis o'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install redis-server
+
+# Fedora
+sudo dnf install redis
+
+# Arch
+sudo pacman -S redis
+
+# Yoqish
+sudo systemctl enable --now redis-server    # Debian
+sudo systemctl enable --now redis            # boshqalar
+
+# Test
+redis-cli ping
+# PONG
+```
+
+## 3. Asosiy buyruqlar — `redis-cli`
+
+```bash
+redis-cli
+```
+
+```redis
+SET name "Ali"
+GET name
+# "Ali"
+
+# TTL bilan (10 soniya)
+SET temp "value" EX 10
+TTL temp
+# 9
+
+# Hammasi
+KEYS *
+
+# DB tozalash
+FLUSHDB
+
+# Hamma DB
+FLUSHALL
+
+# Chiqish
+EXIT
+```
+
+## 4. Data types
+
+### Strings
+
+```redis
+SET counter 100
+INCR counter           # 101
+INCRBY counter 5       # 106
+DECR counter           # 105
+GET counter
+
+# Append
+APPEND key " value"
+
+# Multi
+MSET k1 "v1" k2 "v2"
+MGET k1 k2
+```
+
+### Lists (ordered)
+
+```redis
+LPUSH queue "task1"    # boshiga
+RPUSH queue "task2"    # oxiriga
+LRANGE queue 0 -1      # hammasi
+LPOP queue             # boshidan olib tashlash
+RPOP queue             # oxiridan
+LLEN queue             # hajm
+```
+
+Foydalanish: simple queue, recent items.
+
+### Sets (unique, unordered)
+
+```redis
+SADD tags "linux" "vim" "git"
+SMEMBERS tags
+SISMEMBER tags "linux"   # 1 (true)
+SCARD tags               # hajm
+SREM tags "vim"
+
+# Set operations
+SADD set1 "a" "b" "c"
+SADD set2 "b" "c" "d"
+SINTER set1 set2         # {"b", "c"}
+SUNION set1 set2         # {"a", "b", "c", "d"}
+SDIFF set1 set2          # {"a"}
+```
+
+### Sorted Sets (score bilan)
+
+```redis
+ZADD leaderboard 100 "Ali"
+ZADD leaderboard 250 "Bob"
+ZADD leaderboard 175 "Carol"
+
+ZRANGE leaderboard 0 -1 WITHSCORES
+ZREVRANGE leaderboard 0 -1 WITHSCORES   # eng yuqori birinchi
+
+ZRANK leaderboard "Ali"
+ZINCRBY leaderboard 50 "Ali"            # +50
+```
+
+Foydalanish: leaderboards, rankings.
+
+### Hashes (object)
+
+```redis
+HSET user:1 name "Ali" email "ali@example.com" age 25
+HGET user:1 name
+HGETALL user:1
+HKEYS user:1
+HVALS user:1
+HEXISTS user:1 name
+HDEL user:1 age
+HINCRBY user:1 age 1
+```
+
+### Streams (Kafka-mos)
+
+```redis
+XADD events * type "login" user "ali"
+XADD events * type "logout" user "ali"
+XRANGE events - +    # hamma event'lar
+XLEN events
+```
+
+## 5. TTL va expire
+
+```redis
+SET session:abc "user_data"
+EXPIRE session:abc 3600   # 1 soat
+
+# Yoki birga
+SET session:abc "user_data" EX 3600
+
+# Tekshirish
+TTL session:abc           # qoldi (soniya)
+PERSIST session:abc       # TTL olib tashlash
+```
+
+## 6. Pub/Sub — real-time xabarlar
+
+### Subscriber
+
+```redis
+SUBSCRIBE news
+# kutadi
+```
+
+### Publisher
+
+```redis
+PUBLISH news "Hello, World!"
+```
+
+Subscriber darrov xabar oladi.
+
+Pattern subscribe:
+
+```redis
+PSUBSCRIBE news.*       # news.tech, news.sports, ...
+```
+
+## 7. Persistence
+
+Redis ikki turli persistence:
+
+### RDB — snapshot
+
+Periodik to'liq snapshot. `/etc/redis/redis.conf`:
+
+```
+save 900 1     # 15 daqiqada 1 yozish bo'lsa
+save 300 10
+save 60 10000
+```
+
+### AOF — append-only file
+
+Har yozishni log'ga. To'liqroq, lekin sekinroq.
+
+```
+appendonly yes
+appendfsync everysec    # har soniyada (yaxshi muvozanat)
+```
+
+Modern: ikkalasini birga (RDB snapshot + AOF logs).
+
+## 8. Redis security
+
+Default — `localhost` faqat. Tashqi ulanish uchun:
+
+```
+bind 0.0.0.0
+protected-mode no
+requirepass mySecretPassword
+```
+
+```bash
+redis-cli -h 192.168.1.10 -a mySecretPassword
+```
+
+ACL (Redis 6+):
+
+```redis
+ACL SETUSER alice on >password ~cached:* +get +set
+```
+
+## 9. RabbitMQ — message broker
+
+**RabbitMQ** — AMQP (Advanced Message Queuing Protocol) implementation. Message queue uchun professional vosita.
+
+### Foydalanish
+
+- Background jobs (email send, image processing).
+- Microservices communication.
+- Decoupling — producer va consumer mustaqil ishlaydi.
+- Reliable delivery.
+
+## 10. RabbitMQ o'rnatish
+
+```bash
+sudo apt install rabbitmq-server
+
+sudo systemctl enable --now rabbitmq-server
+
+# Management UI
+sudo rabbitmq-plugins enable rabbitmq_management
+# http://localhost:15672 — login: guest/guest
+```
+
+## 11. RabbitMQ asosiy tushunchalari
+
+```
+[Producer] ──▶ [Exchange] ──▶ [Queue] ──▶ [Consumer]
+                  │
+                  ├── direct (routing key match)
+                  ├── topic (pattern)
+                  ├── fanout (broadcast)
+                  └── headers (header bo'yicha)
+```
+
+| Termin | Tavsif |
+|---|---|
+| **Producer** | Xabar yuboruvchi |
+| **Consumer** | Xabar oluvchi |
+| **Exchange** | Xabar marshrutlash |
+| **Queue** | Xabar saqlash |
+| **Routing key** | Yo'naltirish kalit |
+| **Binding** | Exchange-Queue bog'lanish |
+
+## 12. RabbitMQ — Python misol
+
+```bash
+pip install pika
+```
+
+### Producer
+
+```python
+import pika
+
+connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+channel = connection.channel()
+
+channel.queue_declare(queue='hello', durable=True)
+
+for i in range(10):
+    channel.basic_publish(
+        exchange='',
+        routing_key='hello',
+        body=f'Message {i}',
+        properties=pika.BasicProperties(delivery_mode=2)  # persistent
+    )
+    print(f"Sent: Message {i}")
+
+connection.close()
+```
+
+### Consumer
+
+```python
+import pika
+import time
+
+connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+channel = connection.channel()
+
+channel.queue_declare(queue='hello', durable=True)
+channel.basic_qos(prefetch_count=1)
+
+def callback(ch, method, properties, body):
+    print(f"Received: {body}")
+    time.sleep(1)  # ishlash
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+
+channel.basic_consume(queue='hello', on_message_callback=callback)
+
+print("Waiting for messages...")
+channel.start_consuming()
+```
+
+`durable=True` va `delivery_mode=2` — broker crash bo'lsa ham xabarlar saqlanadi.
+
+## 13. Redis vs RabbitMQ
+
+| | Redis | RabbitMQ |
+|---|---|---|
+| Asosiy maqsad | Cache + simple queue | Reliable message queue |
+| Performance | Eng tez (RAM) | Sekinroq (durable) |
+| Reliability | Eventual (AOF + RDB) | High (acknowledgments) |
+| Routing | Simple (channel) | Murakkab (exchange types) |
+| Persistence | Optional | Default |
+| Use case | Real-time, cache, simple queue | Background jobs, complex routing |
+
+## 14. Misol — caching strategy
+
+```python
+import redis
+import json
+import requests
+
+cache = redis.Redis(host='localhost', port=6379, db=0)
+
+def get_user(user_id):
+    # 1. Cache'dan
+    cached = cache.get(f"user:{user_id}")
+    if cached:
+        return json.loads(cached)
+
+    # 2. DB'dan (yoki API)
+    user = requests.get(f"https://api.example.com/users/{user_id}").json()
+
+    # 3. Cache'ga (1 soat TTL)
+    cache.setex(f"user:{user_id}", 3600, json.dumps(user))
+
+    return user
+```
+
+## 15. Misol — rate limiting
+
+```python
+import redis
+
+r = redis.Redis()
+
+def is_allowed(user_id, limit=100, window=60):
+    """Per minute rate limit"""
+    key = f"rate:{user_id}"
+    current = r.incr(key)
+    if current == 1:
+        r.expire(key, window)
+    return current <= limit
+
+# Foydalanish
+if is_allowed("ali"):
+    process_request()
+else:
+    return "Rate limit exceeded"
+```
+
+## 16. Asosiy buyruqlar va izoh
+
+### Redis
+
+| Buyruq | Vazifa |
+|---|---|
+| `redis-cli` | CLI |
+| `SET key value` | Yozish |
+| `GET key` | O'qish |
+| `DEL key` | O'chirish |
+| `EXPIRE key seconds` | TTL |
+| `KEYS *` | Hamma key'lar |
+| `INCR counter` | Atomik increment |
+| `LPUSH/RPUSH/LPOP` | List |
+| `SADD/SMEMBERS` | Set |
+| `HSET/HGET` | Hash |
+| `PUBLISH/SUBSCRIBE` | Pub/Sub |
+| `FLUSHDB` | Joriy DB tozalash |
+| `INFO` | Server ma'lumotlari |
+
+### RabbitMQ
+
+| Buyruq | Vazifa |
+|---|---|
+| `rabbitmqctl status` | Status |
+| `rabbitmqctl list_queues` | Queue'lar |
+| `rabbitmqctl list_users` | User'lar |
+| `rabbitmqctl add_user` | Yangi user |
+| `rabbitmqctl set_permissions` | Ruxsatlar |
+
+## 17. Eng tez-tez uchraydigan xatolar
+
+- **Redis password yo'q va internet'ga ochiq** — botlar hujumi.
+- **Redis FLUSHALL** — production'da hech qachon.
+- **Redis cache — DB sifatida** — RAM cheklangan, persistence "eventual".
+- **RabbitMQ ack qilmaslik** — xabar takror va takror keladi.
+- **Redis evict policy yo'q** — RAM to'lsa OOM.
+
+## 18. Eng yaxshi amaliyot
+
+- **Redis production'da:**
+  - `bind` lokal yoki private network.
+  - `requirepass` strong password.
+  - `maxmemory` va eviction policy (`allkeys-lru`).
+  - AOF + RDB persistence.
+- **TTL har key'da** — RAM'ni "iflos" qilmaslik.
+- **Connection pool** — har request connection emas.
+- **RabbitMQ:**
+  - Durable queues + persistent messages.
+  - Ack har xabarni qayta ishlangandan keyin.
+  - Dead letter exchange — failed messages uchun.
+  - Monitoring (Prometheus exporter).
+
+## 19. Mashqlar
+
+1. **Redis o'rnatish:** `redis-cli ping` — PONG?
+2. **Asosiy:** `SET name "Ali"`, `GET name`, `DEL name`.
+3. **TTL:** `SET temp "value" EX 5`. 5 soniya kuting, `GET temp` — nima qaytadi?
+4. **List queue:** `LPUSH queue "task1"`, `LPUSH queue "task2"`, `RPOP queue` — FIFO ishlaydi-mi?
+5. **Pub/Sub:** Ikki terminal'da: birinchisida `SUBSCRIBE news`, ikkinchisida `PUBLISH news "test"`.
+6. **RabbitMQ (ixtiyoriy):** O'rnating, management UI'ga kirib queue yarating.
+
+## 20. Bilim sinovi
+
+**Savol 1.** Redis qaerda saqlaydi ma'lumotni?
+
+- a) Disk
+- b) RAM (asosan), AOF/RDB orqali diskka backup
+- c) Faqat tarmoq
+- d) Database
+
+<Callout type="success" title="Javob">
+**(b)** In-memory, optional persistence.[¹](https://redis.io/docs/)
+</Callout>
+
+**Savol 2.** RabbitMQ qaysi protokol?
+
+- a) HTTP
+- b) AMQP (Advanced Message Queuing Protocol)
+- c) gRPC
+- d) WebSocket
+
+<Callout type="success" title="Javob">
+**(b)** AMQP — message queuing standart.
+</Callout>
+
+**Savol 3.** Redis vs RabbitMQ — qachon Redis tanlash:
+
+- a) Reliable queue uchun
+- b) Cache, simple queue, real-time pub/sub uchun
+- c) Hech qachon
+- d) Faqat persistence kerak bo'lganda
+
+<Callout type="success" title="Javob">
+**(b)** Speed va simplicity.
+</Callout>
+
+**Savol 4.** Redis TTL nima?
+
+- a) Total Total Limit
+- b) Time To Live — key'ning umri (soniyalarda)
+- c) Transactional Type Lock
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Avtomatik expire.
+</Callout>
+
+**Savol 5.** Production Redis uchun:
+
+- a) Default sozlama yetarli
+- b) `requirepass`, `maxmemory`, eviction policy, bind to lokal
+- c) Faqat firewall
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Security va memory boshqaruv majburiy.
+</Callout>
+
+## Manbalar
+
+1. Redis Documentation. [https://redis.io/docs/](https://redis.io/docs/)
+2. RabbitMQ Documentation. [https://www.rabbitmq.com/documentation.html](https://www.rabbitmq.com/documentation.html)
+
+## Keyingi qadam
+
+👉 [Wayland va X11 chuqurroq](/fundamentals/wayland-x11-deep)

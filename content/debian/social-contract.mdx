@@ -1,0 +1,150 @@
+---
+title: "Debian ijtimoiy shartnomasi"
+description: "Debian loyihasining axloqiy va siyosiy poydevori — Social Contract va DFSG (Debian Free Software Guidelines)."
+order: 2
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/debian/introduction"
+learning_objectives:
+  - "Debian Social Contract'ning beshta tamoyilini bilish"
+  - "DFSG mezonlari va ular qanday qo'llanilishini izohlash"
+  - "Erkin va non-free paketlar farqini tushunish"
+tags: ["debian", "philosophy", "dfsg", "social-contract"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Social Contract"
+    url: "https://www.debian.org/social_contract"
+  - title: "Debian Free Software Guidelines (DFSG)"
+    url: "https://www.debian.org/social_contract#guidelines"
+  - title: "Debian — Free Software"
+    url: "https://www.debian.org/intro/free"
+---
+
+Debian'ning **Ijtimoiy Shartnomasi** (Social Contract) — bu loyihaning erkin dasturlar hamjamiyati oldidagi rasmiy majburiyati. 1997-yilda qabul qilingan va loyihaning barcha qarorlari uchun asos bo'lib xizmat qiladi.[¹](https://www.debian.org/social_contract)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Social Contract'ning 5 ta asosiy tamoyili.
+- DFSG — paket "erkin" bo'lishi uchun zarur mezonlar.
+- `main`, `contrib`, `non-free` repozitoriy bo'limlari.
+</Callout>
+
+## 1. Social Contract — 5 tamoyil
+
+To'liq matn [debian.org/social_contract](https://www.debian.org/social_contract) saytida. Qisqacha mazmuni:[¹](https://www.debian.org/social_contract)
+
+1. **Debian 100% erkin qoladi.** Asosiy distributiv (`main`) faqat DFSG ga mos paketlardan iborat.
+2. **Hamjamiyatga qaytamiz.** Debian uchun yaratilgan yangi komponentlar erkin litsenziya ostida nashr etiladi.
+3. **Muammolarni yashirmaymiz.** Xato hisobotlari, xavfsizlik kamchiliklari — barchasi ochiq.
+4. **Foydalanuvchilar va erkin dasturlar ustuvor.** Hech qanday tijoriy manfaat ushbu tamoyildan ustun emas.
+5. **Bizning standartlarimizga mos kelmagan ishlar.** Erkin bo'lmagan dasturlar (`contrib`, `non-free`) alohida joylashtiriladi — `main`'da emas, lekin foydalanuvchi xohlasa ulardan foydalanishi mumkin.
+
+## 2. DFSG — Erkin Dasturlar Yo'riqnomasi
+
+**DFSG (Debian Free Software Guidelines)** — paket `main` bo'limiga kirishi uchun zarur 10 ta mezon:[²](https://www.debian.org/social_contract#guidelines)
+
+1. **Erkin qayta tarqatish** — har kim paketni boshqalarga berishi mumkin, to'lov so'ramasdan.
+2. **Manba kodi** — paket faqat manba kodi bilan birga tarqatiladi.
+3. **Hosila ishlar** — kodning o'zgartirilgan versiyasini ham tarqatish mumkin.
+4. **Muallif kodining yaxlitligi** — patch fayllar orqali muallifning original kodi va o'zgartirilgan versiyalarni ajratish mumkin.
+5. **Shaxslar yoki guruhlarga kamsitishlar yo'q.**
+6. **Foydalanish maqsadlariga kamsitishlar yo'q** — biznes, ilm-fan, qonun ijrosi — barchasi ruxsat etilgan.
+7. **Litsenziya tarqatishda o'tadi** — qabul qiluvchi ham xuddi shu huquqlarga ega.
+8. **Litsenziya Debianga xos emas** — paket Debian'dan tashqarida ham ishlatilishi mumkin.
+9. **Litsenziya boshqa dasturlarni ifloslantirmaydi** — bir disk yoki bir tizimga qaysi boshqa dasturlar qo'shilishini cheklamasligi shart.
+10. **Misol litsenziyalar:** GPL, BSD, Artistic License — bularning hammasi DFSG ga mos.
+
+## 3. Repozitoriy bo'limlari
+
+Debian o'zining paketlarini quyidagi bo'limlarga ajratadi:
+
+| Bo'lim | Mazmuni | DFSGga mos | Tarqatish ruxsati |
+|---|---|---|---|
+| `main` | Erkin paketlar, faqat erkin bog'liqliklar bilan | ✅ Ha | ✅ |
+| `contrib` | Erkin paketlar, lekin **non-free** bog'liqliklarga muhtoj | Qisman | ✅ |
+| `non-free` | Erkin bo'lmagan paketlar (cheklangan litsenziyalar) | ❌ Yo'q | Ko'p hollarda ✅ |
+| `non-free-firmware` | Apparat uchun erkin bo'lmagan firmware'lar (Wi-Fi, GPU) | ❌ Yo'q | ✅ |
+
+## 4. `sources.list` da bo'limlarni yoqish
+
+Standart Debian o'rnatishda `main` yoqilgan bo'ladi. Boshqa bo'limlarni yoqish:
+
+```bash
+sudo nano /etc/apt/sources.list
+```
+
+Misol qator (Debian 12 / bookworm):
+
+```
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+```
+
+So'ng:
+
+```bash
+sudo apt update
+```
+
+## 5. Misol holatlar
+
+| Paket | Bo'lim | Sabab |
+|---|---|---|
+| `bash` | `main` | GNU GPL litsenziyali |
+| `gcc` | `main` | GNU GPL |
+| `firefox-esr` | `main` | Mozilla Public License (DFSG-mos) |
+| `steam-installer` | `non-free` | Steam mijozi yopiq kodli |
+| `iwlwifi` firmware | `non-free-firmware` | Intel Wi-Fi firmware'i yopiq |
+| `nvidia-driver` | `non-free` | NVIDIA xususiy drayveri |
+
+## 6. Falsafa va amaliyot
+
+Ko'pgina Linux foydalanuvchilari uchun bu nazariy savol kabi tuyuladi — "barchasini yoqaman va ish bilan shug'ullanaman". Lekin Debian'ning bu pozitsiyasi:
+
+- **Yangi foydalanuvchilarni hozirgi tanlovlardan xabardor qiladi.**
+- **Avtorizatsiyasiz binary kod tizimga kirmasligini ta'minlaydi.**
+- **Hamjamiyatga "non-free" paketlar uchun erkin alternativalar yaratish uchun motivatsiya beradi.**
+
+Hozirda (Debian 12'dan boshlab) `non-free-firmware` standart ravishda o'rnatuvchining ISO'siga kiritildi — apparat foydalanuvchilar uchun real ehtiyojga reaksiya.
+
+## 7. Mashqlar
+
+1. [debian.org/social_contract](https://www.debian.org/social_contract) ni to'liq o'qing. Sizning fikringizcha, 5 ta tamoyildan qaysi biri Ubuntu uchun **mos kelmaydi** — va nima uchun?
+2. [debian.org/intro/free](https://www.debian.org/intro/free) sahifasidan: "erkin dastur" va "bepul dastur" tushunchalari farqi nimada?
+3. (Debian o'rnatilgan tizimda) `cat /etc/apt/sources.list` natijasini ko'ring. Qaysi bo'limlar yoqilgan?
+
+## 8. Bilim sinovi
+
+**Savol 1.** Debian'ning `main` bo'limidagi paketlar uchun nima zarur?
+
+- a) Pullik bo'lmasligi
+- b) DFSG ga mos kelishi
+- c) Faqat Debian dasturchilari tomonidan yozilganligi
+- d) GPL litsenziyali bo'lishi
+
+<Callout type="success" title="Javob">
+**(b)** DFSG mezoniga mos kelishi shart. Bu GPL'dan tashqari ko'plab boshqa litsenziyalarni ham qabul qiladi.[²](https://www.debian.org/social_contract#guidelines)
+</Callout>
+
+**Savol 2.** `contrib` va `non-free` farqi nima?
+
+- a) `contrib` da bepul, `non-free` da pullik
+- b) `contrib` paketning o'zi erkin, lekin `non-free` paketlarga muhtoj; `non-free` paketning o'zi erkin emas
+- c) Ular bir xil
+- d) `non-free` faqat o'yinlar uchun
+
+<Callout type="success" title="Javob">
+**(b)** `contrib` paketi DFSG'ga mos, lekin uning ishlashi uchun `non-free` paket kerak. `non-free` esa o'zi erkin emas.
+</Callout>
+
+## Manbalar
+
+1. Debian Social Contract. [https://www.debian.org/social_contract](https://www.debian.org/social_contract)
+2. Debian Free Software Guidelines. [https://www.debian.org/social_contract#guidelines](https://www.debian.org/social_contract#guidelines)
+3. Debian — Free Software. [https://www.debian.org/intro/free](https://www.debian.org/intro/free)
+
+## Keyingi qadam
+
+👉 [Debian o'rnatish](/debian/installation)

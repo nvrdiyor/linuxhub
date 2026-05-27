@@ -1,0 +1,130 @@
+---
+title: "Kali tizim talablari"
+description: "Kali Linux'ni o'rnatish uchun apparat va dasturiy ta'minot talablari — rasmiy Kali docs asosida."
+order: 1
+level: "beginner"
+estimated_minutes: 4
+prerequisites:
+  - "/kali/introduction"
+learning_objectives:
+  - "Kali Linux uchun minimal va tavsiya etilgan apparatni bilish"
+  - "Qaysi versiyani tanlash kerakligini hal qilish"
+tags: ["kali", "installation", "requirements"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Kali Docs — Hard Disk Install"
+    url: "https://www.kali.org/docs/installation/hard-disk-install/"
+  - title: "Kali Docs — Installation"
+    url: "https://www.kali.org/docs/installation/"
+---
+
+Kali Linux Debian asosida bo'lgani uchun apparat talablari Debian bilan deyarli bir xil. Lekin xavfsizlik vositalari ko'p resurs talab qiladi.[¹](https://www.kali.org/docs/installation/hard-disk-install/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Minimal va tavsiya etilgan apparat.
+- Variant tanlovi — to'liq, light, NetHunter va boshqalar.
+- Qattiq disk yoki virtual mashina tavsiyalari.
+</Callout>
+
+## 1. Minimal talablar (Kali rasmiy docs)
+
+| Resurs | Minimal | Tavsiya etilgan |
+|---|---|---|
+| Protsessor | 1 GHz | 2+ yadroli, 2 GHz+ |
+| RAM | 2 GB (Xfce uchun) | 4-8 GB |
+| Disk | 20 GB | 50+ GB |
+| Tarmoq | Internet (o'rnatish va yangilanish uchun) | — |
+
+Bu minimal — vositalar bilan ishlash uchun ko'proq kerak (masalan, Burp Suite Java asoslangan, 4 GB+ RAM yaxshi).
+
+## 2. Default desktop
+
+Kali 2019.4 dan boshlab **Xfce** default desktop muhiti. Boshqa variantlar:
+
+- Kali GNOME
+- Kali KDE
+- Kali MATE
+- Kali LXDE
+- Kali i3 (window manager)
+
+## 3. Image variantlari
+
+Kali rasmiy [download sahifasidan](https://www.kali.org/get-kali/) yuklab olish mumkin:
+
+| Variant | Tavsif |
+|---|---|
+| **Installer Images** | To'liq o'rnatish (Live va Installer ISO) |
+| **Virtual Machines** | VMware va VirtualBox uchun tayyor image |
+| **ARM** | Raspberry Pi va boshqa ARM qurilmalar |
+| **Mobile (NetHunter)** | Android uchun |
+| **Cloud** | AWS, Azure, Linode |
+| **Containers** | Docker va LXD |
+| **WSL** | Windows Subsystem for Linux |
+| **Live Boot** | USB yoki DVD'dan o'rnatishsiz ishlatish |
+
+## 4. Qaysi variantni tanlash?
+
+| Vaziyat | Tavsiya |
+|---|---|
+| Boshlovchi, sinab ko'rmoqchi | **Virtual Machine** (VMware/VirtualBox) |
+| Doimiy ish kompyuteri | **Installer** (to'liq o'rnatish) |
+| O'rnatishsiz sinash | **Live Boot USB** |
+| Mobil sinov | **Kali NetHunter** (Android) |
+| Cloud lab | **Cloud Images** |
+| Windows ostida | **WSL** |
+| Tezkor konteyner | **Docker** |
+
+## 5. Virtual mashina afzalliklari (tavsiya etiladi)
+
+Boshlovchilar uchun **virtual mashina eng yaxshi tanlov**:
+
+- Asosiy operatsion tizimga ta'sir qilmaydi.
+- Snapshot olish va eski holatga qaytish oson.
+- Tarmoqdan ajratish mumkin (test labni izolyatsiya qilish).
+- Bir nechta Kali instansiyasini bir vaqtda ishlatish.
+
+Virtual mashina uchun apparat:
+
+- Host RAM: 8 GB+ (4 GB Kali'ga ajratish uchun).
+- Host disk: 100 GB+ bo'sh joy.
+- Virtualization (VT-x/AMD-V) BIOS'da yoqilgan.
+
+## 6. Mashqlar
+
+1. [https://www.kali.org/get-kali/](https://www.kali.org/get-kali/) ga kiring. Nechta variant taklif qilinadi?
+2. Sizning kompyuteringizning RAM va disk hajmini tekshiring. Kali uchun qaysi tavsiya etilgan?
+3. Virtual mashinada Kali uchun qancha RAM ajratasiz?
+
+## 7. Bilim sinovi
+
+**Savol 1.** Kali Linux uchun minimal RAM qancha?
+
+- a) 512 MB
+- b) 2 GB
+- c) 4 GB
+- d) 8 GB
+
+<Callout type="success" title="Javob">
+**(b)** 2 GB minimal (Xfce uchun). Tavsiya etilgan — 4 GB+.[¹](https://www.kali.org/docs/installation/hard-disk-install/)
+</Callout>
+
+**Savol 2.** Boshlovchi uchun eng yaxshi tanlov:
+
+- a) To'liq disk o'rnatish
+- b) Virtual mashina
+- c) Dual boot
+- d) Asosiy operatsion tizim sifatida
+
+<Callout type="success" title="Javob">
+**(b)** Virtual mashina — eng xavfsiz va qaytariladigan variant.
+</Callout>
+
+## Manbalar
+
+1. Kali Docs — Hard Disk Install. [https://www.kali.org/docs/installation/hard-disk-install/](https://www.kali.org/docs/installation/hard-disk-install/)
+2. Kali Docs — Installation. [https://www.kali.org/docs/installation/](https://www.kali.org/docs/installation/)
+
+## Keyingi qadam
+
+👉 [Virtual mashinada Kali](/kali/installation/virtual-machine)

@@ -1,0 +1,96 @@
+---
+title: "Manjaro tizim talablari"
+description: "Manjaro Linux o'rnatish uchun apparat tavsiyalari va variantlar."
+order: 1
+level: "beginner"
+estimated_minutes: 4
+prerequisites:
+  - "/manjaro/introduction"
+learning_objectives:
+  - "Manjaro uchun minimal va tavsiya etilgan apparat"
+  - "Desktop variantlar bo'yicha resurs farqi"
+tags: ["manjaro", "installation", "requirements"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Wiki — Installation Guides"
+    url: "https://wiki.manjaro.org/index.php/Installation_Guides"
+  - title: "Manjaro Download"
+    url: "https://manjaro.org/download/"
+---
+
+Manjaro Arch asosida bo'lgani sababli apparat talablari moderat. Desktop muhitiga qarab farqlanadi.[¹](https://wiki.manjaro.org/index.php/Installation_Guides)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Manjaro uchun minimal va tavsiya etilgan resurslar.
+- Desktop bo'yicha farq (XFCE, GNOME, KDE).
+- Arxitekturalar.
+</Callout>
+
+## 1. Minimal va tavsiya etilgan
+
+| Resurs | Minimal | Tavsiya |
+|---|---|---|
+| Protsessor | 1 GHz | 2+ yadroli, 2 GHz+ |
+| RAM | 2 GB | 4-8 GB |
+| Disk | 30 GB | 40+ GB SSD |
+| Grafika | 1024×768 | 1080p+ |
+| Internet | O'rnatish + AUR/yangilanish | — |
+
+## 2. Desktop bo'yicha farq
+
+| Desktop | RAM minimal | Tavsiya | Mos |
+|---|---|---|---|
+| **XFCE** | 1 GB | 2-4 GB | Eski apparat, batareya |
+| **GNOME** | 4 GB | 8 GB | Modern, sodda |
+| **KDE Plasma** | 2 GB | 4-8 GB | Moslashtirish |
+| **i3** (community) | 512 MB | 1 GB | Minimal, klaviatura |
+
+## 3. Arxitekturalar
+
+- **amd64 (x86_64)** — eng keng tarqalgan.
+- **arm64** — Manjaro ARM Raspberry Pi va boshqa qurilmalar uchun (alohida loyiha).
+
+## 4. Virtual mashina vs fizik
+
+| | VM | Fizik |
+|---|---|---|
+| Sinab ko'rish | ✅ | Tavsiya etilmaydi |
+| Performance | ~80% | 100% |
+| Snapshot | ✅ | Faqat fayl tizimi (btrfs/zfs) |
+| Apparat ulanish | Cheklangan | To'liq |
+
+Boshlovchilar uchun VM bilan boshlash tavsiya etiladi.
+
+## 5. BIOS/UEFI
+
+Manjaro UEFI va Legacy BIOS — ikkalasini ham qo'llab-quvvatlaydi. Modern kompyuterlar uchun UEFI default.
+
+Secure Boot — Manjaro 24+ qo'llab-quvvatlaydi, lekin ba'zi konfiguratsiyalarda o'chirish kerak bo'lishi mumkin.
+
+## 6. Mashqlar
+
+1. O'z kompyuteringizning RAM va CPU yadrolari sonini bilib oling. Manjaro qaysi desktop bilan eng mos?
+2. [manjaro.org/download](https://manjaro.org/download/) — XFCE, GNOME, KDE ISO hajmlarini solishtiring.
+
+## 7. Bilim sinovi
+
+**Savol 1.** Manjaro XFCE uchun minimal RAM:
+
+- a) 512 MB
+- b) 1 GB
+- c) 2 GB
+- d) 4 GB
+
+<Callout type="success" title="Javob">
+**(b)** 1 GB minimal, tavsiya — 2 GB+.[¹](https://wiki.manjaro.org/index.php/Installation_Guides)
+</Callout>
+
+## Manbalar
+
+1. Manjaro Wiki — Installation Guides. [https://wiki.manjaro.org/index.php/Installation_Guides](https://wiki.manjaro.org/index.php/Installation_Guides)
+2. Manjaro Download. [https://manjaro.org/download/](https://manjaro.org/download/)
+
+## Keyingi qadam
+
+👉 [Manjaro o'rnatish](/manjaro/installation/guide)

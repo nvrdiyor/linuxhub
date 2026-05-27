@@ -1,0 +1,175 @@
+---
+title: "Debian o'rnatish"
+description: "Rasmiy Debian installer bilan kompyuterga Debian GNU/Linux o'rnatish — asosiy qadamlar va variantlar."
+order: 1
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/debian/introduction"
+learning_objectives:
+  - "Qaysi Debian ISO turi sizning vaziyatingizga mos kelishini tanlash"
+  - "Debian Installer asosiy qadamlarini bajarish"
+  - "Disk bo'limlarini avtomatik yoki qo'l bilan sozlash"
+tags: ["debian", "installation"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian — Installation Guide"
+    url: "https://www.debian.org/releases/stable/installmanual"
+  - title: "Debian — Getting Debian"
+    url: "https://www.debian.org/distrib/"
+  - title: "Debian — Network Install"
+    url: "https://www.debian.org/distrib/netinst"
+---
+
+Debian o'rnatish — Linuxga "asoschilik" tajribasi: u sizga har bir qarordan xabardor bo'lish imkonini beradi va Ubuntu kabi avtomatik tanlovlar kamroq. Rasmiy Installation Guide barcha tafsilotlarni qamrab oladi; bu darsda asosiy qadamlar va tanlovlar.[¹](https://www.debian.org/releases/stable/installmanual)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- ISO turlari: netinst, DVD, live.
+- Debian Installer'ning asosiy qadamlari.
+- Avtomatik va qo'l bilan disk bo'limi.
+- Birinchi yuklanishdan keyingi qadamlar.
+</Callout>
+
+## 1. ISO turini tanlash
+
+Debian bir nechta ISO formatida tarqatiladi:[²](https://www.debian.org/distrib/)
+
+| Turi | Hajmi | Qachon mos |
+|---|---|---|
+| **netinst** | ~700 MB | Internet bor — paketlar o'rnatish vaqtida yuklanadi |
+| **DVD/Blu-Ray** | ~4 GB / ~24 GB | Internet yo'q yoki sekin |
+| **live** | ~3 GB | O'rnatishdan oldin sinab ko'rishni xohlayotganlar uchun |
+
+**Boshlovchilar uchun tavsiya:** netinst[³](https://www.debian.org/distrib/netinst) — eng kichik va eng yangi paketlar bilan.
+
+ISO'ni [debian.org/distrib/netinst](https://www.debian.org/distrib/netinst) dan yuklab oling va SHA256 yaxlitligini tekshiring.
+
+## 2. Bootable USB
+
+Xuddi Ubuntu kabi (USB darsiga qarang). Linux'da `dd` orqali:
+
+```bash
+sudo dd if=debian-12.7.0-amd64-netinst.iso of=/dev/sdX bs=4M status=progress conv=fdatasync
+```
+
+Windows'da Rufus, macOS'da `dd` ishlatish mumkin.
+
+## 3. Debian Installer asosiy qadamlari
+
+USB'dan yuklangach, GRUB menyusi ko'rinadi. **Graphical install** ni tanlang (yangi foydalanuvchilar uchun) yoki **Install** (klassik matn rejimi).
+
+<Steps>
+  <Step title="Til, davlat, klaviatura">
+    Til (English yoki Russian), davlat (Uzbekistan), klaviatura turkumi.
+  </Step>
+  <Step title="Tarmoq">
+    O'rnatuvchi tarmoq kartasini avtomatik aniqlaydi (DHCP orqali). Wi-Fi tarmog'i bo'lsa va firmware kerak bo'lsa, Debian 12+ uni `non-free-firmware` ISO'sida o'z ichiga oladi.
+  </Step>
+  <Step title="Hostname va domain">
+    Hostname — kompyuter nomi (masalan, `debian-laptop`). Domain — uy tarmog'i uchun bo'sh qoldiring.
+  </Step>
+  <Step title="Root paroli">
+    **MUHIM:** root foydalanuvchi paroli. Bu Ubuntu'da yo'q — Debian'da `root` alohida akkaunt sifatida tuziladi.
+
+    **Maslahat:** Root parol maydonini **bo'sh** qoldiring. Bu holda root login o'chiriladi va birinchi yaratiladigan foydalanuvchi `sudo` orqali administrator bo'ladi — xuddi Ubuntu kabi xavfsizroq tanlov.
+  </Step>
+  <Step title="Oddiy foydalanuvchi">
+    Foydalanuvchi nomi, parol. Kelajakda ushbu akkaunt orqali kirasiz.
+  </Step>
+  <Step title="Disk bo'limi">
+    - **Guided — use entire disk** — diskni butunlay tozalash (yangi mashina uchun).
+    - **Guided — use entire disk and set up LVM** — LVM bilan (kelajakda kengaytirish oson).
+    - **Guided — use entire disk and set up encrypted LVM** — LUKS shifrlash bilan.
+    - **Manual** — qo'l bilan to'liq nazorat.
+
+    Bo'lim sxemasi tavsiyalari:
+    - **All files in one partition** — boshlovchilar uchun.
+    - **Separate /home partition** — tizimni qayta o'rnatganda foydalanuvchi fayllari saqlanadi.
+    - **Separate /home, /var, /tmp** — server uchun.
+  </Step>
+  <Step title="Asosiy tizim o'rnatish">
+    O'rnatuvchi minimal Debian tizimini yuklaydi.
+  </Step>
+  <Step title="Paket menejeri sozlash">
+    Yaqin yerdagi paket ko'zgusini (mirror) tanlang. Uzbekistan uchun yaqin variantlar: Germaniya, Polsha, Ukraina mirror'lari.
+  </Step>
+  <Step title="Popularity contest">
+    Yopik so'rovnoma — Debian'ga qaysi paketlar mashhurligi haqida ma'lumot yuborish. Ixtiyoriy.
+  </Step>
+  <Step title="Dasturlar to'plamini tanlash">
+    - **Debian desktop environment** — to'liq GNOME (standart) yoki KDE, Xfce, LXDE, MATE, Cinnamon.
+    - **Web server**, **SSH server**, **standard system utilities** — server o'rnatmoqchi bo'lsangiz mosini tanlang.
+  </Step>
+  <Step title="GRUB bootloader">
+    Diskning bosh sektoriga (`/dev/sda` yoki `/dev/nvme0n1`) o'rnatish — odatdagi tanlov.
+  </Step>
+  <Step title="Yakunlash">
+    O'rnatuvchi tugagach, USB'ni chiqarib qayta yuklang.
+  </Step>
+</Steps>
+
+## 4. Birinchi yuklanishdan keyin
+
+```bash
+# Yangilanishlarni olish
+sudo apt update
+sudo apt upgrade
+
+# Qaysi paketlar o'rnatilgan?
+dpkg --get-selections | wc -l
+```
+
+## 5. `sudo` yoqilmagan bo'lsa
+
+Agar root parolini bo'sh qoldirmagan bo'lsangiz, sizning oddiy foydalanuvchingiz `sudo` guruhida emas. Tuzatish:
+
+```bash
+# Avval root sifatida kirish
+su -
+
+# Foydalanuvchini sudo guruhiga qo'shish
+usermod -aG sudo ali
+
+# Tashqariga chiqing va qayta kiring (yoki tizimni qayta yuklang)
+```
+
+## 6. Mashqlar
+
+1. [debian.org/distrib/netinst](https://www.debian.org/distrib/netinst) dan ISO yuklab oling. Hozirgi `stable` versiya raqami nima?
+2. Virtual mashinada Debian o'rnating. "All files in one partition" tanlovi bilan disk sxemasini ko'ring va `lsblk` natijasini yozing.
+3. O'rnatish jarayonida `apt` mirror ro'yxatidan Uzbekistanga eng yaqin shaharni tanlang.
+
+## 7. Bilim sinovi
+
+**Savol 1.** Eng kichik Debian ISO turi qaysi?
+
+- a) DVD
+- b) Blu-Ray
+- c) netinst
+- d) live
+
+<Callout type="success" title="Javob">
+**(c)** netinst — taxminan 700 MB, qolgan paketlar internet orqali o'rnatish vaqtida olinadi.[³](https://www.debian.org/distrib/netinst)
+</Callout>
+
+**Savol 2.** Agar root parolini bo'sh qoldirsangiz, nima sodir bo'ladi?
+
+- a) O'rnatish to'xtaydi
+- b) root login o'chiriladi va birinchi foydalanuvchi `sudo` orqali administrator bo'ladi
+- c) root paroli "root" ga teng bo'ladi
+- d) Hech narsa — odatdagi root yoqilgan bo'ladi
+
+<Callout type="success" title="Javob">
+**(b)** Bu Ubuntu kabi `sudo` modeliga o'tishning xavfsiz usuli.
+</Callout>
+
+## Manbalar
+
+1. Debian — Installation Guide. [https://www.debian.org/releases/stable/installmanual](https://www.debian.org/releases/stable/installmanual)
+2. Debian — Getting Debian. [https://www.debian.org/distrib/](https://www.debian.org/distrib/)
+3. Debian — Network Install. [https://www.debian.org/distrib/netinst](https://www.debian.org/distrib/netinst)
+
+## Keyingi qadam
+
+👉 [APT — Debian usuli](/debian/apt-debian)

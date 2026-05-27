@@ -1,0 +1,108 @@
+---
+title: "Takrorlanadigan skriptlar"
+description: "Skript boshlanishida nix-shell shebang bilan har xil mashinada bir xil ishlovchi skript yaratish."
+order: 3
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/tutorials/ad-hoc-shell"
+learning_objectives:
+  - "nix-shell shebang"
+  - "Bog'liqliklarni yaqqol e'lon qilish"
+  - "Nixpkgs pin orqali to'liq takrorlanish"
+tags: ["nixos", "scripts", "reproducible"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Reproducible scripts"
+    url: "https://nix.dev/tutorials/first-steps/reproducible-scripts.html"
+---
+
+Oddiy bash skript boshqa mashinada ishlamasligi mumkin — kerakli dasturlar yo'q. **`nix-shell` shebang** bilan skript o'zining bog'liqliklarini olib yuradi.[¹](https://nix.dev/tutorials/first-steps/reproducible-scripts.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- nix-shell shebang sintaksis.
+- Bog'liqliklarni skriptda e'lon qilish.
+- Nixpkgs versiyasini pin qilish.
+</Callout>
+
+## 1. Asosiy shebang
+
+```bash
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p curl jq
+
+curl -s https://api.github.com/repos/nixos/nixpkgs | jq '.stargazers_count'
+```
+
+Birinchi qator — standart shebang.
+Ikkinchi qator (`#!nix-shell ...`) — Nix uchun maxsus:
+
+- `-i bash` — interpretator bash.
+- `-p curl jq` — kerakli paketlar.
+
+Bu skript har Nix o'rnatilgan tizimda ishlaydi.
+
+## 2. Python skript misol
+
+```python
+#!/usr/bin/env nix-shell
+#!nix-shell -i python3 -p "python3.withPackages (ps: with ps; [ requests ])"
+
+import requests
+r = requests.get("https://example.com")
+print(r.status_code)
+```
+
+`python3.withPackages` — Python + ko'rsatilgan modullar bilan.
+
+## 3. Nixpkgs versiyasini pin qilish
+
+To'liq takrorlanish uchun — Nixpkgs ning aniq commit'iga bog'lash:
+
+```bash
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p curl jq
+#!nix-shell -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-24.05.tar.gz
+
+curl -s https://api.github.com/repos/nixos/nixpkgs | jq '.stargazers_count'
+```
+
+`-I nixpkgs=...` — qaysi Nixpkgs versiyasi.
+
+Endi skript **bir xil natija** beradi — bugun yoki 5 yildan keyin (commit mavjud bo'lguncha).
+
+## 4. Skript ishga tushirish
+
+```bash
+chmod +x myscript.sh
+./myscript.sh
+```
+
+Birinchi marotaba — bog'liqliklar yuklab olinadi (sekin). Keyingi safar — keshdan, tez.
+
+## 5. Mashq
+
+1. Yuqoridagi `curl + jq` skriptini yarating va ishga tushiring.
+2. Nixpkgs pin'siz va pin bilan farqni o'ylab ko'ring — qaysi vaziyatda pin majburiy?
+
+## 6. Bilim sinovi
+
+**Savol 1.** `#!nix-shell -i python3 -p curl` qatori nima qiladi?
+
+- a) Skriptni Python bilan ishga tushiradi, `curl` paketi mavjud bo'ladi
+- b) Faqat curl'ni o'rnatadi
+- c) Python o'rnatuvini boshlaydi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** `-i` interpreter, `-p` paketlar.[¹](https://nix.dev/tutorials/first-steps/reproducible-scripts.html)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Reproducible scripts. [https://nix.dev/tutorials/first-steps/reproducible-scripts.html](https://nix.dev/tutorials/first-steps/reproducible-scripts.html)
+
+## Keyingi qadam
+
+👉 [Deklarativ shell muhitlari](/nixos/tutorials/declarative-shell)

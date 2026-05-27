@@ -1,0 +1,570 @@
+---
+title: "Git asoslari"
+description: "Git — distributed version control — init, add, commit, branch, merge, push, pull, rebase."
+order: 123
+level: "intermediate"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/terminal"
+learning_objectives:
+  - "Git arxitekturasi va workflow"
+  - "Asosiy buyruqlar: init, add, commit, log"
+  - "Branch va merge"
+  - "GitHub bilan ishlash — clone, push, pull"
+tags: ["intermediate", "git", "version-control", "github"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Pro Git Book"
+    url: "https://git-scm.com/book"
+  - title: "Git Documentation"
+    url: "https://git-scm.com/docs"
+  - title: "GitHub Docs"
+    url: "https://docs.github.com/"
+---
+
+**Git** — Linus Torvalds tomonidan 2005-yilda Linux kernel uchun yaratilgan distributed version control tizimi. Hozir global standart — har bir dasturchi uni bilishi shart.[¹](https://git-scm.com/book)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Git arxitekturasi va asosiy tushunchalar.
+- Lokal workflow: add, commit, log.
+- Branch va merge.
+- Remote: clone, push, pull, fetch.
+- Rebase va konfliktlarni hal qilish.
+</Callout>
+
+## 1. Git arxitekturasi
+
+```
+Working Directory  ──▶  Staging Area  ──▶  Repository (.git)
+    (sizning fayllar)     (`git add`)       (`git commit`)
+                              │
+                              ↓
+                          Local repo
+                              │
+                              ↓
+                          `git push`
+                              ↓
+                       Remote repo (GitHub, GitLab)
+```
+
+| Zona | Ma'no |
+|---|---|
+| **Working directory** | Sizning fayllaringiz |
+| **Staging area** (index) | Keyingi commit'ga tayyor o'zgarishlar |
+| **Repository** | `.git/` katalog — barcha tarix |
+| **Remote** | Tashqi server (GitHub va boshqa) |
+
+## 2. O'rnatish va sozlash
+
+```bash
+# O'rnatish
+sudo apt install git              # Debian/Ubuntu
+sudo dnf install git              # Fedora/RHEL
+sudo pacman -S git                # Arch
+
+# Versiya
+git --version
+
+# Birinchi marotaba — global identitet
+git config --global user.name "Ali Valiyev"
+git config --global user.email "ali@example.com"
+
+# Default branch nomi
+git config --global init.defaultBranch main
+
+# Default muharrir
+git config --global core.editor vim
+
+# Color
+git config --global color.ui auto
+
+# Joriy sozlamalar
+git config --list
+```
+
+`~/.gitconfig` — global sozlamalar.
+
+## 3. Yangi repo yaratish
+
+```bash
+# Yangi katalog
+mkdir myproject && cd myproject
+
+# Git init
+git init
+# Initialized empty Git repository in .../myproject/.git/
+
+# Birinchi fayl
+echo "# Mening loyiham" > README.md
+
+# Status
+git status
+# On branch main
+# No commits yet
+# Untracked files:
+#   README.md
+```
+
+## 4. Asosiy workflow
+
+```bash
+# 1. Faylni stage'ga qo'shish
+git add README.md
+
+# Hamma faylni
+git add .
+# yoki
+git add -A
+
+# 2. Commit
+git commit -m "Birinchi commit"
+
+# Tarix
+git log
+# commit abc123... (HEAD -> main)
+# Author: Ali Valiyev <ali@example.com>
+# Date:   Mon May 26 10:00:00 2026 +0500
+#
+#     Birinchi commit
+
+# Qisqacha tarix
+git log --oneline
+
+# Grafik
+git log --oneline --graph --all
+```
+
+## 5. Status va diff
+
+```bash
+# Holatni ko'rish
+git status
+# yoki qisqacha
+git status -s
+
+# O'zgartirilgan fayllarni ko'rish
+git diff                  # ishchi vs stage
+git diff --staged         # stage vs oxirgi commit
+git diff HEAD             # ishchi vs oxirgi commit
+
+# Aniq fayl
+git diff README.md
+```
+
+## 6. `.gitignore`
+
+Qaysi fayllar git tomonidan kuzatilmaydi:
+
+```bash
+nano .gitignore
+```
+
+```
+# Build fayllar
+build/
+dist/
+*.o
+*.pyc
+
+# Dependencies
+node_modules/
+__pycache__/
+*.egg-info/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Secret
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+```
+
+```bash
+git add .gitignore
+git commit -m ".gitignore qo'shildi"
+```
+
+Global ignore — `~/.gitignore_global`:
+
+```bash
+git config --global core.excludesfile ~/.gitignore_global
+```
+
+## 7. Branch va merge
+
+```bash
+# Joriy branch
+git branch
+# * main
+
+# Yangi branch yaratish
+git branch feature-login
+
+# O'tish
+git checkout feature-login
+# yoki bir buyruqda
+git checkout -b feature-login
+
+# Modern alternativ
+git switch -c feature-login
+
+# O'zgartirishlar
+echo "login logic" > login.py
+git add login.py
+git commit -m "Login funksiyasi"
+
+# Main'ga qaytish
+git switch main
+
+# Merge
+git merge feature-login
+
+# Branch o'chirish
+git branch -d feature-login    # safely
+git branch -D feature-login    # force
+```
+
+## 8. Konflikt hal qilish
+
+Ikki branch bir xil fayldagi bir xil qatorni o'zgartirsa — konflikt.
+
+```bash
+git merge feature-x
+# CONFLICT (content): Merge conflict in app.py
+# Automatic merge failed; fix conflicts and then commit the result.
+```
+
+Fayl ichida:
+
+```python
+<<<<<<< HEAD
+def hello():
+    print("Salom main'dan")
+=======
+def hello():
+    print("Salom feature'dan")
+>>>>>>> feature-x
+```
+
+Qo'lda tahrirlang (kerakli versiyani saqlang, marker'larni o'chiring), so'ng:
+
+```bash
+git add app.py
+git commit
+# yoki abort
+git merge --abort
+```
+
+## 9. Remote — GitHub bilan ishlash
+
+### SSH key sozlash (bir martalik)
+
+```bash
+ssh-keygen -t ed25519 -C "ali@example.com"
+cat ~/.ssh/id_ed25519.pub
+# Bu kalitni GitHub → Settings → SSH and GPG keys → New SSH key
+```
+
+### Clone
+
+```bash
+git clone git@github.com:username/repo.git
+git clone https://github.com/username/repo.git
+```
+
+### Remote qo'shish (mavjud lokal repo'ga)
+
+```bash
+git remote add origin git@github.com:username/repo.git
+
+# Ro'yxat
+git remote -v
+
+# O'zgartirish
+git remote set-url origin <new-url>
+```
+
+### Push
+
+```bash
+# Birinchi marta (upstream o'rnatish)
+git push -u origin main
+
+# Keyingi safar
+git push
+```
+
+### Pull
+
+```bash
+# Remote'dan o'zgarishlar
+git pull
+# = git fetch + git merge
+
+# Fast-forward only (xavfsizroq)
+git pull --ff-only
+```
+
+### Fetch (faqat olib kelish, merge yo'q)
+
+```bash
+git fetch origin
+git log origin/main..main      # local'da bo'lgan, remote'da yo'q
+git log main..origin/main      # remote'da bo'lgan, local'da yo'q
+```
+
+## 10. Rebase — modern alternativa merge'ga
+
+```bash
+# main'dan keyingi commit'lar feature'ga
+git switch feature
+git rebase main
+
+# Bu feature'ning commit'larini main'ning oxiriga ko'chiradi
+# — chiroyli linear tarix
+```
+
+### Interactive rebase
+
+```bash
+# Oxirgi 3 commit'ni qayta tartiblash
+git rebase -i HEAD~3
+```
+
+Editor ochiladi:
+
+```
+pick abc123 Birinchi
+pick def456 Ikkinchi
+pick ghi789 Uchinchi
+
+# pick = commit'ni qoldirish
+# reword = commit message o'zgartirish
+# edit = commit'ni tahrirlash
+# squash = oldingi commit bilan birlashtirish
+# drop = o'chirish
+```
+
+<Callout type="warning">
+**Push qilgan commit'larni rebase qilmang.** Boshqa odamlar undan klon qilgan bo'lishi mumkin. Faqat lokal commit'lar uchun.
+</Callout>
+
+## 11. Stash — vaqtinchalik saqlash
+
+```bash
+# O'zgartirishlaringiz bor, lekin boshqa branch'ga o'tish kerak
+git stash
+
+# Branch'ga o'ting, ish qiling
+
+# Qaytaring
+git stash pop      # eng oxirgi va o'chiradi
+git stash apply    # eng oxirgi, lekin saqlaydi
+
+# Ro'yxat
+git stash list
+
+# Aniq biri
+git stash apply stash@{2}
+```
+
+## 12. Tag — versiya
+
+```bash
+# Lightweight
+git tag v1.0.0
+
+# Annotated (tavsiya etiladi)
+git tag -a v1.0.0 -m "Release 1.0.0"
+
+# Ro'yxat
+git tag
+
+# Push
+git push origin v1.0.0
+# Yoki barcha tag'lar
+git push origin --tags
+
+# O'chirish
+git tag -d v1.0.0
+git push origin --delete v1.0.0
+```
+
+## 13. Tarix navigatsiyasi
+
+```bash
+# Oxirgi commit'ga undo (commit qilmasdan)
+git reset HEAD~1
+
+# Hard reset — fayllarni ham qaytaradi (XAVFLI)
+git reset --hard HEAD~1
+
+# Aniq commit'ga
+git reset --hard abc1234
+
+# Bitta faylni qaytarish (commit'gacha)
+git checkout HEAD -- file.txt
+# yoki modern
+git restore file.txt
+
+# Commit'ni qaytarish (lekin tarix saqlanadi — push qilgan commit'lar uchun xavfsizroq)
+git revert abc1234
+
+# Faylni stage'dan olib tashlash
+git restore --staged file.txt
+```
+
+## 14. Tipik buyruq oqimi
+
+```bash
+# Ish kunining boshlanishi
+git pull
+git status
+
+# Yangi xususiyat
+git switch -c feature/new-login
+
+# Kod yozish...
+git add .
+git status                 # tasdiqlash
+git commit -m "Add login"
+
+# Push
+git push -u origin feature/new-login
+
+# GitHub'da Pull Request
+
+# PR merged keyin
+git switch main
+git pull
+git branch -d feature/new-login
+```
+
+## 15. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `git init` | Yangi repo |
+| `git clone <url>` | Repo nusxa olish |
+| `git status` | Hozirgi holat |
+| `git add <fayl>` | Stage'ga |
+| `git commit -m "..."` | Commit |
+| `git log` | Tarix |
+| `git diff` | O'zgarishlar |
+| `git branch` | Branch'lar |
+| `git switch <branch>` | O'tish |
+| `git merge <branch>` | Birlashtirish |
+| `git push` | Remote'ga yuborish |
+| `git pull` | Olish va merge |
+| `git fetch` | Faqat olish |
+| `git stash` | Vaqtinchalik saqlash |
+| `git tag` | Versiya belgilash |
+| `git revert <commit>` | Commit'ni qaytarish |
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **`commit`'gacha `add`** unutilgan — `git status` orqali tekshiring.
+- **Mahalliy va remote farq** — `pull` qilmasdan `push` — rejected. `git pull --rebase` keyin push.
+- **Konflikt panic** — `git merge --abort` qilib qayta urunish mumkin.
+- **`.gitignore` keyin qo'shilgan fayllar** — `git rm --cached file` orqali git'dan olib tashlash kerak.
+- **Push'dan keyin rebase** — boshqalar uchun katta muammo.
+- **Sensitive ma'lumot commit qilingan** — git tarixdan o'chirish — `git filter-repo` yoki BFG.
+
+## 17. Eng yaxshi amaliyot
+
+- **Commit message — imperative** ("Add login", "Fix bug" — "Added", "Fixed" emas).
+- **Kichik commit'lar** — bir o'zgarish = bir commit.
+- **Branch nomi konvensiya** — `feature/...`, `fix/...`, `chore/...`.
+- **Pull avval push'gacha.**
+- **`.gitignore`** boshida.
+- **Sensitive ma'lumotlar — `.env`** va boshqalar gitignore'da.
+- **`git log --oneline --graph`** vizual ko'rish.
+- **Pre-commit hooks** — sintaksis, lint avtomatik.
+- **PR/MR orqali ishlash** — review jarayoni.
+- **`git reflog`** — yo'qotgan commit'larni topish.
+
+## 18. Mashqlar
+
+1. **Yangi repo:** Yangi katalog, `git init`, fayl yarating, commit qiling.
+2. **Branch:** `git switch -c test`, fayl o'zgartiring, commit. Main'ga qaytib merge.
+3. **GitHub:** GitHub'da yangi repo yarating (web orqali). Lokal repo'ga remote qo'shing, push.
+4. **Konflikt:** Ikki branch'da bir xil faylni o'zgartiring va merge. Konfliktni hal qiling.
+5. **Stash:** `echo "test" > test.txt`. `git stash`. Branch'ga o'ting va qaytaring. `git stash pop`.
+6. **`git log` o'rganish:** `git log --oneline --graph --all` — vizual tarixni o'rganing.
+
+## 19. Bilim sinovi
+
+**Savol 1.** Git'da `git add` nima qiladi?
+
+- a) Commit
+- b) Faylni staging area'ga qo'shish (keyingi commit uchun)
+- c) Remote'ga yuborish
+- d) Branch yaratish
+
+<Callout type="success" title="Javob">
+**(b)** Staging area — commit'gacha tayyorlash.[¹](https://git-scm.com/book)
+</Callout>
+
+**Savol 2.** Branch yaratish va darrov o'tish:
+
+- a) `git branch + git checkout` (ikki buyruq)
+- b) `git switch -c <name>` yoki `git checkout -b <name>`
+- c) `git create-branch`
+- d) `git new-branch`
+
+<Callout type="success" title="Javob">
+**(b)** Modern: `switch -c`, classic: `checkout -b`.
+</Callout>
+
+**Savol 3.** Merge konfliktini bekor qilish:
+
+- a) `git revert`
+- b) `git merge --abort`
+- c) `git reset --hard`
+- d) Reboot
+
+<Callout type="success" title="Javob">
+**(b)** Merge boshlanishidan oldingi holatga.
+</Callout>
+
+**Savol 4.** Push qilgan commit'ni rebase:
+
+- a) Yaxshi amaliyot
+- b) Xavfli — boshqa odamlar undan klon qilgan bo'lishi mumkin, tarix buziladi
+- c) Faqat main'da
+- d) Hech qanday muammo
+
+<Callout type="success" title="Javob">
+**(b)** Hech qachon shared branch'larda rebase qilmang.
+</Callout>
+
+**Savol 5.** Yo'qotgan commit'ni topish uchun:
+
+- a) `git find`
+- b) `git reflog`
+- c) `git search`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** `reflog` — barcha HEAD harakatlari tarixi.
+</Callout>
+
+## Manbalar
+
+1. Pro Git Book. [https://git-scm.com/book](https://git-scm.com/book)
+2. Git Documentation. [https://git-scm.com/docs](https://git-scm.com/docs)
+3. GitHub Docs. [https://docs.github.com/](https://docs.github.com/)
+
+## Keyingi qadam
+
+👉 [Performance tuning va kernel sysctl](/fundamentals/performance-tuning)

@@ -1,0 +1,106 @@
+---
+title: "Lokal fayl bilan misol loyiha"
+description: "Lokal Cargo loyihasini fileset orqali Nix paketlash."
+order: 2
+level: "advanced"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/local-files/file-sets"
+learning_objectives:
+  - "Lokal Rust loyihasini paketlash"
+  - "fileset orqali aniq fayl tanlash"
+tags: ["nixos", "fileset", "rust"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Working with local files"
+    url: "https://nix.dev/tutorials/working-with-local-files.html"
+---
+
+Quyida lokal Rust loyihasini Nix orqali paketlash misoli — `lib.fileset` bilan aniq fayllarni tanlash.[¹](https://nix.dev/tutorials/working-with-local-files.html)
+
+## 1. Loyiha tuzilishi
+
+```
+my-rust-app/
+├── Cargo.toml
+├── Cargo.lock
+├── src/
+│   └── main.rs
+├── tests/
+│   └── integration.rs
+├── target/              # build artifact — KERAK EMAS
+├── .git/                # KERAK EMAS
+└── README.md            # ixtiyoriy
+```
+
+## 2. `default.nix`
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+let
+  fs = pkgs.lib.fileset;
+
+  # Faqat manba va konfiguratsiya fayllari
+  src = fs.toSource {
+    root = ./.;
+    fileset = fs.unions [
+      ./Cargo.toml
+      ./Cargo.lock
+      (fs.fileFilter (file: file.hasExt "rs") ./src)
+      (fs.fileFilter (file: file.hasExt "rs") ./tests)
+    ];
+  };
+in
+pkgs.rustPlatform.buildRustPackage {
+  pname = "my-rust-app";
+  version = "0.1.0";
+
+  inherit src;
+
+  cargoLock = {
+    lockFile = ./Cargo.lock;
+  };
+}
+```
+
+## 3. Build qilish
+
+```bash
+nix-build
+./result/bin/my-rust-app
+```
+
+## 4. Tasdiqlash
+
+`target/` va `.git/` Nix store'ga **kelmaganini** tekshirish:
+
+```bash
+ls -la $(nix-store -q --references result | head)
+```
+
+## 5. Mashq
+
+Yuqoridagi shaklda Rust loyihasini yarating va sinab ko'ring.
+
+## 6. Bilim sinovi
+
+**Savol 1.** `target/` katalogi Nix store'ga tushishi nima uchun yomon?
+
+- a) Sekinroq build
+- b) Disk to'lib qoladi va build natijalari aralash
+- c) Faqat estetik
+- d) Yo'q, hech qanday muammo
+
+<Callout type="success" title="Javob">
+**(b)** `target/` har build'da o'zgaradi → hash farq qiladi → keshlash buziladi.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Working with local files. [https://nix.dev/tutorials/working-with-local-files.html](https://nix.dev/tutorials/working-with-local-files.html)
+
+## Keyingi qadam
+
+👉 [Nix store ga qo'shish](/nixos/local-files/adding-to-store)

@@ -1,0 +1,462 @@
+---
+title: "DNS va systemd-resolved"
+description: "Linux'da DNS resolution — /etc/resolv.conf, systemd-resolved, NetworkManager va dnsmasq."
+order: 116
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/networking"
+learning_objectives:
+  - "DNS resolution jarayoni"
+  - "`/etc/resolv.conf` va NSS"
+  - "systemd-resolved konfiguratsiya"
+  - "DNS over TLS/HTTPS (DoT/DoH)"
+tags: ["intermediate", "dns", "systemd-resolved", "networking"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — systemd-resolved"
+    url: "https://wiki.archlinux.org/title/Systemd-resolved"
+  - title: "systemd-resolved manpage"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd-resolved.service.html"
+  - title: "resolv.conf(5)"
+    url: "https://manpages.debian.org/bookworm/manpages/resolv.conf.5.en.html"
+---
+
+DNS — internet'ning telefon kitobi. `google.com` → `142.250.190.78`. Linux'da DNS resolution ko'p bo'g'inli jarayon — `/etc/hosts`, `/etc/nsswitch.conf`, `/etc/resolv.conf`, systemd-resolved.[¹](https://wiki.archlinux.org/title/Systemd-resolved)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- DNS resolution algoritmi.
+- `/etc/resolv.conf` va NSS.
+- systemd-resolved sozlash.
+- DNS over TLS (DoT).
+- dnsmasq — lokal cache.
+</Callout>
+
+## 1. DNS resolution jarayoni
+
+```
+1. Dastur: getaddrinfo("example.com")
+       ↓
+2. NSS (Name Service Switch): /etc/nsswitch.conf'ga qaraydi
+       ↓
+3. `hosts:` qatori: "files dns" ko'rsatadi
+       ↓
+4. files — /etc/hosts'ni tekshiradi
+       ↓ (topilmasa)
+5. dns — DNS server'ga so'rov yuboradi
+       ↓
+6. DNS server javobi
+       ↓
+7. Dasturga IP qaytariladi
+```
+
+## 2. `/etc/nsswitch.conf`
+
+```bash
+cat /etc/nsswitch.conf | grep hosts
+# hosts: files mdns4_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] dns
+```
+
+`hosts:` qatori ketma-ketlik:
+
+| Manba | Tavsif |
+|---|---|
+| `files` | `/etc/hosts` |
+| `dns` | klassik DNS server |
+| `resolve` | systemd-resolved |
+| `mdns4_minimal` | Multicast DNS (Avahi/Bonjour) — `.local` |
+| `myhostname` | localhost va hostname |
+
+## 3. `/etc/hosts` — lokal override
+
+```
+127.0.0.1   localhost
+127.0.1.1   my-laptop
+
+# Custom
+192.168.1.10 nas.local
+192.168.1.20 server.home
+10.0.0.1     intranet
+```
+
+Test va lokal serverlar uchun foydali.
+
+## 4. `/etc/resolv.conf`
+
+Klassik DNS resolver konfiguratsiyasi:
+
+```
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+search example.com
+options timeout:2 attempts:2
+```
+
+| Direktiv | Maqsad |
+|---|---|
+| `nameserver` | DNS server IP (max 3) |
+| `search` | "myhost" → "myhost.example.com" qo'shish |
+| `domain` | Hostname domeni |
+| `options` | timeout, retries, rotate |
+
+### Modern muammo
+
+`/etc/resolv.conf` ko'pincha **boshqa xizmat tomonidan boshqariladi**:
+
+- NetworkManager — DHCP'dan oladi.
+- systemd-resolved — `/run/systemd/resolve/...` ga yozadi.
+- DHCP klient — DHCP server'dan.
+
+Qo'lda tahrirlash — keyingi reboot'da yo'qoladi.
+
+## 5. systemd-resolved
+
+`systemd-resolved` — modern Linux'da DNS resolver xizmati. Stub resolver `127.0.0.53`'da tinglaydi.
+
+```bash
+# Status
+systemd-resolve --status
+# yoki yangi sintaksis
+resolvectl status
+
+# DNS server'lar
+resolvectl dns
+
+# Per-interface DNS
+resolvectl dns wlp2s0
+```
+
+### `/etc/resolv.conf` modern
+
+```bash
+ls -la /etc/resolv.conf
+# /etc/resolv.conf -> /run/systemd/resolve/stub-resolv.conf
+```
+
+Stub fayl:
+
+```
+nameserver 127.0.0.53
+options edns0 trust-ad
+search .
+```
+
+Hamma DNS so'rovlari `127.0.0.53` (systemd-resolved) ga, u esa real DNS server'larga uzatadi.
+
+## 6. systemd-resolved sozlash
+
+`/etc/systemd/resolved.conf`:
+
+```ini
+[Resolve]
+DNS=1.1.1.1 8.8.8.8 2606:4700:4700::1111
+FallbackDNS=9.9.9.9 149.112.112.112
+Domains=~.
+DNSSEC=allow-downgrade
+DNSOverTLS=opportunistic
+Cache=yes
+DNSStubListener=yes
+```
+
+| Parametr | Maqsad |
+|---|---|
+| `DNS=` | Asosiy DNS server'lar |
+| `FallbackDNS=` | Asosiy ishlamasa |
+| `Domains=` | Avtomatik domain qo'shish |
+| `DNSSEC=` | DNSSEC validation (yes/no/allow-downgrade) |
+| `DNSOverTLS=` | DoT (no/opportunistic/yes) |
+| `Cache=` | Lokal cache |
+| `DNSStubListener=` | `127.0.0.53` ni yoqish |
+
+```bash
+sudo systemctl restart systemd-resolved
+```
+
+## 7. Per-interface DNS
+
+```bash
+# NetworkManager bilan
+nmcli connection modify "Wi-Fi" ipv4.dns "1.1.1.1 8.8.8.8"
+nmcli connection modify "Wi-Fi" ipv4.ignore-auto-dns yes
+nmcli connection up "Wi-Fi"
+
+# resolvectl bilan vaqtinchalik
+sudo resolvectl dns wlp2s0 1.1.1.1
+```
+
+## 8. DNS test
+
+```bash
+# Asosiy
+dig google.com
+nslookup google.com
+
+# Faqat IP (qisqacha)
+dig +short google.com
+
+# Aniq DNS server bilan
+dig @1.1.1.1 google.com
+
+# MX (mail servers)
+dig MX google.com
+
+# AAAA (IPv6)
+dig AAAA google.com
+
+# Reverse (PTR)
+dig -x 8.8.8.8
+
+# Trace (root → TLD → authoritative)
+dig +trace google.com
+```
+
+### `resolvectl query`
+
+```bash
+resolvectl query google.com
+# Asosiy DNS so'rov
+
+resolvectl query --type=MX google.com
+```
+
+## 9. DNS over TLS (DoT) va HTTPS (DoH)
+
+Klassik DNS — clear-text. Provider, hacker yoki davlat tarmog'ida ko'rinadi. DoT/DoH — shifrlangan.
+
+### systemd-resolved DoT
+
+```ini
+[Resolve]
+DNS=1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google
+DNSOverTLS=yes
+```
+
+`#hostname` — sertifikat tekshirish uchun.
+
+### Test
+
+```bash
+resolvectl statistics
+# DNS over TLS statistikasi
+```
+
+### DoH (HTTPS) uchun
+
+systemd-resolved DoH'ni qo'llab-quvvatlamaydi (hozircha). Alternativ:
+
+- **cloudflared** — Cloudflare proxy.
+- **dnscrypt-proxy** — universal DoH/DoT proxy.
+
+```bash
+sudo apt install dnscrypt-proxy
+```
+
+`/etc/dnscrypt-proxy/dnscrypt-proxy.toml` ni sozlang, so'ng resolved'ni `127.0.0.1`'ga yo'naltirish.
+
+## 10. dnsmasq — lokal DNS cache
+
+`dnsmasq` — yengil DNS server + cache.
+
+```bash
+sudo apt install dnsmasq
+```
+
+`/etc/dnsmasq.conf`:
+
+```
+listen-address=127.0.0.1
+bind-interfaces
+cache-size=1000
+no-resolv                # /etc/resolv.conf'dan o'qimaslik
+server=1.1.1.1
+server=8.8.8.8
+```
+
+```bash
+sudo systemctl restart dnsmasq
+```
+
+`/etc/resolv.conf` ga `nameserver 127.0.0.1` qo'shish (yoki NetworkManager orqali).
+
+### dnsmasq DHCP server ham
+
+dnsmasq DNS + DHCP + TFTP — yengil router/lab uchun ideal.
+
+## 11. NetworkManager va DNS
+
+NetworkManager DNS'ni boshqaradi:
+
+```bash
+# Status
+nmcli device show wlp2s0 | grep DNS
+
+# Per-connection DNS
+nmcli connection modify "Home Wi-Fi" ipv4.dns "1.1.1.1,8.8.8.8"
+nmcli connection modify "Home Wi-Fi" ipv4.ignore-auto-dns yes
+nmcli connection down "Home Wi-Fi" && nmcli connection up "Home Wi-Fi"
+```
+
+### Global DNS
+
+`/etc/NetworkManager/conf.d/dns.conf`:
+
+```ini
+[main]
+dns=default          # default — yozadi /etc/resolv.conf
+# dns=systemd-resolved  # systemd-resolved bilan
+# dns=none           # boshqarmaslik
+```
+
+## 12. DNS leak — VPN bilan
+
+VPN ishlatganda DNS — VPN orqali bo'lishi kerak. Aks holda — leak (provider'ga ham, VPN'ga ham ko'rinadi).
+
+```bash
+# Tekshirish
+curl https://1.1.1.1/cdn-cgi/trace | grep ip
+# yoki
+dig +short whoami.akamai.net @ns1-1.akamaitech.net
+```
+
+WireGuard config'da `DNS = ...` qo'shing.
+
+## 13. Misol — uy router'i DNS over TLS
+
+NetworkManager Wi-Fi connection'da DNS'ni 1.1.1.1'ga, systemd-resolved'da DoT yoqish:
+
+```bash
+# 1. NetworkManager: ignore DHCP DNS, set custom
+nmcli connection modify "WiFi" ipv4.dns "127.0.0.53"
+nmcli connection modify "WiFi" ipv4.ignore-auto-dns yes
+
+# 2. systemd-resolved konfiguratsiya
+sudo nano /etc/systemd/resolved.conf
+
+[Resolve]
+DNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com
+DNSOverTLS=yes
+DNSSEC=allow-downgrade
+Cache=yes
+
+# 3. Restart
+sudo systemctl restart systemd-resolved
+nmcli connection up WiFi
+
+# 4. Tekshirish
+resolvectl status
+# DNS Servers: 1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com
+# DNSSEC=allow-downgrade
+# DNSOverTLS=yes
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `resolvectl status` | systemd-resolved holati |
+| `resolvectl dns` | Joriy DNS server'lar |
+| `resolvectl query <host>` | DNS so'rov |
+| `resolvectl flush-caches` | Cache tozalash |
+| `resolvectl statistics` | Statistika |
+| `dig <host>` | DNS so'rov (klassik) |
+| `dig @<server> <host>` | Aniq server bilan |
+| `dig +trace <host>` | Root → authoritative zanjir |
+| `nslookup <host>` | Eski oddiy vosita |
+| `host <host>` | Yana bir oddiy vosita |
+| `getent hosts <host>` | NSS orqali |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`/etc/resolv.conf` ni qo'lda tahrirlash** — keyingi reboot'da yo'qoladi (NM yoki resolved qayta yozadi).
+- **systemd-resolved + dnsmasq** — ikkalasi 53-portda — konflikt.
+- **DNS server bloklangan** — ISP cheklovi yoki firewall. `8.8.8.8` o'rniga `8.8.8.8:53` test.
+- **Hostname-resolution sekin** — IPv6 disabled bo'lsa, AAAA so'rov timeout.
+- **DNSSEC fail** — eski yoki noto'g'ri sozlangan domain'lar. `allow-downgrade` ishlatish.
+- **VPN bilan DNS leak** — `Domains=~.` `resolved.conf`'da yoki VPN config'da DNS.
+
+## 16. Eng yaxshi amaliyot
+
+- **systemd-resolved cache yoqilgan** — performance.
+- **DNS over TLS yoqing** — maxfiylik va xavfsizlik.
+- **`1.1.1.1` (Cloudflare) yoki `9.9.9.9` (Quad9)** — tezroq va privacy-friendly.
+- **Lokal lab uchun dnsmasq** — internal DNS + DHCP.
+- **`/etc/hosts` lokal override uchun** — test va dev muhitlar.
+- **DNS leak testlari** — VPN bilan.
+- **Hostname `myname.local`** — mDNS bilan oson topish.
+
+## 17. Mashqlar
+
+1. **DNS server:** `resolvectl status` — sizdagi DNS server qaysi?
+2. **Test:** `dig google.com +short` — qaysi IP qaytadi?
+3. **Boshqa server:** `dig @1.1.1.1 google.com` — javob bormi?
+4. **`/etc/hosts` test:** `echo "127.0.0.1 mytestsite" | sudo tee -a /etc/hosts`. `ping mytestsite` — ishlaydimi?
+5. **DoT test:** `resolvectl statistics` — `DNSOverTLS:` chiqishida nima?
+6. **Cache:** `resolvectl flush-caches`. So'ng `dig google.com` — birinchi so'rov sekinroqmi?
+
+## 18. Bilim sinovi
+
+**Savol 1.** `/etc/resolv.conf` modern Linux'da ko'pincha qaerga symlink?
+
+- a) `/var/lib/dns/`
+- b) `/run/systemd/resolve/stub-resolv.conf`
+- c) `/etc/resolved.conf`
+- d) Hech qaerga
+
+<Callout type="success" title="Javob">
+**(b)** systemd-resolved boshqaradi.[¹](https://wiki.archlinux.org/title/Systemd-resolved)
+</Callout>
+
+**Savol 2.** systemd-resolved stub resolver qaysi IP'da tinglaydi?
+
+- a) 127.0.0.1
+- b) 127.0.0.53
+- c) 0.0.0.0
+- d) 8.8.8.8
+
+<Callout type="success" title="Javob">
+**(b)** 127.0.0.53 — systemd-resolved standart.
+</Callout>
+
+**Savol 3.** DNS over TLS afzalligi:
+
+- a) Tezroq
+- b) Shifrlangan — provider yoki tarmoq DNS so'rovlarni ko'rmaydi
+- c) Faqat Wi-Fi uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Maxfiylik va xavfsizlik.
+</Callout>
+
+**Savol 4.** `/etc/nsswitch.conf` da `hosts:` qatori nimani belgilaydi?
+
+- a) DNS server
+- b) Ism qidirish ketma-ketligi (files, dns, mdns va h.k.)
+- c) Hosting platforma
+- d) `/etc/hosts` fayli
+
+<Callout type="success" title="Javob">
+**(b)** NSS — qaysi manbalardan va qaysi tartibda izlash.
+</Callout>
+
+**Savol 5.** Lokal DNS cache uchun:
+
+- a) Faqat browser
+- b) `systemd-resolved` (default) yoki `dnsmasq`
+- c) Faqat Cloudflare
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Lokal cache so'rovlarni tezlashtiradi.
+</Callout>
+
+## Manbalar
+
+1. ArchWiki — systemd-resolved. [https://wiki.archlinux.org/title/Systemd-resolved](https://wiki.archlinux.org/title/Systemd-resolved)
+2. systemd-resolved. [https://www.freedesktop.org/software/systemd/man/latest/systemd-resolved.service.html](https://www.freedesktop.org/software/systemd/man/latest/systemd-resolved.service.html)
+3. resolv.conf(5). [https://manpages.debian.org/bookworm/manpages/resolv.conf.5.en.html](https://manpages.debian.org/bookworm/manpages/resolv.conf.5.en.html)
+
+## Keyingi qadam
+
+👉 [NFS — Network File System](/fundamentals/nfs)

@@ -1,0 +1,310 @@
+---
+title: "Pacman bilan ishlash"
+description: "Arch va Manjaro'ning paket menejeri pacman — yangilash, o'rnatish, qidirish, tozalash."
+order: 1
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/fundamentals/package-managers"
+  - "/manjaro/introduction"
+learning_objectives:
+  - "Pacman operatsion flag'larini bilish"
+  - "Asosiy buyruqlar: -S, -R, -Q, -Sy, -Syu"
+  - "Pacman keshini tozalash va xato tuzatish"
+tags: ["manjaro", "arch", "pacman", "packages"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — pacman"
+    url: "https://wiki.archlinux.org/title/pacman"
+  - title: "Manjaro Wiki — Pacman"
+    url: "https://wiki.manjaro.org/index.php/Pacman"
+  - title: "ArchWiki — System maintenance"
+    url: "https://wiki.archlinux.org/title/System_maintenance"
+---
+
+**Pacman** (Package Manager) — Arch va Manjaro'ning paket menejeri. Tezligi va soddaligi bilan mashhur. Bu darsda asosiy va kundalik buyruqlarni o'rganamiz.[¹](https://wiki.archlinux.org/title/pacman)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Pacman operatsion flag'lari.
+- O'rnatish, o'chirish, qidirish, ma'lumot olish.
+- Yangilash — `-Syu` va `pacman -Sy` muammosi.
+- Keshni tozalash va xato tuzatish.
+</Callout>
+
+## 1. Pacman operatsion flag'lari
+
+Pacman buyruqlari katta-yozuvda **bir-ikki operatsion flag** bilan boshlanadi:
+
+| Flag | Operatsiya |
+|---|---|
+| `-S` | **S**ync — repodan o'rnatish |
+| `-R` | **R**emove — o'chirish |
+| `-Q` | **Q**uery — o'rnatilgan paketlar |
+| `-U` | **U**pgrade — lokal `.pkg.tar.zst` o'rnatish |
+| `-F` | **F**ile — fayl orqali paket topish |
+| `-T` | **T**est — bog'liqliklarni tekshirish |
+
+Har biriga **sub-flag'lar** qo'shiladi (kichik harf).
+
+## 2. Yangilash — `-Syu`
+
+```bash
+sudo pacman -Syu
+```
+
+`-S` sync + `-y` paket bazasi yangilash + `-u` upgrade.
+
+<Callout type="danger" title="MUHIM: pacman -Sy yakka holda — XAVFLI">
+`pacman -Sy` — paket bazasini yangilaydi, lekin paketlarni emas. Bu **partial upgrade** holatiga olib keladi, ko'p muammolar (segfault, ulanmagan kutubxonalar) chiqaradi.
+
+**Doim** `pacman -Syu` ishlating. [ArchWiki rasmiy ogohlantirishi](https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported).[³](https://wiki.archlinux.org/title/System_maintenance)
+</Callout>
+
+```bash
+# YAXSHI
+sudo pacman -Syu
+
+# Force mirror'larni yangilash
+sudo pacman -Syyu
+```
+
+## 3. Paket o'rnatish
+
+```bash
+# Bitta paket
+sudo pacman -S firefox
+
+# Bir nechta
+sudo pacman -S vim git curl
+
+# Yangidan o'rnatish (reinstall)
+sudo pacman -S --needed firefox    # agar yo'q bo'lsa o'rnat
+
+# Tasdiqlamasdan
+sudo pacman -S --noconfirm firefox
+```
+
+## 4. Paket o'chirish
+
+```bash
+# Faqat paket
+sudo pacman -R firefox
+
+# Paket + uning ishlatilmaydigan bog'liqliklari
+sudo pacman -Rs firefox
+
+# + sozlama fayllar
+sudo pacman -Rns firefox
+
+# Pacman'ni majburlash (ehtiyot bilan)
+sudo pacman -Rdd firefox    # bog'liqliklarni tekshirmaslik
+```
+
+## 5. Qidirish
+
+```bash
+# Repo'dan qidirish
+pacman -Ss "video editor"
+
+# Aniq paket haqida
+pacman -Si firefox
+
+# Lokal (o'rnatilgan) paketlarda qidirish
+pacman -Qs firefox
+
+# O'rnatilgan paket ma'lumoti
+pacman -Qi firefox
+
+# Paket qaysi fayllarni o'rnatdi
+pacman -Ql firefox
+
+# Fayl qaysi paketga tegishli
+pacman -Qo /usr/bin/firefox
+
+# Repo'dan fayl qidirish (avval -Fy bilan bazani yangilang)
+sudo pacman -Fy
+pacman -F /usr/bin/firefox
+```
+
+## 6. Ro'yxatlar
+
+```bash
+# Hamma o'rnatilgan paketlar
+pacman -Q | wc -l
+
+# Faqat aniq o'rnatilgan (default'ga kirmagan)
+pacman -Qe
+
+# Yetim (boshqa paket talab qilmagan, lekin o'rnatilgan)
+pacman -Qdt
+
+# Yangilanish mumkin bo'lganlar
+pacman -Qu
+```
+
+## 7. Yetim paketlarni tozalash
+
+```bash
+# Yetimlarni ko'rsatish
+pacman -Qdt
+
+# O'chirish
+sudo pacman -Rns $(pacman -Qdtq)
+```
+
+## 8. Keshni tozalash
+
+Pacman har o'rnatilgan paket'ni `/var/cache/pacman/pkg/` da saqlaydi (rollback uchun foydali, lekin disk to'ldiradi).
+
+```bash
+# Eski paketlarning keshini (oxirgi 3 versiyasidan tashqari)
+sudo paccache -r
+
+# Hamma keshni tozalash (faqat o'rnatilmaganlar)
+sudo pacman -Sc
+
+# Hamma narsani tozalash (xavfli — rollback yo'qoladi)
+sudo pacman -Scc
+```
+
+`paccache` `pacman-contrib` paketida:
+
+```bash
+sudo pacman -S pacman-contrib
+
+# Avtomatik tozalash uchun systemd timer
+sudo systemctl enable --now paccache.timer
+```
+
+## 9. `.pkg.tar.zst` qo'lda o'rnatish
+
+```bash
+# Lokal fayl
+sudo pacman -U paket-1.0-x86_64.pkg.tar.zst
+```
+
+## 10. Konfiguratsiya — `/etc/pacman.conf`
+
+```ini
+[options]
+HoldPkg     = pacman glibc
+Architecture = auto
+CheckSpace
+SigLevel    = Required DatabaseOptional
+LocalFileSigLevel = Optional
+
+# Parallel yuklab olish (Pacman 6.0+)
+ParallelDownloads = 5
+
+# Rang
+Color
+```
+
+Foydali parametr — `ParallelDownloads` paketlarni parallel yuklab oladi.
+
+## 11. Repozitoriyalar
+
+Manjaro `/etc/pacman.conf` ichida:
+
+```
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+
+[multilib]
+Include = /etc/pacman.d/mirrorlist
+```
+
+`multilib` — 32-bit paketlar uchun (Steam, Wine).
+
+## 12. Mirror'lar
+
+```bash
+# Mirror tezligini tekshirib eng tezini tanlash
+sudo pacman-mirrors --fasttrack
+
+# Yoki manual ro'yxat
+sudo pacman-mirrors --country Russia,Germany --fasttrack
+```
+
+So'ng:
+
+```bash
+sudo pacman -Syyu
+```
+
+## 13. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo pacman -Syu` | Tizimni yangilash |
+| `sudo pacman -S <paket>` | O'rnatish |
+| `sudo pacman -Rns <paket>` | O'chirish + sozlamalar |
+| `pacman -Ss <so'z>` | Repo'dan qidirish |
+| `pacman -Qe` | Aniq o'rnatilgan paketlar |
+| `pacman -Qdt` | Yetim paketlar |
+| `pacman -Qi <paket>` | Paket ma'lumoti |
+| `pacman -Ql <paket>` | Paket fayllari |
+| `pacman -Qo <fayl>` | Fayl qaysi paket |
+| `sudo paccache -r` | Eski kesh tozalash |
+| `sudo pacman-mirrors --fasttrack` | Mirror'larni yangilash |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`pacman -Sy <paket>`** — partial upgrade. Doim `-Syu`.
+- **Mirror eskirgan** — `--fasttrack` orqali yangilash.
+- **Keshli `disk full`** — `paccache -r` orqali tozalash.
+- **`signature is unknown trust`** — `sudo pacman-key --refresh-keys` orqali tuzatish.
+- **`could not lock database`** — `/var/lib/pacman/db.lck` mavjud. Boshqa pacman jarayoni tugagandan keyin `sudo rm /var/lib/pacman/db.lck`.
+
+## 15. Eng yaxshi amaliyot
+
+- **Doim `pacman -Syu`** — `-Sy` yakka holda yo'q.
+- **Har 1-2 haftada `pacman -Syu`** — eski Manjaro tizim — yangilanishda muammo ko'p.
+- **`paccache` timer'ni yoqish** — kesh avtomatik tozalanadi.
+- **Mirror'larni har oyda yangilash** — `pacman-mirrors --fasttrack`.
+- **Yangilanishdan oldin** — [Manjaro forum announcement](https://forum.manjaro.org/c/announcements/9) ni o'qing.
+
+## 16. Bilim sinovi
+
+**Savol 1.** Manjaro'da to'liq tizim yangilash uchun:
+
+- a) `pacman -Sy`
+- b) `pacman -Syu`
+- c) `pacman -U`
+- d) `apt upgrade`
+
+<Callout type="success" title="Javob">
+**(b)** `-Syu` — sync + paket bazasi yangilash + upgrade. `-Sy` yakka holda **xavfli**.[³](https://wiki.archlinux.org/title/System_maintenance)
+</Callout>
+
+**Savol 2.** Yetim paketlarni ko'rish uchun:
+
+- a) `pacman -Qo`
+- b) `pacman -Qe`
+- c) `pacman -Qdt`
+- d) `pacman -Ql`
+
+<Callout type="success" title="Javob">
+**(c)** `pacman -Qdt` — `d` deps (boshqalar talab qilmagan), `t` not required by anything.
+</Callout>
+
+## 17. Mashq
+
+1. `pacman -Q | wc -l` — tizimingizda nechta paket?
+2. `pacman -Qe | wc -l` — qancha aniq o'rnatilgan (default tarmoqdan)?
+3. `pacman -Qdt` — yetim bormi? Bo'lsa, `sudo pacman -Rns $(pacman -Qdtq)` orqali tozalang.
+4. `paccache -dk1 --dry-run` — qancha kesh tozalash mumkin?
+
+## Manbalar
+
+1. ArchWiki — pacman. [https://wiki.archlinux.org/title/pacman](https://wiki.archlinux.org/title/pacman)
+2. Manjaro Wiki — Pacman. [https://wiki.manjaro.org/index.php/Pacman](https://wiki.manjaro.org/index.php/Pacman)
+3. ArchWiki — System maintenance. [https://wiki.archlinux.org/title/System_maintenance](https://wiki.archlinux.org/title/System_maintenance)
+
+## Keyingi qadam
+
+👉 [AUR](/manjaro/packages/aur)

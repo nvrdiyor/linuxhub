@@ -1,0 +1,439 @@
+---
+title: "strace va dynamic tracing"
+description: "Jarayonlarni kuzatish — strace, ltrace, perf, ebpf, bpftrace — Linux'ning debug vositalari."
+order: 148
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/processes"
+  - "/fundamentals/signals"
+learning_objectives:
+  - "strace bilan syscall'larni kuzatish"
+  - "ltrace bilan library call'lar"
+  - "perf — performance profiling"
+  - "eBPF va bpftrace — modern tracing"
+tags: ["advanced", "strace", "perf", "ebpf", "debugging"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "strace(1)"
+    url: "https://man7.org/linux/man-pages/man1/strace.1.html"
+  - title: "perf — Linux"
+    url: "https://perf.wiki.kernel.org/"
+  - title: "bpftrace"
+    url: "https://github.com/iovisor/bpftrace"
+---
+
+Debug — administrator'ning kundalik ishi. Linux'da kuchli vositalar bor: **strace** (syscall), **ltrace** (library), **perf** (performance), **bpftrace** (eBPF). Bu darsda har birini ko'rib chiqamiz.[¹](https://man7.org/linux/man-pages/man1/strace.1.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- strace bilan syscall'larni kuzatish.
+- ltrace — library function calls.
+- perf — profiling va sampling.
+- eBPF va bpftrace — modern observability.
+</Callout>
+
+## 1. strace — syscall tracer
+
+Har dastur yadrodan **syscall** orqali xizmat oladi: `open()`, `read()`, `write()`, `connect()`. `strace` bularning hammasini ko'rsatadi.
+
+```bash
+sudo apt install strace
+
+# Buyruqni kuzatish
+strace ls /tmp
+
+# Lekin chiqishi katta — count bilan
+strace -c ls /tmp
+# Statistika: qaysi syscall qancha marta
+```
+
+### Mavjud jarayonga ulanish
+
+```bash
+# PID bilan
+strace -p 12345
+
+# Bir nechta thread (`-f`)
+strace -fp 12345
+
+# Output faylga
+strace -fp 12345 -o /tmp/trace.log
+```
+
+### Filterlash
+
+```bash
+# Faqat aniq syscall'lar
+strace -e open,read,write ls
+strace -e trace=network curl example.com    # tarmoq syscall'lari
+
+# String argument'lar to'liq
+strace -s 1024 -e read,write cat file.txt
+```
+
+### Misol — fayl topish
+
+```bash
+# `ls` qaysi config fayllarni ochadi?
+strace -e open,openat ls 2>&1 | grep -v ENOENT
+```
+
+### Misol — dastur sekin, sabab?
+
+```bash
+strace -fT -p <PID>
+# -T — har syscall vaqti
+
+# Eng sekin syscalls
+strace -fc -p <PID>
+# bir necha soniya kutib Ctrl+C
+```
+
+## 2. ltrace — library tracer
+
+`strace` — syscall (yadro). `ltrace` — kutubxona chaqiruvlari (libc, openssl, va h.k.).
+
+```bash
+sudo apt install ltrace
+
+ltrace ls
+# malloc, free, strcmp, fopen, ...
+```
+
+`-c` statistika:
+
+```bash
+ltrace -c ls
+```
+
+`ltrace` modern Linux'da ba'zan stripped binary'larda yomon ishlaydi.
+
+## 3. perf — performance analyzer
+
+`perf` — Linux yadrosi bilan integratsiyalashgan profiler. Ko'p funksiya.[²](https://perf.wiki.kernel.org/)
+
+```bash
+# Installation
+sudo apt install linux-tools-common linux-tools-$(uname -r)
+
+# Versiya
+perf --version
+```
+
+### `perf top` — real-time
+
+```bash
+sudo perf top
+
+# Filter
+sudo perf top -p <PID>
+```
+
+Eng ko'p CPU yeyuvchi funksiyalar.
+
+### `perf record` + `perf report` — sampling
+
+```bash
+# 30 soniya record
+sudo perf record -p <PID> -g -- sleep 30
+
+# Report
+sudo perf report
+
+# Yoki to'g'ridan-to'g'ri
+sudo perf record -g ./myapp
+sudo perf report
+```
+
+`-g` — call graph (kim chaqirdi).
+
+### `perf stat` — counter'lar
+
+```bash
+sudo perf stat ls /etc
+```
+
+Misol natija:
+
+```
+            <not counted>      cache-misses
+                  123456      instructions
+                   45678      branches
+                       0      branch-misses
+
+       0.001234567 seconds time elapsed
+```
+
+CPU counter'lar — cache, branch prediction, IPC.
+
+### Flame graph
+
+`perf` + Brendan Gregg'ning flamegraph tools:
+
+```bash
+git clone https://github.com/brendangregg/FlameGraph.git
+
+sudo perf record -g -F 99 -p <PID> -- sleep 30
+sudo perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl > flame.svg
+```
+
+`flame.svg` — interaktiv visual profile.
+
+## 4. eBPF — modern observability
+
+**eBPF** (Extended Berkeley Packet Filter) — yadro ichida xavfsiz dasturlarni ishga tushirish. Tarmoq, security, observability uchun.
+
+### `bpftool`
+
+```bash
+sudo apt install linux-tools-$(uname -r) linux-headers-$(uname -r)
+
+# eBPF dasturlar
+sudo bpftool prog show
+
+# eBPF maps
+sudo bpftool map show
+```
+
+### `bpftrace` — eng oson
+
+[bpftrace](https://github.com/iovisor/bpftrace) — DTrace-uslubidagi til eBPF uchun.[³](https://github.com/iovisor/bpftrace)
+
+```bash
+sudo apt install bpftrace
+
+# Misol — barcha syscall'lar
+sudo bpftrace -e 'tracepoint:syscalls:sys_enter_* { @[probe] = count(); }'
+# Ctrl+C bilan tugatib statistika
+
+# Aniq syscall
+sudo bpftrace -e 'tracepoint:syscalls:sys_enter_open { printf("%s %s\n", comm, str(args->filename)); }'
+```
+
+### `bcc` — eBPF tools
+
+```bash
+sudo apt install bpfcc-tools
+```
+
+Tipik bcc tools:
+
+```bash
+sudo opensnoop-bpfcc     # ochilayotgan fayllar (real-time)
+sudo execsnoop-bpfcc     # ishga tushgan jarayonlar
+sudo tcpconnect-bpfcc    # TCP ulanishlar
+sudo tcpaccept-bpfcc     # qabul qilingan
+sudo biolatency-bpfcc    # disk I/O latency
+sudo runqlat-bpfcc        # scheduler latency
+sudo argdist-bpfcc        # argument distribution
+sudo bashreadline-bpfcc   # bash history (real-time)
+```
+
+Brendan Gregg'ning "BPF Performance Tools" kitobi — barcha tools.
+
+## 5. Misol — sayt sekin, qaerda?
+
+```bash
+# 1. CPU
+sudo perf top -p $(pgrep -n nginx)
+
+# 2. Syscall
+sudo strace -ftc -p $(pgrep -n nginx) -o /tmp/trace.log
+# Ctrl+C 30 soniya keyin
+# `/tmp/trace.log` ichida cancellation
+sudo strace -fc -p $(pgrep -n nginx) 2>&1 | tail -20
+
+# 3. Disk I/O
+sudo iotop -p $(pgrep -n nginx)
+
+# 4. Sokket
+sudo ss -tnp | grep nginx
+
+# 5. bpftrace
+sudo bpftrace -e '
+tracepoint:syscalls:sys_enter_open /comm == "nginx"/ {
+    @opens[str(args->filename)] = count();
+}
+END { print(@opens); clear(@opens); }
+'
+```
+
+## 6. ldd va dynamic linker
+
+```bash
+# Binary'ning kutubxonalari
+ldd /usr/bin/ls
+# linux-vdso.so.1 ...
+# libselinux.so.1 ...
+# libc.so.6 ...
+
+# Trace dynamic linker
+LD_DEBUG=libs /usr/bin/ls 2>&1 | head
+```
+
+## 7. coredump tahlili
+
+Crash bo'lganda yadro coredump yaratadi (yoqilgan bo'lsa).
+
+```bash
+# Yoqish
+ulimit -c unlimited
+
+# systemd-coredump'ni yoqish
+sudo systemctl status systemd-coredump
+
+# Coredump tarixi
+coredumpctl list
+
+# Aniq crash
+coredumpctl info <pid>
+
+# gdb bilan tahlil
+coredumpctl gdb <pid>
+```
+
+## 8. `lsof` chuqurroq
+
+```bash
+# Aniq jarayon — ochiq fayllar va socket
+sudo lsof -p <PID>
+
+# Aniq fayl — kim ochgan?
+sudo lsof /var/log/syslog
+
+# Aniq port
+sudo lsof -i :80
+sudo lsof -i tcp:443
+
+# Aniq user
+sudo lsof -u alice
+
+# Network connections
+sudo lsof -i -n -P
+```
+
+## 9. systemd-analyze va systemd debug
+
+```bash
+# Boot vaqti
+systemd-analyze
+systemd-analyze blame
+systemd-analyze critical-chain
+
+# Service hardening score
+systemd-analyze security ssh.service
+
+# Unit verify
+systemd-analyze verify /etc/systemd/system/myapp.service
+```
+
+## 10. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `strace -p <PID>` | Live syscall trace |
+| `strace -c <cmd>` | Syscall statistika |
+| `strace -e network <cmd>` | Tarmoq syscall |
+| `ltrace <cmd>` | Library calls |
+| `perf top -p <PID>` | CPU top (per-process) |
+| `perf record -g <cmd>` | Profiling record |
+| `perf report` | Report |
+| `bpftrace -e '...'` | eBPF tracer |
+| `opensnoop-bpfcc` | Real-time open() |
+| `execsnoop-bpfcc` | Real-time exec() |
+| `lsof -p <PID>` | Ochiq fayllar |
+| `coredumpctl list` | Crash list |
+
+## 11. Eng tez-tez uchraydigan xatolar
+
+- **`strace` overhead** — production'da diqqat. 10-100x slowdown ba'zan.
+- **`perf` yadro symbol'lar yo'q** — `dpkg --add-architecture ... linux-image-dbg` o'rnatish kerak.
+- **bpftrace permissions** — root yoki `CAP_BPF` (Linux 5.8+).
+- **strace `-f` siz** — child jarayonlar ko'rinmaydi.
+- **`ltrace` stripped binary'da** — yomon ishlaydi (symbol'lar yo'q).
+
+## 12. Eng yaxshi amaliyot
+
+- **strace tezkor debug** — production'da kichik vaqt ichida.
+- **perf — long-term profiling.**
+- **bpftrace** — modern, kichik overhead.
+- **coredump yoqilgan** — production'da debug uchun.
+- **`lsof`** ochiq fayl/socket muammosida.
+- **Flame graph** — visual analysis.
+- **Brendan Gregg's tools** — bcc/bpfcc — out-of-box ko'p script.
+
+## 13. Mashqlar
+
+1. **strace basic:** `strace ls /tmp 2>&1 | head -20` — qaysi syscall'lar?
+2. **`strace -c`:** `strace -c ls / | tail -20` — statistika.
+3. **`perf top`:** `sudo perf top` — eng aktiv funksiyalar.
+4. **`lsof -i`:** `sudo lsof -i tcp` — qaysi jarayonlar TCP ulanish bilan?
+5. **bpftrace (ixtiyoriy):** `sudo opensnoop-bpfcc` ni ishga tushiring va boshqa terminal'da `cat /etc/passwd` — real-time ko'rinishi?
+
+## 14. Bilim sinovi
+
+**Savol 1.** strace nimani kuzatadi?
+
+- a) Library calls
+- b) Syscall'lar (yadroga so'rovlar)
+- c) Tarmoq paketlar
+- d) Diskni
+
+<Callout type="success" title="Javob">
+**(b)** System call tracer.[¹](https://man7.org/linux/man-pages/man1/strace.1.html)
+</Callout>
+
+**Savol 2.** strace va ltrace farqi:
+
+- a) Bir xil
+- b) strace — syscall (yadro); ltrace — library function (libc va boshqalar)
+- c) ltrace tezroq
+- d) strace faqat root uchun
+
+<Callout type="success" title="Javob">
+**(b)** Daraja farqi.
+</Callout>
+
+**Savol 3.** perf nima uchun:
+
+- a) Tarmoq
+- b) CPU performance profiling (sampling, counters, trace)
+- c) Disk
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Performance toolkit.[²](https://perf.wiki.kernel.org/)
+</Callout>
+
+**Savol 4.** eBPF qisqacha:
+
+- a) Tarmoq protokoli
+- b) Yadro ichida xavfsiz dasturlarni ishga tushirish — observability, security, networking
+- c) Filesystem
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Modern Linux'ning kuchli xususiyati.[³](https://github.com/iovisor/bpftrace)
+</Callout>
+
+**Savol 5.** Crash dump tahlili:
+
+- a) `gdb` faqat
+- b) `coredumpctl` + `gdb`
+- c) `strace`
+- d) `journalctl`
+
+<Callout type="success" title="Javob">
+**(b)** systemd-coredump avtomatik to'plab oladi, gdb bilan tahlil.
+</Callout>
+
+## Manbalar
+
+1. strace(1). [https://man7.org/linux/man-pages/man1/strace.1.html](https://man7.org/linux/man-pages/man1/strace.1.html)
+2. perf — Linux. [https://perf.wiki.kernel.org/](https://perf.wiki.kernel.org/)
+3. bpftrace. [https://github.com/iovisor/bpftrace](https://github.com/iovisor/bpftrace)
+
+## Keyingi qadam
+
+👉 [systemd-networkd va Netplan](/fundamentals/systemd-networkd)

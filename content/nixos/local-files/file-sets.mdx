@@ -1,0 +1,81 @@
+---
+title: "Fayl to'plamlari"
+description: "lib.fileset orqali lokal fayllarni precise tarzda Nix store'ga qo'shish."
+order: 1
+level: "advanced"
+estimated_minutes: 4
+prerequisites:
+  - "/nixos/packaging/first-package"
+learning_objectives:
+  - "Fayl to'plamlarining muammosi"
+  - "`lib.fileset` asosiy operatsiyalar"
+tags: ["nixos", "fileset", "local-files"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Working with local files"
+    url: "https://nix.dev/tutorials/working-with-local-files.html"
+---
+
+Tipik xato: `src = ./.` bilan barcha fayl (`.git`, `node_modules`, kesh) Nix store'ga ko'chiriladi. **Fayl to'plamlari** aniq tanlash imkonini beradi.[¹](https://nix.dev/tutorials/working-with-local-files.html)
+
+## 1. Asosiy ishlatish
+
+```nix
+{ lib, ... }:
+
+let
+  fs = lib.fileset;
+  src = fs.toSource {
+    root = ./.;
+    fileset = fs.unions [
+      ./src
+      ./Cargo.toml
+      ./Cargo.lock
+    ];
+  };
+in
+{
+  inherit src;
+}
+```
+
+## 2. Asosiy operatsiyalar
+
+| Operator | Maqsad |
+|---|---|
+| `fs.unions [ a b ]` | a ∪ b |
+| `fs.intersection a b` | a ∩ b |
+| `fs.difference a b` | a − b |
+| `fs.fromSource ./.` | Hammasi |
+| `fs.fileFilter pred root` | Filtr |
+| `fs.maybeMissing path` | Mavjud bo'lmasa bo'sh |
+
+## 3. Filter misol
+
+Faqat `.rs` fayllarni olish:
+
+```nix
+fs.fileFilter (file: file.hasExt "rs") ./.
+```
+
+## 4. Bilim sinovi
+
+**Savol 1.** `lib.fileset` nima muammoni hal qiladi?
+
+- a) Tezroq build
+- b) Faqat zarur fayllarni Nix store'ga
+- c) Tarmoq tezligi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `src = ./.` bilan barcha narsa (jumladan `.git`) ko'chadi. `fileset` aniq tanlash beradi.[¹](https://nix.dev/tutorials/working-with-local-files.html)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Working with local files. [https://nix.dev/tutorials/working-with-local-files.html](https://nix.dev/tutorials/working-with-local-files.html)
+
+## Keyingi qadam
+
+👉 [Misol loyiha](/nixos/local-files/example-project)

@@ -1,0 +1,536 @@
+---
+title: "Disk boshqaruvi — fdisk va parted"
+description: "Linux'da disk va partition'lar bilan ishlash — lsblk, fdisk, parted, gdisk, partition turlari."
+order: 109
+level: "advanced"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/filesystems"
+learning_objectives:
+  - "Disk va partition tushunchasi"
+  - "MBR va GPT farqi"
+  - "`lsblk`, `fdisk`, `parted`, `gdisk` bilan ishlash"
+  - "Partition yaratish, o'zgartirish va o'chirish"
+tags: ["advanced", "disk", "partition", "fdisk", "parted", "gpt"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — Partitioning"
+    url: "https://wiki.archlinux.org/title/Partitioning"
+  - title: "fdisk(8) manpage"
+    url: "https://manpages.debian.org/bookworm/util-linux/fdisk.8.en.html"
+  - title: "parted(8) manpage"
+    url: "https://manpages.debian.org/bookworm/parted/parted.8.en.html"
+---
+
+Disk va partition boshqaruvi — Linux administratorining asosiy ko'nikmalaridan biri. Yangi disk ulash, partition o'lchamini o'zgartirish, dual boot uchun joy ajratish — barchasi bu darsda.[¹](https://wiki.archlinux.org/title/Partitioning)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Disk va partition tushunchalari.
+- MBR va GPT — fundamental farqlar.
+- `lsblk` bilan strukturani ko'rish.
+- `fdisk`, `parted`, `gdisk` bilan ishlash.
+- Partition yaratish, o'zgartirish, o'chirish.
+- Xavfsizlik amaliyoti.
+</Callout>
+
+## 1. Disk va partition — asosiy tushunchalar
+
+**Disk** — fizik (yoki virtual) saqlash qurilmasi. `/dev/sda`, `/dev/nvme0n1`, `/dev/vda`.
+
+**Partition** — diskni mantiqiy bo'laklarga ajratish. `/dev/sda1`, `/dev/nvme0n1p1`.
+
+Bir disk bir nechta partition'larga bo'linishi mumkin:
+
+```
+/dev/sda                     ← disk (500 GB)
+├── /dev/sda1   /boot/efi    ← 500 MB
+├── /dev/sda2   /            ← 100 GB
+├── /dev/sda3   /home        ← 350 GB
+└── /dev/sda4   swap         ← 16 GB
+```
+
+### Qurilma nomlash
+
+| Tur | Prefiks | Misol |
+|---|---|---|
+| SATA/SCSI HDD/SSD | `sd` | `/dev/sda`, `/dev/sdb` |
+| NVMe SSD | `nvme<N>n<M>` | `/dev/nvme0n1` |
+| Virtual (KVM, etc.) | `vd` | `/dev/vda` |
+| Old IDE | `hd` | `/dev/hda` |
+| Loopback | `loop` | `/dev/loop0` |
+| SD/MMC | `mmcblk` | `/dev/mmcblk0` |
+
+Partition raqami:
+
+- SATA/SCSI: `sda1`, `sda2`, `sda3`.
+- NVMe: `nvme0n1p1`, `nvme0n1p2`.
+
+## 2. MBR vs GPT
+
+### MBR (Master Boot Record)
+
+Eski standart (1983):
+
+- 32-bit — **maksimal disk hajmi 2 TB**.
+- 4 ta **primary partition** (yoki 3 primary + 1 extended bo'lib).
+- Bootloader birinchi 512 baytda.
+
+### GPT (GUID Partition Table)
+
+Zamonaviy standart:
+
+- 64-bit — diskdagi cheklov yo'q (zettabytes).
+- 128+ partition (default).
+- UEFI bilan ishlaydi.
+- Backup partition table (oxirgi sektorda).
+
+**Tavsiya:** Yangi tizimlarda **GPT**.
+
+### Aniqlash
+
+```bash
+sudo parted /dev/sda print | grep "Partition Table"
+# msdos = MBR
+# gpt   = GPT
+```
+
+Yoki:
+
+```bash
+sudo fdisk -l /dev/sda
+# "Disklabel type: gpt" yoki "dos"
+```
+
+## 3. `lsblk` — strukturani ko'rish
+
+```bash
+lsblk
+```
+
+Misol natija:
+
+```
+NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+sda           8:0    0 465.8G  0 disk
+├─sda1        8:1    0   512M  0 part /boot/efi
+├─sda2        8:2    0   100G  0 part /
+└─sda3        8:3    0 365.3G  0 part /home
+nvme0n1     259:0    0   1.8T  0 disk
+├─nvme0n1p1 259:1    0   100M  0 part
+└─nvme0n1p2 259:2    0   1.8T  0 part
+```
+
+Variantlar:
+
+```bash
+# Ko'p detallar
+lsblk -f                # filesystem ham
+lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT,UUID
+lsblk --tree            # daraxt ko'rinish
+lsblk -p                # to'liq yo'l
+```
+
+## 4. `fdisk` — interaktiv vosita
+
+`fdisk` — klassik partition manager.[²](https://manpages.debian.org/bookworm/util-linux/fdisk.8.en.html)
+
+```bash
+sudo fdisk /dev/sdb        # `b` — yangi disk, ehtiyot bilan
+```
+
+### Asosiy buyruqlar `fdisk` ichida
+
+| Tugma | Vazifa |
+|---|---|
+| `p` | Joriy partition jadvali |
+| `n` | Yangi partition |
+| `d` | Partition o'chirish |
+| `t` | Partition turini o'zgartirish |
+| `l` | Mavjud turlar ro'yxati |
+| `w` | Yozish (saqlash) va chiqish |
+| `q` | Yozmasdan chiqish |
+| `m` | Yordam |
+
+### Misol — yangi GPT disk bo'lish
+
+```bash
+sudo fdisk /dev/sdb
+
+# `g` — yangi GPT label yaratish
+g
+
+# `n` — yangi partition
+n
+# Partition number (1):
+1
+# First sector (default):
+[Enter]
+# Last sector:
++100G       # yoki +10G, +500M
+
+# Yana
+n
+# ...
+
+# Saqlash
+w
+```
+
+### Faqat ko'rish (read-only)
+
+```bash
+sudo fdisk -l /dev/sda
+```
+
+## 5. `parted` — kuchli alternativ
+
+`parted` — script-friendly va GPT uchun yaxshi.[³](https://manpages.debian.org/bookworm/parted/parted.8.en.html)
+
+### Interaktiv
+
+```bash
+sudo parted /dev/sdb
+
+(parted) print
+(parted) mklabel gpt
+(parted) mkpart primary ext4 1MiB 100GiB
+(parted) mkpart primary ext4 100GiB 100%
+(parted) print
+(parted) quit
+```
+
+### Bir buyruqda
+
+```bash
+# Disk label
+sudo parted /dev/sdb mklabel gpt
+
+# Birinchi partition
+sudo parted /dev/sdb mkpart primary ext4 1MiB 100GiB
+
+# Qolgan joy
+sudo parted /dev/sdb mkpart primary ext4 100GiB 100%
+
+# Yoki barchasi bir buyruqda
+sudo parted /dev/sdb --script \
+    mklabel gpt \
+    mkpart primary ext4 1MiB 100GiB \
+    mkpart primary ext4 100GiB 100%
+```
+
+### Foydali parted buyruqlar
+
+| Buyruq | Vazifa |
+|---|---|
+| `print` | Joriy holat |
+| `mklabel <tur>` | Yangi disk label (msdos, gpt) |
+| `mkpart` | Yangi partition |
+| `rm <N>` | Partition o'chirish |
+| `resizepart <N> <end>` | Partition o'lchamini o'zgartirish |
+| `name <N> <name>` | Nom berish (faqat GPT) |
+| `set <N> boot on` | Boot flag |
+| `align-check` | Alignment tekshirish |
+
+## 6. `gdisk` — GPT uchun maxsus
+
+`gdisk` — `fdisk` analog, faqat GPT uchun:
+
+```bash
+sudo gdisk /dev/sda
+
+# fdisk kabi sintaksis
+# n, d, t, w, q
+```
+
+Yaxshi UI va GPT bilan ishlash uchun.
+
+## 7. Misol — yangi diskni qo'shish va tayyorlash
+
+```bash
+# 1. Diskni topish (yangi USB yoki ikkinchi HDD)
+lsblk
+# yangi diskni topdik — /dev/sdb (mavjud emas partition'lar)
+
+# 2. Joriy holat
+sudo fdisk -l /dev/sdb
+
+# 3. GPT yaratish
+sudo parted /dev/sdb mklabel gpt
+
+# 4. Bitta katta partition
+sudo parted /dev/sdb mkpart primary ext4 1MiB 100%
+
+# 5. Tekshirish
+lsblk /dev/sdb
+sudo fdisk -l /dev/sdb
+
+# 6. Filesystem
+sudo mkfs.ext4 /dev/sdb1
+
+# 7. Mount
+sudo mkdir /mnt/data
+sudo mount /dev/sdb1 /mnt/data
+
+# 8. Tekshirish
+df -h /mnt/data
+```
+
+## 8. Partition'ni o'zgartirish (resize)
+
+**Diqqat!** Resize — xavfli operatsiya. Backup oling.
+
+### Kichraytirish (faqat fayl tizimi ham qisqaradigan bo'lsa)
+
+```bash
+# 1. Unmount
+sudo umount /dev/sdb1
+
+# 2. Filesystem tekshirish
+sudo e2fsck -f /dev/sdb1
+
+# 3. Filesystem'ni avval kichraytirish
+sudo resize2fs /dev/sdb1 50G
+
+# 4. Endi partition
+sudo parted /dev/sdb resizepart 1 50GiB
+
+# 5. Mount
+sudo mount /dev/sdb1 /mnt/data
+```
+
+### Kattalashtirish
+
+Tartib teskari:
+
+```bash
+# 1. Partition kattalashtirish
+sudo parted /dev/sdb resizepart 1 100GiB
+
+# 2. Filesystem kengaytirish (mount qilingan holatda ham ext4)
+sudo resize2fs /dev/sdb1
+```
+
+## 9. Partition turlari
+
+GPT'da partition'lar **GUID** bilan turlangan. Eng mashhurlari:
+
+| Tur | GUID | Maqsad |
+|---|---|---|
+| Linux filesystem | `0FC63DAF-...` | Default Linux partition |
+| Linux swap | `0657FD6D-...` | Swap |
+| EFI System | `C12A7328-...` | UEFI bootloader |
+| Linux LVM | `E6D6D379-...` | LVM Physical Volume |
+| Linux RAID | `A19D880F-...` | mdadm RAID |
+| Linux home | `933AC7E1-...` | /home partition |
+| Linux server data | `3B8F8425-...` | Server data |
+
+```bash
+# `parted` orqali
+sudo parted /dev/sdb set 1 esp on    # EFI System Partition
+
+# `fdisk` orqali
+sudo fdisk /dev/sdb
+# t (type) → 1 (EFI System)
+```
+
+## 10. UUID va Label
+
+Disk fayl tizimning ikkita identifikatori bor:
+
+- **UUID** — universal unique identifier (uzun).
+- **Label** — qisqa nom (foydalanuvchiga oson).
+
+```bash
+# Ko'rish
+lsblk -f
+# yoki
+sudo blkid
+
+# Label berish
+sudo e2label /dev/sdb1 "DATA"
+# yoki ext4 uchun
+sudo tune2fs -L "DATA" /dev/sdb1
+```
+
+`/etc/fstab` da UUID afzal — qurilma nomi (`/dev/sdb1`) o'zgarishi mumkin (USB ulash tartibi).
+
+```
+UUID=abc-123... /mnt/data ext4 defaults 0 2
+```
+
+## 11. Diskni sterilizatsiya — `dd`, `wipefs`
+
+```bash
+# Faqat partition jadvalni o'chirish
+sudo wipefs -a /dev/sdb
+
+# Diskni butunlay tozalash (xavfli!)
+sudo dd if=/dev/zero of=/dev/sdb bs=1M status=progress
+
+# Random ma'lumot (kriptografik o'chirish)
+sudo dd if=/dev/urandom of=/dev/sdb bs=1M status=progress
+
+# SSD uchun — TRIM
+sudo blkdiscard /dev/sdb
+```
+
+<Callout type="danger">
+`dd if=... of=/dev/sdb` — **diskdagi hamma narsani yo'qotadi**. `of=` qiymatini millimetr aniqligida tekshiring.
+</Callout>
+
+## 12. SMART — disk salomatligi
+
+```bash
+sudo apt install smartmontools
+
+# Disk ma'lumotlari
+sudo smartctl -i /dev/sda
+
+# To'liq SMART hisoboti
+sudo smartctl -a /dev/sda
+
+# Tezkor self-test (1 minute)
+sudo smartctl -t short /dev/sda
+
+# Uzun self-test (1-3 soat)
+sudo smartctl -t long /dev/sda
+
+# Natijani ko'rish
+sudo smartctl -l selftest /dev/sda
+```
+
+Eng muhim atributlar:
+
+- **Reallocated_Sector_Ct** — yomon sektorlar (>0 — disk o'lyapti).
+- **Power_On_Hours** — ish vaqti.
+- **Wear_Leveling_Count** (SSD) — yedirilish darajasi.
+
+## 13. NVMe maxsus
+
+```bash
+sudo apt install nvme-cli
+
+# NVMe ma'lumotlari
+sudo nvme list
+sudo nvme id-ctrl /dev/nvme0
+
+# SMART analog
+sudo nvme smart-log /dev/nvme0
+
+# Format (xavfli)
+sudo nvme format /dev/nvme0n1
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `lsblk` | Disk va partition strukturasi |
+| `lsblk -f` | + filesystem va UUID |
+| `sudo fdisk -l /dev/sda` | Partition jadvali (faqat ko'rish) |
+| `sudo fdisk /dev/sdb` | Interaktiv partition manager |
+| `sudo parted /dev/sdb` | Modern partition manager |
+| `sudo gdisk /dev/sda` | GPT uchun maxsus |
+| `sudo blkid` | UUID va filesystem turlari |
+| `sudo mkfs.ext4 /dev/sdb1` | Ext4 yaratish |
+| `sudo wipefs -a /dev/sdb` | Partition jadvalni o'chirish |
+| `sudo smartctl -a /dev/sda` | Disk salomatligi |
+| `sudo nvme smart-log /dev/nvme0` | NVMe salomatligi |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **Yangi partition'ni `mkfs`'siz** — partition bor, lekin filesystem yo'q → mount xato.
+- **Mount qilingan partition'ni resize qilish** — `umount` qiling avval (ext4 ko'p hollarda online resize qabul qiladi, lekin xfs faqat kengaytirish).
+- **`fstab`'da partition nomi (`/dev/sdb1`)** — qurilma tartibi o'zgaradi. UUID ishlatilsin.
+- **2 TB+ disk MBR'da** — partition jadvali cheklovi. GPT ishlating.
+- **`dd` ehtiyotsizlik** — `of=/dev/sda` (asosiy disk) — tizim falokati. Doim tekshiring.
+- **GPT'ni `fdisk` (eski versiya) bilan tahrirlash** — bo'sa qolish xavfi. `gdisk` yoki `parted` ishlating.
+
+## 16. Eng yaxshi amaliyot
+
+- **Yangi diskda doim GPT** — kelajakka tayyor.
+- **Eng kamida 1 MiB alignment** — performance.
+- **UUID `/etc/fstab` da** — qurilma o'zgarishlariga immune.
+- **SMART monitoring** — har hafta `smartctl -a` natijasini saqlash.
+- **Backup avval resize qilishdan oldin.**
+- **Production disk uchun RAID + monitoring + backup.**
+- **`wipefs -a`** disk almashtirishdan oldin — eski metadata qoldiqlari muammo.
+- **SSD uchun TRIM yoqilgan bo'lsin** — `fstrim.timer` faol.
+
+## 17. Mashqlar
+
+1. **Inventarizatsiya:** `lsblk` natijasini ko'ring. Sizdagi nechta disk va partition?
+2. **UUID:** `sudo blkid` — sizning asosiy partition'ingiz UUID nima?
+3. **SMART:** `sudo smartctl -i /dev/sda` (yoki nvme0). Sizdagi disk modeli va seriya raqami?
+4. **Disk ishlash vaqti:** `sudo smartctl -A /dev/sda | grep Power_On_Hours` — disk necha soat ishlagan?
+5. **`fstab`:** `cat /etc/fstab` ni ko'ring. UUID yoki qurilma nomi ishlatilganmi?
+6. **Test disk (VM):** Virtual mashinada ikkinchi disk qo'shing. `lsblk` → topiladimi? `parted` bilan GPT + ext4 partition yarating.
+7. **`fdisk -l`:** `sudo fdisk -l | head -50` — barcha disklaringizning detallari.
+
+## 18. Bilim sinovi
+
+**Savol 1.** MBR va GPT farqi:
+
+- a) Bir xil
+- b) MBR eski (max 2 TB, 4 primary), GPT modern (deyarli cheksiz, 128+ partition)
+- c) MBR faqat Linux, GPT faqat Windows
+- d) GPT faqat SSD uchun
+
+<Callout type="success" title="Javob">
+**(b)** GPT — zamonaviy standart, UEFI bilan ishlaydi.[¹](https://wiki.archlinux.org/title/Partitioning)
+</Callout>
+
+**Savol 2.** Disk strukturasini ko'rish uchun eng oson:
+
+- a) `df`
+- b) `lsblk`
+- c) `mount`
+- d) `du`
+
+<Callout type="success" title="Javob">
+**(b)** `lsblk` — block qurilma daraxti.
+</Callout>
+
+**Savol 3.** `/etc/fstab` da qaysi format afzal?
+
+- a) `/dev/sda1`
+- b) `UUID=...`
+- c) `LABEL=...`
+- d) IP manzili
+
+<Callout type="success" title="Javob">
+**(b)** UUID — qurilma tartibi o'zgarganda ham ishlaydi.
+</Callout>
+
+**Savol 4.** Diskni butunlay tozalash uchun (ehtiyot bilan):
+
+- a) `rm -rf /dev/sda`
+- b) `wipefs -a /dev/sdb` yoki `dd if=/dev/zero of=/dev/sdb`
+- c) `format c:`
+- d) `delete /dev/sda`
+
+<Callout type="success" title="Javob">
+**(b)** `wipefs` partition metadata, `dd` to'liq nuqul.
+</Callout>
+
+**Savol 5.** Disk salomatligini ko'rish:
+
+- a) `du`
+- b) `df`
+- c) `smartctl -a /dev/sda`
+- d) `lsblk`
+
+<Callout type="success" title="Javob">
+**(c)** SMART — disk'ning ichki sensorlari va tarixi.
+</Callout>
+
+## Manbalar
+
+1. ArchWiki — Partitioning. [https://wiki.archlinux.org/title/Partitioning](https://wiki.archlinux.org/title/Partitioning)
+2. fdisk(8). [https://manpages.debian.org/bookworm/util-linux/fdisk.8.en.html](https://manpages.debian.org/bookworm/util-linux/fdisk.8.en.html)
+3. parted(8). [https://manpages.debian.org/bookworm/parted/parted.8.en.html](https://manpages.debian.org/bookworm/parted/parted.8.en.html)
+
+## Keyingi qadam
+
+👉 [LVM — Logical Volume Manager](/fundamentals/lvm)

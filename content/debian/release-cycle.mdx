@@ -1,0 +1,186 @@
+---
+title: "Stable / Testing / Sid"
+description: "Debian'ning uchta shoxchasi — Stable, Testing va Unstable (Sid) — va ular bir-biriga qanday bog'liq."
+order: 1
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/debian/introduction"
+learning_objectives:
+  - "Debian'ning uchta asosiy shoxchasini ajratish"
+  - "Yangi paketning Sid'dan Stable'ga yo'lini izohlash"
+  - "Qaysi shoxchani qachon tanlash kerakligini bilish"
+tags: ["debian", "release", "stable", "testing", "sid"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian — Releases"
+    url: "https://www.debian.org/releases/"
+  - title: "Debian FAQ — Debian distributions"
+    url: "https://www.debian.org/doc/manuals/debian-faq/ftparchives"
+  - title: "Debian — Debian Testing"
+    url: "https://www.debian.org/devel/testing"
+---
+
+Debian boshqa distributivlardan farqli ravishda **ko'p shoxchali** ishlaydi. Har vaqt **uchta asosiy shoxcha** mavjud: **Stable**, **Testing** va **Unstable (Sid)**. Paketlar Sid'dan boshlanib, Testing orqali Stable'ga yetib boradi.[²](https://www.debian.org/doc/manuals/debian-faq/ftparchives)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Stable, Testing va Sid shoxchalarining roli.
+- Paketning sayohati: Sid → Testing → Stable.
+- Qaysi shoxcha qaysi foydalanuvchi turiga mos.
+- `Experimental` shoxchasi qisqacha.
+</Callout>
+
+## 1. Uchta shoxcha
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   Sid (Unstable)  ──▶  Testing  ──▶  Stable                │
+│   doimo o'zgaradi      sinov           barqaror             │
+│   ko'p bug             oraliq          yamoq + xavfsizlik   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Stable (barqaror)
+
+Bu — **Debian'ning rasmiy nashri**. Hozir `bookworm` (Debian 12).
+
+- Faqat **xavfsizlik yamoqlari** va kritik bug-fix'lar oladi.
+- Paketlar o'zgarishlardan himoyalangan — versiya raqami doimiy qoladi.
+- Server, ishlab chiqarish muhitlari uchun ideal.
+
+### Testing
+
+- Stable'ga **tayyorgarlik bosqichidagi paketlar** to'plami.
+- Hozir Stable bo'lib chiqayotgan reliz `trixie` deb ataladi.
+- Paketlar Sid'da kamida 10 kun davomida jiddiy bug'larsiz qolsa, avtomatik ravishda Testing'ga ko'chiriladi.[³](https://www.debian.org/devel/testing)
+- Yangi paketlar uchun yetarli tezlikda yangilanadi, lekin u Stable'dan ko'ra barqarorroq.
+
+### Unstable (Sid)
+
+- Debian rivojlanish shoxchasi.
+- Ko'p hollarda yangi paketlar avval shu yerga keladi.
+- "Sid" doimiy nom — u "Stable nomiga aylanmaydi" (bu Toy Story'dagi yomon bolaga ishora).
+- **Doimo bug bo'lishi mumkin.**
+
+### Experimental
+
+To'rtinchi shoxcha — `experimental`. Bu rasmiy distributiv emas, balki Sid'dagi paketlar ham juda erta bo'lgan paketlar to'plami (masalan, asosiy kutubxonaning yangi versiyasi sinov uchun). Foydalanuvchilar uni qo'lda yoqishi kerak.
+
+## 2. Paketning sayohati
+
+```
+Yangi paket yoki versiya
+        ↓
+  Experimental (ixtiyoriy)
+        ↓
+       Sid
+        ↓ (10+ kun, jiddiy bug yo'q)
+     Testing
+        ↓ (reliz freeze va sinov)
+     Stable
+        ↓ (5 yildan keyin)
+   eski-stable
+```
+
+Bu jarayon paketning **xavfsizroq Stable'ga yetib borishini ta'minlaydi**.
+
+## 3. Qaysi shoxcha qaysi foydalanuvchi uchun?
+
+| Shoxcha | Kim uchun | Misol vaziyat |
+|---|---|---|
+| **Stable** | Server, kompyuter ishchi joyi | Veb-server, mijozlarga xizmat |
+| **Stable + backports** | Stable bilan barqarorlik, lekin ba'zi paketlar yangiroq | Dasturchi noutbuki |
+| **Testing** | Yangi dasturlarni xohlovchi tajribali foydalanuvchi | "Ish stoli" foydalanuvchi |
+| **Sid** | Debian dasturchilari, kuchli foydalanuvchilar | Paket sinovi, rivojlanish |
+| **Experimental** | Faqat paketni sinaganlar | Yangi GCC versiyasi sinov |
+
+## 4. Shoxchani o'zgartirish
+
+Stable'dan Testing'ga o'tish — kelajakdagi Stable relizga yo'lni ochish demakdir. `/etc/apt/sources.list` da kodli nomni o'zgartiring:
+
+```
+# Stable (bookworm) o'rniga Testing (trixie)
+deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
+```
+
+So'ng:
+
+```bash
+sudo apt update
+sudo apt full-upgrade
+```
+
+<Callout type="warning">
+**Stable'dan Testing/Sid'ga o'tish bir tomonlama amaliyot.** Orqaga qaytish murakkab va ko'pincha tizimni qayta o'rnatishga olib keladi. Ehtiyot bo'ling va majburiy ravishda backup oling.
+</Callout>
+
+## 5. Kodli nomlar va `stable` aliyaslari
+
+`sources.list` da ikki yondashuv:
+
+- **Kodli nom** (`bookworm`, `trixie`) — relizni qattiq biriktiradi. Yangi reliz chiqqanda, sizning tizimingiz **avtomatik yangilanmaydi**.
+- **Aliyaslar** (`stable`, `testing`, `unstable`) — har vaqt joriy reliz. Yangi reliz chiqqanda, sizning tizimingiz **avtomatik o'tadi**.
+
+Tavsiya: **kodli nom** ishlatish — bu kutilmagan reliz yangilanishidan saqlaydi.
+
+```
+# Yaxshi (kodli nom)
+deb http://deb.debian.org/debian bookworm main
+
+# Ehtiyot bo'ling (aliyas)
+deb http://deb.debian.org/debian stable main
+```
+
+## 6. Joriy holatingizni bilish
+
+```bash
+# Reliz va kodli nom
+cat /etc/debian_version
+lsb_release -a
+
+# Qaysi shoxchalar yoqilgan
+grep -h "^deb " /etc/apt/sources.list /etc/apt/sources.list.d/*.list
+```
+
+## 7. Mashqlar
+
+1. [debian.org/releases](https://www.debian.org/releases/) ni oching. Hozirgi Stable, Testing va Old Stable kodli nomlari nima?
+2. (Debian o'rnatilgan tizimda) `cat /etc/debian_version` natijasini ko'ring. Sizdagi versiya raqami nima?
+3. [Debian Testing sahifasi](https://www.debian.org/devel/testing) dan: paket Sid'dan Testing'ga avtomatik o'tishi uchun qancha kun kerak?
+
+## 8. Bilim sinovi
+
+**Savol 1.** Debian'ning rivojlanish shoxchasi qanday nomlanadi?
+
+- a) Stable
+- b) Testing
+- c) Sid (Unstable)
+- d) Beta
+
+<Callout type="success" title="Javob">
+**(c)** Sid — Debian'ning Unstable shoxchasi.[²](https://www.debian.org/doc/manuals/debian-faq/ftparchives)
+</Callout>
+
+**Savol 2.** Paket Sid'dan Testing'ga avtomatik ko'chishi uchun nima talab qilinadi?
+
+- a) Dasturchi qo'lda ko'chirishi
+- b) Kamida 10 kun jiddiy bug bo'lmasligi
+- c) Foydalanuvchilar ovoz berishi
+- d) Reliz menejeri tasdiqlashi
+
+<Callout type="success" title="Javob">
+**(b)** Standart sinov muddati — 10 kun jiddiy bug bo'lmasligi.[³](https://www.debian.org/devel/testing)
+</Callout>
+
+## Manbalar
+
+1. Debian — Releases. [https://www.debian.org/releases/](https://www.debian.org/releases/)
+2. Debian FAQ — Debian distributions. [https://www.debian.org/doc/manuals/debian-faq/ftparchives](https://www.debian.org/doc/manuals/debian-faq/ftparchives)
+3. Debian — Debian Testing. [https://www.debian.org/devel/testing](https://www.debian.org/devel/testing)
+
+## Keyingi qadam
+
+👉 [Tizim administratsiyasi](/debian/system-administration)

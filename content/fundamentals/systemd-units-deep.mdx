@@ -1,0 +1,548 @@
+---
+title: "systemd unit chuqur"
+description: "systemd unit turlari — service, target, socket, mount, path, slice — va dependency tizimi."
+order: 132
+level: "advanced"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/services"
+learning_objectives:
+  - "Unit turlari va ularning maqsadi"
+  - "Dependency tizimi (Wants, Requires, After, Before)"
+  - "Override config (drop-in)"
+  - "Socket activation"
+tags: ["advanced", "systemd", "units", "dependency"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "systemd documentation"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/"
+  - title: "systemd.unit(5)"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html"
+  - title: "ArchWiki — systemd"
+    url: "https://wiki.archlinux.org/title/Systemd"
+---
+
+systemd nafaqat init tizim, balki **butun system management framework**. Service'lar — bu faqat boshlanish. Bu darsda systemd'ning kuchli unit turlari va dependency tizimini ko'rib chiqamiz.[¹](https://www.freedesktop.org/software/systemd/man/latest/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Unit turlari: service, target, socket, mount, path, timer, slice.
+- Dependency tizimi.
+- Drop-in overrides.
+- Socket activation.
+- Template units.
+</Callout>
+
+## 1. Unit turlari
+
+| Tur | Tavsif |
+|---|---|
+| `.service` | Xizmat (jarayon) |
+| `.target` | Boshqa unitlar guruhi (runlevel kabi) |
+| `.socket` | Socket activation |
+| `.mount` | Filesystem mount |
+| `.automount` | Avtomatik talab bo'yicha mount |
+| `.timer` | Vaqt asoslangan trigger |
+| `.path` | Fayl tizimi o'zgarishini kuzatish |
+| `.slice` | Resource group (cgroup) |
+| `.scope` | Tashqi yaratilgan process'lar |
+| `.swap` | Swap qurilma |
+| `.device` | Yadrodan qurilma |
+
+```bash
+# Hamma unitlar
+systemctl list-units
+
+# Faqat aniq tur
+systemctl list-units --type=service
+systemctl list-units --type=timer
+systemctl list-units --type=socket
+```
+
+## 2. Unit fayl joylashuvi
+
+| Yo'l | Maqsad | Ustuvorlik |
+|---|---|---|
+| `/etc/systemd/system/` | Lokal admin (eng yuqori) | 1 |
+| `/run/systemd/system/` | Runtime | 2 |
+| `/usr/lib/systemd/system/` | Paket o'rnatgan (eng past) | 3 |
+
+Bir xil nom — yuqori ustuvorlik bostiradi.
+
+## 3. Service unit — chuqur
+
+```ini
+[Unit]
+Description=My Application
+Documentation=https://example.com/docs
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=myapp
+Group=myapp
+WorkingDirectory=/opt/myapp
+EnvironmentFile=-/etc/myapp/env
+ExecStartPre=/opt/myapp/bin/check.sh
+ExecStart=/opt/myapp/bin/server
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/opt/myapp/bin/stop.sh
+
+# Restart
+Restart=on-failure
+RestartSec=10s
+
+# Timeout
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+
+# Resource
+MemoryMax=512M
+CPUQuota=50%
+LimitNOFILE=4096
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/myapp
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### `Type=` ko'rinishlar
+
+| Type | Tavsif |
+|---|---|
+| `simple` | ExecStart asosiy jarayon (default) |
+| `forking` | Eski-uslubdagi (fork qiladi) |
+| `oneshot` | Bir martalik, tugagandan keyin tugaydi |
+| `notify` | sd_notify bilan systemd'ga signal |
+| `dbus` | D-Bus tomonidan boshqariladi |
+| `idle` | Tizim idle bo'lguncha kutadi |
+
+### `Restart=` opsiyalar
+
+- `no` (default) — qayta boshlamaslik.
+- `always` — har vaziyatda.
+- `on-success` — exit 0 bo'lganda.
+- `on-failure` — exit non-zero, signal, watchdog.
+- `on-abnormal` — signal yoki watchdog.
+- `on-watchdog` — faqat watchdog.
+
+### Security parametrlar (modern hardening)
+
+| Parametr | Maqsad |
+|---|---|
+| `NoNewPrivileges=true` | SUID/SGID inkor |
+| `ProtectSystem=strict` | / read-only (faqat ReadWritePaths) |
+| `ProtectHome=true` | /home, /root, /run/user inkor |
+| `PrivateTmp=true` | Alohida /tmp |
+| `PrivateDevices=true` | /dev cheklash |
+| `ProtectKernelTunables=true` | /proc, /sys read-only |
+| `ProtectKernelModules=true` | Modul yuklash bloklash |
+| `RestrictNamespaces=true` | Namespace bloklash |
+| `RestrictRealtime=true` | Real-time scheduling bloklash |
+| `SystemCallFilter=` | Syscall whitelist |
+| `CapabilityBoundingSet=` | Capabilities cheklash |
+| `AmbientCapabilities=` | Capabilities bersih |
+
+## 4. Dependency turlari
+
+| Direktiv | Ma'no |
+|---|---|
+| `Wants=foo` | Yumshoq dependency — foo'ni boshlashga harakat, lekin xato bo'lsa davom etadi |
+| `Requires=foo` | Qattiq — foo to'xtasa, biz ham to'xtaymiz |
+| `Requisite=foo` | Talab — foo allaqachon ishlamoqda bo'lishi shart |
+| `BindsTo=foo` | Requires + foo o'lganda biz ham |
+| `PartOf=foo` | foo to'xtasa biz ham, lekin biz to'xtasak foo'ga ta'sir yo'q |
+| `Conflicts=foo` | foo va biz birga ishlay olmaymiz |
+| `Before=foo` | Biz foo'dan oldin boshlanamiz |
+| `After=foo` | Biz foo'dan keyin boshlanamiz |
+
+### Misol
+
+```ini
+[Unit]
+Description=Web app
+Requires=postgresql.service
+Wants=redis.service
+After=postgresql.service redis.service network-online.target
+Conflicts=maintenance.target
+```
+
+## 5. Target — runlevel kabi
+
+Target — bir nechta unitlarni guruhlash:
+
+```
+default.target → graphical.target → multi-user.target → basic.target → sysinit.target
+```
+
+### Custom target
+
+```ini
+# /etc/systemd/system/lab.target
+[Unit]
+Description=Lab environment
+Wants=postgresql.service nginx.service docker.service
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable lab.target
+sudo systemctl isolate lab.target
+```
+
+## 6. Socket activation
+
+Socket activation — service'ni faqat klient ulanganda boshlash. Resource tejaydi.
+
+### Service
+
+```ini
+# /etc/systemd/system/myapp.service
+[Unit]
+Description=My App
+
+[Service]
+ExecStart=/opt/myapp/bin/server
+```
+
+### Socket
+
+```ini
+# /etc/systemd/system/myapp.socket
+[Unit]
+Description=My App socket
+
+[Socket]
+ListenStream=8080
+Accept=false
+
+[Install]
+WantedBy=sockets.target
+```
+
+```bash
+sudo systemctl enable --now myapp.socket
+# Endi 8080 portga ulanish bo'lganida myapp.service avtomatik boshlanadi
+```
+
+`Accept=false` — service'ga socket'ni uzatadi (klient kelganida).
+`Accept=true` — har klient uchun yangi instance.
+
+Foydalanuvchi: `sshd`, `cups`, ko'p tarmoq xizmatlari.
+
+## 7. Path activation
+
+Fayl/katalog o'zgarishida service ishga tushadi:
+
+```ini
+# /etc/systemd/system/process-uploads.path
+[Path]
+PathChanged=/srv/uploads
+Unit=process-uploads.service
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```ini
+# /etc/systemd/system/process-uploads.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/process.sh
+```
+
+```bash
+sudo systemctl enable --now process-uploads.path
+```
+
+Endi `/srv/uploads`'da fayl o'zgargan zahoti service ishga tushadi.
+
+## 8. Template unit (@)
+
+Bir unit fayl — ko'p instance:
+
+`/etc/systemd/system/myapp@.service`:
+
+```ini
+[Unit]
+Description=My App instance %i
+
+[Service]
+ExecStart=/opt/myapp/bin/server --port=%i
+```
+
+Foydalanish:
+
+```bash
+sudo systemctl start myapp@8080.service
+sudo systemctl start myapp@8081.service
+sudo systemctl start myapp@8082.service
+```
+
+`%i` — instance nomi.
+
+Misol: `getty@tty1.service` — har TTY uchun alohida getty.
+
+## 9. Drop-in (override)
+
+Asosiy unit faylni o'zgartirmasdan, override qilish:
+
+```bash
+sudo systemctl edit myapp.service
+```
+
+Editor ochiladi — `/etc/systemd/system/myapp.service.d/override.conf`:
+
+```ini
+[Service]
+Environment="DEBUG=1"
+MemoryMax=1G
+```
+
+`ExecStart=` ni override qilish uchun:
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/new/command
+```
+
+Birinchi `ExecStart=` — eski qiymatni bekor qiladi.
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart myapp.service
+```
+
+## 10. Slice — resource group (cgroup)
+
+Cgroup'ga asoslangan resource isolation:
+
+```ini
+# /etc/systemd/system/myapps.slice
+[Slice]
+CPUQuota=50%
+MemoryMax=2G
+```
+
+```ini
+# service
+[Service]
+Slice=myapps.slice
+```
+
+Hamma myapps.slice ichidagi servicelar birgalikda 50% CPU va 2 GB RAM ishlatadi.
+
+## 11. Asosiy systemd buyruqlar — chuqur
+
+```bash
+# Unit cheklab tahlil
+systemctl cat <unit>          # Asosiy fayl
+systemctl show <unit>         # Hamma parametrlar
+systemctl status <unit>       # Status + oxirgi loglar
+
+# Dependency
+systemctl list-dependencies <unit>
+systemctl list-dependencies --reverse <unit>
+
+# Failed
+systemctl --failed
+systemctl reset-failed
+
+# Reload qilmasdan
+systemctl daemon-reload       # Yangi/o'zgartirilgan unit fayllar uchun
+systemctl reload <unit>       # Service config qayta o'qish (SIGHUP)
+systemctl restart <unit>      # To'liq qayta boshlash
+
+# Edit
+systemctl edit <unit>         # Drop-in
+systemctl edit --full <unit>  # To'liq fayl
+
+# Disable + remove
+systemctl disable --now <unit>
+
+# Mask (butunlay bloklash)
+sudo systemctl mask <unit>
+sudo systemctl unmask <unit>
+
+# Bootlash holatini ko'rish
+systemctl is-enabled <unit>   # enabled / disabled / masked
+systemctl is-active <unit>    # active / inactive / failed
+```
+
+## 12. Misol — to'liq production service
+
+```ini
+# /etc/systemd/system/myapp.service
+[Unit]
+Description=My production application
+Documentation=https://docs.example.com/myapp
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=notify
+User=myapp
+Group=myapp
+WorkingDirectory=/opt/myapp
+EnvironmentFile=/etc/myapp/env
+
+ExecStartPre=/opt/myapp/bin/migrate.sh
+ExecStart=/opt/myapp/bin/server
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=on-failure
+RestartSec=10s
+StartLimitInterval=600
+StartLimitBurst=5
+
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+
+# Resource
+LimitNOFILE=65536
+MemoryMax=2G
+CPUQuota=200%
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+
+ReadWritePaths=/var/lib/myapp /var/log/myapp
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `systemctl cat <unit>` | Asosiy fayl ko'rish |
+| `systemctl show <unit>` | Hamma parametrlar |
+| `systemctl edit <unit>` | Drop-in override |
+| `systemctl edit --full <unit>` | To'liq edit |
+| `systemctl list-dependencies <unit>` | Dependency daraxti |
+| `systemctl --failed` | Xato bilan to'xtaganlar |
+| `systemctl reset-failed` | Failed status'ni reset |
+| `systemctl mask <unit>` | Butunlay bloklash |
+| `systemctl is-enabled/is-active` | Holat tekshirish |
+| `systemd-analyze blame` | Boot sekinligi |
+| `systemd-analyze security <unit>` | Security score |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`daemon-reload`** unutish — yangi yoki o'zgartirilgan unit fayllar uchun majburiy.
+- **`Type=simple`** lekin dastur fork qiladi — systemd uni "tugagan" deb hisoblaydi.
+- **Override'da `ExecStart=` reset qilmaslik** — yangi qiymat default bilan birga ishlaydi.
+- **`Wants` vs `Requires`** chalkashlik — yumshoq vs qattiq dependency.
+- **Security parametrlar service'ni buzadi** — `ProtectSystem=strict` lekin `/var/lib/myapp`'ga yozish kerak. `ReadWritePaths=` qo'shing.
+
+## 15. Eng yaxshi amaliyot
+
+- **Drop-in override** — `systemctl edit` bilan paket fayl'ini o'zgartirmasdan.
+- **Security hardening** — `ProtectSystem`, `PrivateTmp`, `NoNewPrivileges`.
+- **`systemd-analyze security <unit>`** — score ko'rib turing.
+- **Resource limits** har production service'da.
+- **`Restart=on-failure`** + `StartLimitBurst=`.
+- **`Type=notify`** — modern dasturlar uchun (sd_notify).
+- **Documentation**: `Documentation=` URL.
+
+## 16. Mashqlar
+
+1. **Inventarizatsiya:** `systemctl list-units --type=service --state=running | wc -l` — qancha xizmat?
+2. **Dependency:** `systemctl list-dependencies graphical.target` — daraxt qancha katta?
+3. **Security score:** `systemd-analyze security ssh.service` — qanday score?
+4. **Drop-in:** Biror service'ga `systemctl edit` orqali `MemoryMax=512M` qo'shing.
+5. **Failed:** `systemctl --failed` — bormi?
+6. **Test service:** Yangi `.service` + `.timer` yarating va enable qiling.
+
+## 17. Bilim sinovi
+
+**Savol 1.** Unit faylni o'zgartirmasdan override:
+
+- a) `systemctl edit <unit>`
+- b) `nano /usr/lib/systemd/...`
+- c) Imkonsiz
+- d) `systemctl override`
+
+<Callout type="success" title="Javob">
+**(a)** Drop-in directory yaratiladi `/etc/systemd/system/<unit>.d/`.[¹](https://www.freedesktop.org/software/systemd/man/latest/)
+</Callout>
+
+**Savol 2.** `Wants` va `Requires` farqi:
+
+- a) Bir xil
+- b) `Wants` — yumshoq (foo xato — biz davom etamiz); `Requires` — qattiq (foo to'xtasa biz ham)
+- c) `Requires` faqat root uchun
+- d) `Wants` faqat parallel
+
+<Callout type="success" title="Javob">
+**(b)** Dependency darajasi farqi.
+</Callout>
+
+**Savol 3.** Socket activation nima beradi?
+
+- a) Tezroq service
+- b) Service faqat klient ulanganda boshlanadi (resource tejaydi)
+- c) Faqat web uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** On-demand activation.
+</Callout>
+
+**Savol 4.** Template unit (`foo@.service`) qachon foydali?
+
+- a) Bir nechta instance kerak bo'lganda (har portda, har user uchun)
+- b) Faqat bir martalik
+- c) Hech qachon
+- d) Faqat container'da
+
+<Callout type="success" title="Javob">
+**(a)** `getty@tty1`, `sshd@`, `docker@` — keng misol.
+</Callout>
+
+**Savol 5.** `systemd-analyze security <unit>` nima qiladi?
+
+- a) Hech narsa
+- b) Service'ning security hardening score'ini hisoblaydi
+- c) Logni audit qiladi
+- d) Service'ni o'chiradi
+
+<Callout type="success" title="Javob">
+**(b)** Modern systemd security hardening checklist.
+</Callout>
+
+## Manbalar
+
+1. systemd documentation. [https://www.freedesktop.org/software/systemd/man/latest/](https://www.freedesktop.org/software/systemd/man/latest/)
+2. systemd.unit(5). [https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html)
+3. ArchWiki — systemd. [https://wiki.archlinux.org/title/Systemd](https://wiki.archlinux.org/title/Systemd)
+
+## Keyingi qadam
+
+👉 [journalctl ilg'or](/fundamentals/journalctl-advanced)

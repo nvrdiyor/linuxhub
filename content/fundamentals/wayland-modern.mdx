@@ -1,0 +1,378 @@
+---
+title: "Wayland va modern grafik"
+description: "Wayland — X11 keyingi avlod display protocol — sozlash, compositor'lar va X11 mosligi."
+order: 144
+level: "advanced"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/display-servers"
+learning_objectives:
+  - "Wayland va X11 farqlari"
+  - "Compositor'lar (Mutter, KWin, Sway)"
+  - "Xwayland — X11 mosligi"
+  - "Wayland'da troubleshooting"
+tags: ["advanced", "wayland", "x11", "graphics", "compositor"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Wayland Documentation"
+    url: "https://wayland.freedesktop.org/"
+  - title: "ArchWiki — Wayland"
+    url: "https://wiki.archlinux.org/title/Wayland"
+  - title: "Sway"
+    url: "https://swaywm.org/"
+---
+
+**Wayland** — X11'ning keyingi avlod displey protokoli. 2008'dan rivojlanmoqda, hozir modern Linux desktop standartlariga aylanmoqda. Bu darsda Wayland va X11 o'rtasidagi farqlarni va modern compositor'larni o'rganamiz.[¹](https://wayland.freedesktop.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- X11 muammolari va Wayland yechimi.
+- Compositor turlari (Mutter, KWin, Sway, Hyprland).
+- Xwayland — eski ilovalar uchun X11 layer.
+- Misol Wayland session sozlash.
+- Troubleshooting.
+</Callout>
+
+## 1. X11 muammolari
+
+X Window System (1984) — 40+ yoshli protokol. Muammolari:
+
+- **Murakkab arxitektura** — X server + window manager + compositor alohida.
+- **Security** — har klient boshqalar oynalarini ko'ra oladi (keylogger trivial).
+- **Tearing** — vertikal sinxronlash muammolari.
+- **DPI** — multi-monitor turli DPI bilan ishlamaydi.
+- **Modular emas** — har display drayveri X server modul'iga muhtoj.
+
+## 2. Wayland yechimi
+
+```
+X11:                          Wayland:
+
+[App] ──▶ [X Server] ──▶     [App] ──▶ [Compositor] ──▶ [Display]
+              │
+              ├── window manager
+              ├── compositor
+              └── input handling
+
+         Murakkab,             Bittada
+         insecure              compositor =
+                               WM + Compositor
+                               + display server
+```
+
+Wayland'da **compositor** — display server, window manager va compositor birgalikda.
+
+| Xususiyat | X11 | Wayland |
+|---|---|---|
+| Yosh | 1984 | 2008 |
+| Arxitektura | Server + WM + Compositor | Compositor (bir narsa) |
+| Security | Ochiq (har app boshqalarni ko'radi) | Izolyatsiya |
+| Network transparency | Ha | Yo'q (waypipe alohida) |
+| Tearing | Ko'p | Yo'q (frame-perfect) |
+| Multi-DPI | Yomon | Yaxshi |
+| Eski apps | Native | Xwayland orqali |
+
+## 3. Mashhur Wayland compositor'lar
+
+| Compositor | Asos | Foydalanish |
+|---|---|---|
+| **Mutter** | GNOME | GNOME shell |
+| **KWin (Wayland)** | KDE | KDE Plasma |
+| **Sway** | i3 mos | Tile WM (i3 sevuvchilar) |
+| **Hyprland** | Modern tile | Eye candy, animatsiyalar |
+| **River** | dwm asoslangan | Minimal |
+| **Cosmic** | System76 | Pop!_OS |
+| **Weston** | Reference | Test |
+| **Wayfire** | Compiz uslubi | 3D effektlar |
+
+## 4. Joriy session — Wayland yoki X11?
+
+```bash
+# Environment
+echo $XDG_SESSION_TYPE
+# wayland yoki x11
+
+# loginctl orqali
+loginctl show-session $(loginctl | grep $USER | awk '{print $1}') -p Type
+```
+
+GDM (GNOME) login screen'ida session tanlash mumkin: "Ubuntu on Wayland" yoki "Ubuntu on Xorg".
+
+## 5. GNOME Wayland (default ko'p distributivlarda)
+
+Ubuntu 21.04+, Fedora 25+ — Wayland default. Hech qanday qo'shimcha sozlash kerak emas.
+
+Tekshirish:
+
+```bash
+echo $XDG_SESSION_TYPE
+# wayland
+```
+
+GNOME ilovalar — native Wayland. Eski X11 ilovalar — Xwayland orqali avtomatik.
+
+## 6. Sway — i3 muqobil
+
+[Sway](https://swaywm.org/) — i3'ga aniq mos Wayland compositor. Keyboard-focused.[³](https://swaywm.org/)
+
+```bash
+# O'rnatish
+sudo apt install sway
+
+# Login screen'idan tanlash, yoki TTY'dan
+sway
+```
+
+`~/.config/sway/config` (yoki `/etc/sway/config`'dan nusxa olish):
+
+```
+# Modifier
+set $mod Mod4
+
+# Terminal
+set $term alacritty
+bindsym $mod+Return exec $term
+
+# App launcher
+set $menu wofi --show drun
+bindsym $mod+d exec $menu
+
+# Window navigation (i3 kabi)
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+
+# Window moving
+bindsym $mod+Shift+h move left
+
+# Workspaces
+bindsym $mod+1 workspace 1
+bindsym $mod+2 workspace 2
+
+# Output (monitor)
+output HDMI-A-1 resolution 1920x1080 position 0,0
+output DP-1 resolution 2560x1440 position 1920,0
+
+# Reload config
+bindsym $mod+Shift+c reload
+```
+
+## 7. Hyprland — modern eye candy
+
+[Hyprland](https://hyprland.org/) — animatsiyalar va effektlar bilan modern tile compositor.
+
+```bash
+# Arch
+sudo pacman -S hyprland
+
+# `Hyprland` buyrug'i bilan ishga tushirish
+```
+
+`~/.config/hypr/hyprland.conf` — boy konfiguratsiya.
+
+## 8. Xwayland — eski X11 ilovalar uchun
+
+Wayland session'da X11 ilovalar **Xwayland** orqali ishlaydi:
+
+```
+[X11 App] ──▶ [Xwayland] ──▶ [Wayland Compositor]
+```
+
+Tekshirish:
+
+```bash
+ps aux | grep Xwayland
+```
+
+Foydalanuvchi sezmaydi — avtomatik. Performance asosan native.
+
+## 9. Misollar — qaysi app Wayland native?
+
+| Ilova | Wayland | Eslatma |
+|---|---|---|
+| Firefox | Native (env bilan) | `MOZ_ENABLE_WAYLAND=1` |
+| Chromium/Chrome | Flag bilan | `--enable-features=UseOzonePlatform --ozone-platform=wayland` |
+| GIMP | Xwayland | 3.0 versiyada native |
+| Inkscape | Xwayland | |
+| LibreOffice | Xwayland | |
+| VS Code | Flag bilan | `--enable-features=UseOzonePlatform --ozone-platform=wayland` |
+| Steam | Xwayland | |
+| GNOME ilovalar | Native | |
+
+### Firefox Wayland yoqish
+
+```bash
+# Vaqtinchalik
+MOZ_ENABLE_WAYLAND=1 firefox
+
+# Doimiy
+echo "export MOZ_ENABLE_WAYLAND=1" >> ~/.bashrc
+```
+
+Yoki `~/.config/environment.d/wayland.conf`:
+
+```
+MOZ_ENABLE_WAYLAND=1
+```
+
+## 10. Screen sharing — Wayland muammosi
+
+X11'da screen sharing oson edi — har app ekranni ko'ra olardi. Wayland'da xavfsizlik uchun — yo'q.
+
+Yechim: **PipeWire** + **xdg-desktop-portal**:
+
+```bash
+sudo apt install pipewire pipewire-pulse wireplumber \
+    xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-wlr
+```
+
+So'ng Zoom, OBS, Chrome — `xdg-desktop-portal` orqali ekran tanlash dialog'i ko'rsatadi.
+
+## 11. Tarmoq orqali ekran — `waypipe`
+
+X11'da `ssh -X` orqali GUI ilovalar. Wayland'da:
+
+```bash
+sudo apt install waypipe
+
+# Server'da app ishga tushirish
+waypipe ssh user@server -- firefox
+```
+
+Local'da Wayland compositor'da ko'rinadi.
+
+## 12. Screenshot va screen recording
+
+```bash
+# Sodda screenshot — `grim`
+sudo apt install grim slurp
+grim screenshot.png
+grim -g "$(slurp)" selection.png
+
+# Screen recording — `wf-recorder`
+sudo apt install wf-recorder
+wf-recorder -f video.mp4
+```
+
+GNOME default `gnome-screenshot` (Ctrl+Shift+S).
+
+KDE — `Spectacle`.
+
+## 13. NVIDIA va Wayland
+
+NVIDIA proprietary drayver tarixiy Wayland'da yomon edi. **NVIDIA 525+** dan boshlab yaxshilanmoqda.
+
+Hozirgi holatda:
+
+- GNOME + NVIDIA 525+ — yaxshi ishlaydi.
+- Sway/Hyprland + NVIDIA — eksperimental, ko'p issue.
+
+Alternativa: **nouveau** (open-source) yoki Intel/AMD GPU.
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `echo $XDG_SESSION_TYPE` | Joriy session turi |
+| `loginctl show-session ... -p Type` | Aniq session |
+| `wayland-info` | Compositor ma'lumotlari |
+| `ps aux | grep Xwayland` | X11 fallback |
+| `grim screenshot.png` | Wayland screenshot |
+| `wf-recorder` | Screen recording |
+| `waypipe ssh ...` | Remote GUI |
+| `wofi`, `bemenu` | App launcher |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`xrandr` Wayland'da ishlamaydi** — display sozlash compositor orqali (GNOME Settings, `wlr-randr`).
+- **`xdotool`, `wmctrl`** ham ishlamaydi — Wayland security.
+- **Screen sharing — eski Zoom** — PipeWire portal yoki Xwayland fallback.
+- **NVIDIA + Sway** — driver muammosi. Modeset ihtiyot.
+- **`DISPLAY=:0` o'rniga `WAYLAND_DISPLAY`** — Wayland env o'zgaruvchi.
+- **Eski Electron ilovalar** — `--enable-features=UseOzonePlatform --ozone-platform=wayland` flag.
+
+## 16. Eng yaxshi amaliyot
+
+- **Modern desktop — Wayland.** Ko'p afzalliklar.
+- **Eski app'lar uchun Xwayland avtomatik** — ko'p hollarda muammosiz.
+- **Firefox/Chrome wayland flag** — performance va smooth scrolling.
+- **NVIDIA — GNOME bilan** (driver eng yaxshi qo'llab-quvvatlash).
+- **AMD/Intel — har joyda** — open-source drayver standart.
+- **i3'dan kelganlar — Sway.** Aksincha — eski Wayfire/Cosmic.
+- **PipeWire + portal** screen sharing uchun.
+
+## 17. Mashqlar
+
+1. **Session turi:** `echo $XDG_SESSION_TYPE` — siz qaysida?
+2. **Xwayland:** `ps aux | grep Xwayland` — fallback ishlamoqdami?
+3. **Firefox Wayland:** `MOZ_ENABLE_WAYLAND=1 firefox` — `about:support` da "Window Protocol" qaysi?
+4. **Screenshot:** `grim test.png` (yoki GNOME Screenshot).
+5. **Sway (ixtiyoriy):** O'rnatib TTY'dan `sway` qiling.
+
+## 18. Bilim sinovi
+
+**Savol 1.** Wayland va X11 asosiy farqi:
+
+- a) Bir xil
+- b) Wayland'da compositor = display server + WM + compositor (bittada); X11'da hammasi alohida
+- c) X11 modernroq
+- d) Faqat performance
+
+<Callout type="success" title="Javob">
+**(b)** Arxitektura sodalashtirilgan.[¹](https://wayland.freedesktop.org/)
+</Callout>
+
+**Savol 2.** Eski X11 ilovalar Wayland'da:
+
+- a) Ishlamaydi
+- b) Xwayland orqali avtomatik
+- c) Faqat manual install
+- d) Faqat root sifatida
+
+<Callout type="success" title="Javob">
+**(b)** Xwayland — shaffof layer.
+</Callout>
+
+**Savol 3.** Wayland xavfsizroq, chunki:
+
+- a) Tezroq
+- b) Har app o'z oynasidan tashqari ko'ra olmaydi (izolyatsiya)
+- c) Faqat root uchun
+- d) HTTPS bilan
+
+<Callout type="success" title="Javob">
+**(b)** Window isolation — keylogger qiyinroq.
+</Callout>
+
+**Savol 4.** Wayland screen sharing uchun:
+
+- a) Xdotool
+- b) PipeWire + xdg-desktop-portal
+- c) Faqat X11
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** Modern portal API.
+</Callout>
+
+**Savol 5.** i3 sevuvchilar uchun Wayland:
+
+- a) Mutter
+- b) Sway (i3-mos)
+- c) KWin
+- d) Weston
+
+<Callout type="success" title="Javob">
+**(b)** Sway — drop-in i3 alternative.[³](https://swaywm.org/)
+</Callout>
+
+## Manbalar
+
+1. Wayland Documentation. [https://wayland.freedesktop.org/](https://wayland.freedesktop.org/)
+2. ArchWiki — Wayland. [https://wiki.archlinux.org/title/Wayland](https://wiki.archlinux.org/title/Wayland)
+3. Sway. [https://swaywm.org/](https://swaywm.org/)
+
+## Keyingi qadam
+
+👉 [Linux kernel custom build](/fundamentals/kernel-build)

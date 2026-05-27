@@ -1,0 +1,518 @@
+---
+title: "Signallar va jarayon boshqaruvi"
+description: "Unix signallar — SIGTERM, SIGKILL, SIGHUP — kill, signal handling va jarayon hayot davri."
+order: 106
+level: "intermediate"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/processes"
+learning_objectives:
+  - "Asosiy signallar va ularning ma'nosi"
+  - "`kill`, `pkill`, `killall` bilan ishlash"
+  - "trap orqali signallarni boshqarish"
+  - "Graceful shutdown va kill -9 farqi"
+tags: ["intermediate", "signals", "kill", "trap", "processes"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "POSIX — Signals"
+    url: "https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_415"
+  - title: "Linux signal(7) manpage"
+    url: "https://man7.org/linux/man-pages/man7/signal.7.html"
+  - title: "kill(1) manpage"
+    url: "https://manpages.debian.org/bookworm/coreutils/kill.1.en.html"
+---
+
+**Signallar** — Unix'da jarayonlar o'rtasidagi asosiy aloqa mexanizmi. Ctrl+C bosganda — SIGINT signal. Tizimni o'chirganingizda — SIGTERM. Bu darsda signallar dunyosi bilan tanishamiz.[¹](https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_415)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Signal nima va u qanday yetkaziladi.
+- Asosiy POSIX signallar (SIGTERM, SIGKILL, SIGHUP, SIGINT).
+- `kill`, `pkill`, `killall` buyruqlari.
+- Skriptlarda `trap` bilan signallarni qabul qilish.
+- Graceful shutdown amaliyoti.
+</Callout>
+
+## 1. Signal nima?
+
+Signal — yadrodan jarayonga yuboriladigan **uzilish (interrupt)**. Jarayon o'zining ishini to'xtatib, signalni qayta ishlaydi.
+
+Manbalar:
+
+- **Foydalanuvchi** — Ctrl+C, `kill` buyrug'i.
+- **Yadro** — apparat xato, segfault, division by zero.
+- **Boshqa jarayon** — `kill(pid, signal)` system call.
+- **Tizim hodisalari** — child jarayon tugadi (SIGCHLD), terminal yopildi (SIGHUP).
+
+## 2. Asosiy POSIX signallar
+
+| Raqam | Nom | Default xulq | Qachon |
+|---|---|---|---|
+| 1 | SIGHUP | Terminate | Terminal yopildi |
+| 2 | SIGINT | Terminate | Ctrl+C |
+| 3 | SIGQUIT | Core dump | Ctrl+\ |
+| 6 | SIGABRT | Core dump | `abort()` |
+| 9 | SIGKILL | Terminate (force) | **Bloklash mumkin emas** |
+| 11 | SIGSEGV | Core dump | Segmentation fault |
+| 13 | SIGPIPE | Terminate | Pipe o'qiluvchisi yo'q |
+| 14 | SIGALRM | Terminate | Alarm taymer |
+| 15 | SIGTERM | Terminate (graceful) | `kill` default |
+| 17 | SIGCHLD | Ignore | Child jarayoni tugadi |
+| 18 | SIGCONT | Continue | To'xtagan jarayonni davom ettirish |
+| 19 | SIGSTOP | Stop (force) | **Bloklash mumkin emas** |
+| 20 | SIGTSTP | Stop | Ctrl+Z |
+
+To'liq ro'yxat: `kill -l`:
+
+```bash
+kill -l
+# 1) SIGHUP   2) SIGINT   3) SIGQUIT   4) SIGILL   5) SIGTRAP
+# 6) SIGABRT  7) SIGBUS   8) SIGFPE    9) SIGKILL  10) SIGUSR1
+# ...
+```
+
+## 3. Signal yuborish — `kill`
+
+```bash
+# Default — SIGTERM (15)
+kill <PID>
+
+# Aniq signal
+kill -SIGTERM <PID>
+kill -TERM <PID>
+kill -15 <PID>      # raqam bilan
+kill -9 <PID>       # SIGKILL
+
+# Bir nechta PID
+kill 1234 5678 9012
+```
+
+### `kill -9` — oxirgi chora
+
+```bash
+kill -9 <PID>       # SIGKILL
+```
+
+SIGKILL bloklash, qabul qilish yoki to'xtatish **mumkin emas**. Yadro to'g'ridan-to'g'ri jarayonni o'chiradi.
+
+**Muammo:** jarayon o'zining tozalash kodini bajarmaydi:
+
+- Ochiq fayllar yopilmaydi (ma'lumot yo'qotish xavfi).
+- Vaqtinchalik fayllar qoladi.
+- Network connection'lar buzilgan.
+- Ma'lumotlar bazasi qisman yangilanish.
+
+**Yo'l:** avval `kill <PID>` (SIGTERM) yuboring. Bir necha soniya kuting. Faqat agar jarayon javob bermasa — `kill -9`.
+
+## 4. Nom bo'yicha — `pkill`, `killall`
+
+```bash
+# Nom bo'yicha (qisman moslik)
+pkill firefox
+
+# Aniq nom
+killall firefox
+
+# Aniq foydalanuvchi
+pkill -u ali firefox
+
+# Eng yangi
+pkill -n firefox
+
+# Eng eski
+pkill -o firefox
+
+# Signal bilan
+pkill -SIGHUP nginx
+killall -HUP nginx
+```
+
+### `pgrep` — PID topish
+
+```bash
+# PID(lar)
+pgrep firefox
+# 12345
+
+# To'liq ma'lumot
+pgrep -a firefox
+# 12345 /usr/lib/firefox/firefox
+
+# Counting
+pgrep -c bash
+# 3
+```
+
+## 5. SIGTERM vs SIGKILL — graceful shutdown
+
+```
+SIGTERM (15)        SIGKILL (9)
+   │                   │
+   ↓                   ↓
+Jarayonga           Yadroga
+"iltimos to'xta"    "darrov o'chir"
+   │                   │
+   ↓                   ↓
+Tozalash:           Hech narsa:
+- ochiq fayllar     - jarayon yo'q
+- pipe'lar
+- buffer flush
+- child jarayonlar
+- exit handler'lar
+```
+
+Misol:
+
+```bash
+# Veb-server
+sudo systemctl stop nginx    # SIGTERM — graceful, mijozlar tugaguncha kutadi
+
+# Falokat holatda
+sudo kill -9 $(pidof nginx)  # SIGKILL — darrov, ammo mijozlar buziladi
+```
+
+## 6. SIGHUP — qayta yuklash
+
+Tarixiy: terminal yopilganida shell uning child jarayonlariga SIGHUP yuboradi.
+
+Modern foydalanish: **xizmatni qayta sozlash** uchun:
+
+```bash
+# Nginx konfiguratsiyasini qayta o'qish
+sudo kill -HUP $(cat /var/run/nginx.pid)
+
+# Yoki
+sudo systemctl reload nginx
+```
+
+`reload` ko'pincha SIGHUP yuboradi.
+
+### `nohup` — SIGHUP ni inkor qilish
+
+```bash
+# Terminal yopilsa ham davom etish
+nohup my-long-script.sh &
+
+# Chiqish: nohup.out faylga
+```
+
+`disown` — joriy jarayonni shell PID'idan ajratish:
+
+```bash
+sleep 1000 &
+disown    # endi terminal yopilsa ham ishlashda davom etadi
+```
+
+## 7. Ctrl+C va Ctrl+Z
+
+| Yorlik | Signal | Effekt |
+|---|---|---|
+| Ctrl+C | SIGINT (2) | Jarayonni to'xtatish (graceful interrupt) |
+| Ctrl+Z | SIGTSTP (20) | Jarayonni to'xtatish (suspend, davom ettirish mumkin) |
+| Ctrl+\ | SIGQUIT (3) | Core dump bilan to'xtatish |
+| Ctrl+D | EOF | Stdin'ni yopish (signal emas) |
+
+Misol:
+
+```bash
+sleep 100
+# Ctrl+Z — jarayon to'xtaydi (suspended)
+
+jobs
+# [1]+ Stopped sleep 100
+
+# Davom ettirish (background)
+bg %1
+
+# Davom ettirish (foreground)
+fg %1
+
+# Yoki SIGKILL
+kill %1
+```
+
+## 8. `trap` — signalni qabul qilish
+
+Bash skriptlarda signalga reaksiya:
+
+```bash
+#!/bin/bash
+
+cleanup() {
+    echo "Tozalash..."
+    rm -f /tmp/mytempfile
+    exit 0
+}
+
+# Ctrl+C va kill ushlash
+trap cleanup SIGINT SIGTERM
+
+# Vaqtinchalik fayl
+touch /tmp/mytempfile
+
+# Ish
+echo "Ishlamoqda... Ctrl+C bosing"
+while true; do
+    sleep 1
+done
+```
+
+### Ko'p ishlatiladigan trap
+
+```bash
+# EXIT — skript tugaganda (har qanday yo'l bilan)
+trap 'rm -f /tmp/mytemp' EXIT
+
+# ERR — har qanday buyruq xato bo'lganda (set -e bilan)
+trap 'echo "Xato qatorda $LINENO"' ERR
+```
+
+### `trap -l` — barcha signallar
+
+```bash
+trap -l
+```
+
+### Reset trap
+
+```bash
+# Default xulqqa qaytarish
+trap - SIGINT
+
+# Hech narsa qilmaslik (ignore)
+trap '' SIGINT
+```
+
+## 9. `wait` — child jarayonlarni kutish
+
+```bash
+# Background ishga tushirish
+long-task1 &
+PID1=$!
+
+long-task2 &
+PID2=$!
+
+# Ikkalasini ham kutish
+wait $PID1 $PID2
+
+echo "Hammasi tugadi"
+```
+
+```bash
+# Hamma background jarayonlarni kutish
+wait
+```
+
+## 10. Misol — graceful Python skript
+
+```python
+#!/usr/bin/env python3
+import signal
+import sys
+import time
+
+def handler(sig, frame):
+    print(f"\nSignal {sig} qabul qilindi. Tozalash...")
+    # Tozalash kodi
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, handler)
+signal.signal(signal.SIGTERM, handler)
+
+print("Ishlamoqda... Ctrl+C bosing")
+while True:
+    time.sleep(1)
+```
+
+## 11. Misol — Node.js graceful shutdown
+
+```javascript
+const server = require('http').createServer(...);
+server.listen(3000);
+
+function shutdown() {
+    console.log('Yopilmoqda...');
+    server.close(() => {
+        console.log('Server yopildi');
+        process.exit(0);
+    });
+
+    // 10 soniyada ham yopilmasa — majburiy
+    setTimeout(() => {
+        console.error('Force shutdown');
+        process.exit(1);
+    }, 10000);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+```
+
+## 12. systemd va signallar
+
+systemd xizmatlar uchun signal sozlamalari:
+
+```ini
+[Service]
+ExecStart=/usr/local/bin/myapp
+KillSignal=SIGTERM           # default
+TimeoutStopSec=30            # 30 soniya kutish, keyin SIGKILL
+SendSIGKILL=yes              # default — SIGKILL yuborish
+```
+
+```bash
+# Xizmatga signal yuborish
+sudo systemctl kill --signal=SIGHUP nginx
+sudo systemctl kill --signal=SIGUSR1 myapp
+```
+
+## 13. `SIGUSR1` va `SIGUSR2` — foydalanuvchi belgilangan
+
+Bu signallar dasturchilar uchun ochiq qoldirilgan — har dastur o'z ma'nosini belgilaydi.
+
+Misollar:
+
+- `nginx` SIGUSR1 — log fayllarni qayta ochish (log rotation uchun).
+- PostgreSQL SIGUSR1 — buffer'larni faylga yozish.
+- Many apps SIGUSR2 — debug rejimga o'tish.
+
+```bash
+# Nginx log rotation
+sudo mv access.log access.log.old
+sudo kill -USR1 $(cat /var/run/nginx.pid)
+# Nginx yangi access.log fayl yaratadi
+```
+
+## 14. SIGSTOP va SIGCONT — pause/resume
+
+```bash
+# Jarayonni to'xtatish (suspend)
+kill -STOP <PID>
+
+# Davom ettirish
+kill -CONT <PID>
+```
+
+SIGSTOP ham bloklash mumkin emas. SIGCONT bilan tiklanadi.
+
+Foydali — CPU yoki tarmoq band qilayotgan jarayonni vaqtinchalik to'xtatish.
+
+## 15. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `kill <PID>` | SIGTERM yuborish |
+| `kill -9 <PID>` | SIGKILL (majburiy) |
+| `kill -l` | Hamma signallar ro'yxati |
+| `pkill <nom>` | Nom bo'yicha kill |
+| `killall <nom>` | Aniq nom bo'yicha |
+| `pgrep <nom>` | PID topish |
+| `nohup cmd &` | HUP'ga toleant background |
+| `disown` | Jarayonni shell PID'idan ajratish |
+| `jobs` | Background va to'xtagan jarayonlar |
+| `bg %N` | Jarayonni background'ga |
+| `fg %N` | Jarayonni foreground'ga |
+| `trap CMD SIGNAL` | Skriptda signal handler |
+| `wait <PID>` | Jarayonni kutish |
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **Avval `kill -9`** — jarayon tozalash bajarmaydi, ma'lumot yo'qoladi. Avval `kill` (SIGTERM).
+- **`pkill firefox` — istamagan jarayonlarni kill** — `firefox-launcher` ham mos kelishi mumkin. `pkill -x` (aniq) yoki `killall` ishlating.
+- **`kill -9 1`** — init jarayoniga SIGKILL — yadro panic.
+- **Skriptda trap'siz tozalash** — Ctrl+C bilan tugaganda vaqtinchalik fayllar qoladi.
+- **`nohup` ishlatilmaslik** — SSH yopilsa, jarayon ham tugaydi (SIGHUP). `nohup ... &` yoki `tmux/screen`.
+- **`& wait` skriptda** — background jarayonni kutmaslik mumkin.
+
+## 17. Eng yaxshi amaliyot
+
+- **Doim avval SIGTERM**, so'ng SIGKILL.
+- **`trap cleanup EXIT` har skriptda** — fayl tozalash.
+- **Long-running skriptlar uchun `nohup` yoki `tmux`** — SSH uzilishidan saqlanish.
+- **systemd xizmatlar uchun `TimeoutStopSec`** — graceful shutdown vaqti.
+- **`pkill -x` aniqlik uchun** — `-x` exact match.
+- **SIGHUP — qayta yuklash standart** — `systemctl reload` ishlating.
+- **Debug uchun `SIGUSR1/USR2`** — dastur darajasida.
+
+## 18. Mashqlar
+
+1. **Test signal:** `sleep 100 &` bilan background sleep ishga tushiring. `jobs` va `kill %1` — to'xtatildimi?
+2. **Suspend/Resume:** `sleep 100` ishga tushiring, Ctrl+Z bosib to'xtating. `bg` bilan davom ettiring, so'ng `jobs`.
+3. **`pgrep`:** Sizdagi nechta `bash` jarayoni bor: `pgrep -c bash`.
+4. **Trap test:** Quyidagi skriptni yarating va Ctrl+C bilan to'xtating:
+   ```bash
+   #!/bin/bash
+   trap 'echo "Ctrl+C qabul qilindi!"; exit' INT
+   echo "Ctrl+C bosing"
+   sleep 100
+   ```
+5. **`nohup`:** `nohup sleep 100 &` ni ishga tushiring. Terminal yoping va yangi terminal'da `pgrep sleep` — hali bormi?
+6. **systemd kill:** `sudo systemctl status nginx` — agar ishlamoqda bo'lsa, `sudo systemctl kill -s HUP nginx` (reload).
+
+## 19. Bilim sinovi
+
+**Savol 1.** `kill -9` va `kill -TERM` farqi:
+
+- a) Bir xil
+- b) `-9` SIGKILL — majburiy, tozalash yo'q. `-TERM` graceful, jarayon tozalash bajaradi.
+- c) `-9` faqat root uchun
+- d) `-TERM` faqat skriptlar uchun
+
+<Callout type="success" title="Javob">
+**(b)** SIGKILL bloklash mumkin emas. SIGTERM — yumshoq so'rov.[³](https://manpages.debian.org/bookworm/coreutils/kill.1.en.html)
+</Callout>
+
+**Savol 2.** Qaysi 2 ta signalni jarayon **bloklash mumkin emas**?
+
+- a) SIGTERM va SIGHUP
+- b) SIGINT va SIGTERM
+- c) SIGKILL va SIGSTOP
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(c)** SIGKILL (9) va SIGSTOP (19) — yadro to'g'ridan-to'g'ri amalga oshiradi.[²](https://man7.org/linux/man-pages/man7/signal.7.html)
+</Callout>
+
+**Savol 3.** Nginx konfiguratsiyasini qayta yuklash uchun signal:
+
+- a) SIGTERM
+- b) SIGHUP
+- c) SIGKILL
+- d) SIGINT
+
+<Callout type="success" title="Javob">
+**(b)** SIGHUP — "hangup" tarixan terminal yopilganda, lekin endi "reload config" standartiga aylandi.
+</Callout>
+
+**Savol 4.** Skriptda Ctrl+C ushlash uchun:
+
+- a) `trap cleanup SIGINT`
+- b) `catch SIGINT cleanup`
+- c) `on SIGINT do cleanup`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(a)** `trap <buyruq> <signal>`.
+</Callout>
+
+**Savol 5.** `nohup` nima qiladi?
+
+- a) Jarayonni tezlashtiradi
+- b) SIGHUP'ni inkor qiladi (terminal yopilsa ham davom etish)
+- c) Jarayonni o'chiradi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** "no hangup" — SIGHUP bloklash, chiqish nohup.out'ga.
+</Callout>
+
+## Manbalar
+
+1. POSIX — Signals. [https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_415](https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_415)
+2. Linux signal(7). [https://man7.org/linux/man-pages/man7/signal.7.html](https://man7.org/linux/man-pages/man7/signal.7.html)
+3. kill(1) manpage. [https://manpages.debian.org/bookworm/coreutils/kill.1.en.html](https://manpages.debian.org/bookworm/coreutils/kill.1.en.html)
+
+## Keyingi qadam
+
+👉 [Job control va background jarayonlar](/fundamentals/job-control)

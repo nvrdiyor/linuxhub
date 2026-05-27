@@ -1,0 +1,490 @@
+---
+title: "Audit va system monitoring"
+description: "auditd, Prometheus, Grafana, Netdata bilan tizim monitoring va xavfsizlik audit'i."
+order: 140
+level: "advanced"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/monitoring"
+  - "/fundamentals/logs"
+learning_objectives:
+  - "auditd bilan tizim audit"
+  - "Prometheus va Grafana o'rnatish"
+  - "Netdata — real-time monitoring"
+  - "Alerting va incident response"
+tags: ["advanced", "monitoring", "prometheus", "grafana", "auditd"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Linux Audit"
+    url: "https://github.com/linux-audit/audit-documentation"
+  - title: "Prometheus"
+    url: "https://prometheus.io/docs/"
+  - title: "Grafana"
+    url: "https://grafana.com/docs/"
+  - title: "Netdata"
+    url: "https://learn.netdata.cloud/"
+---
+
+Production tizim — monitoring va audit'siz **ko'zsiz mashina**. Bu darsda klassik `auditd`, zamonaviy Prometheus + Grafana, real-time Netdata'ni o'rganamiz.[¹](https://github.com/linux-audit/audit-documentation)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- auditd — fayl, syscall, network audit.
+- Prometheus — metrics collection.
+- Grafana — visualization.
+- Netdata — out-of-box real-time.
+- Alerting strategiyalari.
+</Callout>
+
+## 1. `auditd` — security audit
+
+**auditd** — Linux Audit System. Kim, qachon, nima qildi — yozib boradi.
+
+```bash
+# O'rnatish
+sudo apt install auditd
+
+# Yoqish
+sudo systemctl enable --now auditd
+```
+
+### Qoidalar — `/etc/audit/rules.d/`
+
+`/etc/audit/rules.d/01-base.rules`:
+
+```
+# Sensitive fayl'larni kuzatish
+-w /etc/passwd -p wa -k passwd_changes
+-w /etc/shadow -p wa -k shadow_changes
+-w /etc/sudoers -p wa -k sudoers_changes
+-w /etc/ssh/sshd_config -p wa -k sshd_changes
+
+# Sudo'ni kuzatish
+-a always,exit -F arch=b64 -S execve -F euid=0 -k sudo_use
+
+# User va group o'zgarishi
+-w /usr/sbin/useradd -p x -k user_modification
+-w /usr/sbin/usermod -p x -k user_modification
+-w /usr/sbin/userdel -p x -k user_modification
+
+# `passwd` ishlatilishi
+-w /usr/bin/passwd -p x -k passwd_use
+
+# Setuid binary'lar (potentially privilege escalation)
+-a always,exit -F arch=b64 -S setuid -k setuid_calls
+-a always,exit -F arch=b64 -S setgid -k setgid_calls
+```
+
+`-w` — file watch:
+- `-p` permissions: `w` write, `r` read, `x` execute, `a` attribute change.
+- `-k` — key (qidirish uchun).
+
+`-a always,exit` — syscall audit:
+- `arch=b64` — 64-bit.
+- `-S execve` — syscall nomi.
+
+```bash
+# Qoidalar yuklash
+sudo augenrules --load
+
+# Joriy qoidalar
+sudo auditctl -l
+```
+
+## 2. Audit log'larni qidirish
+
+```bash
+# Real-time
+sudo tail -f /var/log/audit/audit.log
+
+# Aniq key bo'yicha
+sudo ausearch -k sudo_use
+
+# Vaqt bilan
+sudo ausearch -k passwd_changes --start today
+
+# Aniq user
+sudo ausearch -ua ali
+
+# Aniq sana oraliq
+sudo ausearch --start 2026-05-26 --end 2026-05-27
+```
+
+## 3. `aureport` — hisobotlar
+
+```bash
+# Umumiy
+sudo aureport
+
+# Authentication faila
+sudo aureport -au --summary
+
+# Sudo
+sudo aureport -x --summary
+
+# Tarmoq
+sudo aureport -p
+```
+
+## 4. Prometheus — modern metrics
+
+**Prometheus** — time-series database va monitoring system. Pull model — server klient'larga so'rov yuboradi.
+
+### O'rnatish
+
+```bash
+# Binary yuklab olish
+wget https://github.com/prometheus/prometheus/releases/download/v2.50.0/prometheus-2.50.0.linux-amd64.tar.gz
+tar xzf prometheus-2.50.0.linux-amd64.tar.gz
+sudo mv prometheus-2.50.0.linux-amd64 /opt/prometheus
+
+# Yoki repository
+sudo apt install prometheus
+```
+
+`/etc/prometheus/prometheus.yml`:
+
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['localhost:9113']
+```
+
+```bash
+sudo systemctl restart prometheus
+# UI: http://localhost:9090
+```
+
+## 5. Node Exporter
+
+Node Exporter — Prometheus uchun system metrikalar (CPU, RAM, disk, tarmoq).
+
+```bash
+# O'rnatish
+sudo apt install prometheus-node-exporter
+
+# Default port 9100
+sudo systemctl enable --now prometheus-node-exporter
+
+# Test
+curl http://localhost:9100/metrics
+```
+
+Prometheus avtomatik scrape qiladi.
+
+### Foydali metrikalar
+
+- `node_cpu_seconds_total` — CPU
+- `node_memory_MemAvailable_bytes` — bo'sh RAM
+- `node_filesystem_avail_bytes` — disk
+- `node_network_receive_bytes_total` — tarmoq
+
+## 6. Prometheus query — PromQL
+
+```promql
+# RAM ishlatish
+100 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100)
+
+# CPU foiz
+100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+# Disk band
+100 - ((node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100)
+
+# Network in/out
+rate(node_network_receive_bytes_total[5m])
+rate(node_network_transmit_bytes_total[5m])
+```
+
+## 7. Grafana — visualization
+
+**Grafana** — Prometheus (va boshqa) data source'lardan dashboard.
+
+```bash
+# O'rnatish
+sudo apt install -y software-properties-common
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+sudo apt update && sudo apt install grafana
+
+sudo systemctl enable --now grafana-server
+# UI: http://localhost:3000 — admin/admin
+```
+
+### Sozlash
+
+1. **Data Source** → **Prometheus** → URL `http://localhost:9090` → Save.
+2. **Dashboards** → **Import** → ID `1860` (Node Exporter Full).
+3. Dashboard avtomatik to'liq sozlangan grafiklar bilan.
+
+## 8. Alerting — `Alertmanager`
+
+Prometheus'ning alert komponenti.
+
+```bash
+sudo apt install prometheus-alertmanager
+```
+
+`/etc/prometheus/alerts.yml`:
+
+```yaml
+groups:
+  - name: system
+    interval: 30s
+    rules:
+      - alert: HighMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory on {{ $labels.instance }}"
+          description: "Available memory is {{ $value }}%"
+
+      - alert: DiskFull
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk almost full on {{ $labels.instance }}"
+```
+
+`/etc/prometheus/alertmanager.yml`:
+
+```yaml
+route:
+  receiver: 'email'
+
+receivers:
+  - name: 'email'
+    email_configs:
+      - to: 'admin@example.com'
+        from: 'alerts@example.com'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'alerts@example.com'
+        auth_password: 'apppassword'
+```
+
+Yoki Telegram, Slack, PagerDuty.
+
+## 9. Netdata — out-of-box
+
+[Netdata](https://learn.netdata.cloud/) — install va darrov ishlaydi. 200+ metrikalar, real-time chart'lar.[⁴](https://learn.netdata.cloud/)
+
+```bash
+# Bir buyruq
+bash <(curl -Ss https://my-netdata.io/kickstart.sh)
+
+# UI: http://localhost:19999
+```
+
+Netdata'ning afzalliklari:
+
+- Hech qanday sozlash kerak emas.
+- Per-second granularity (Prometheus 15s default).
+- Anomaly detection.
+- Cloud — ko'p server bir UI'da.
+
+## 10. Log shipping — ELK Stack
+
+Markazlashtirilgan log:
+
+- **Elasticsearch** — qidiruv DB.
+- **Logstash** yoki **Fluentd** — log parsing.
+- **Kibana** — visualization.
+
+Yoki **Loki + Promtail + Grafana** (yengilroq alternativ):
+
+```bash
+# Loki
+docker run -d --name loki -p 3100:3100 grafana/loki
+
+# Promtail (log shipper)
+docker run -d --name promtail -v /var/log:/var/log grafana/promtail
+```
+
+Grafana'ga Loki data source qo'shing.
+
+## 11. Misol — to'liq monitoring stack
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prom-data:/prometheus
+
+  node-exporter:
+    image: prom/node-exporter
+    ports:
+      - "9100:9100"
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  alertmanager:
+    image: prom/alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+
+volumes:
+  prom-data:
+  grafana-data:
+```
+
+```bash
+docker compose up -d
+```
+
+## 12. Asosiy buyruqlar va izoh
+
+### auditd
+
+| Buyruq | Vazifa |
+|---|---|
+| `auditctl -l` | Joriy qoidalar |
+| `auditctl -w <fayl> -p wa -k <key>` | File watch |
+| `ausearch -k <key>` | Loglardan qidirish |
+| `aureport` | Hisobot |
+| `augenrules --load` | Rules.d'dan yuklash |
+
+### Prometheus
+
+| Buyruq | Vazifa |
+|---|---|
+| `promtool check config prometheus.yml` | Config tekshirish |
+| `curl http://localhost:9090/metrics` | Metrics |
+| `curl http://localhost:9090/api/v1/targets` | Targets holati |
+
+### Netdata
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo systemctl status netdata` | Status |
+| `curl http://localhost:19999/api/v1/info` | API ma'lumot |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **auditd disk to'ldirib qo'yadi** — `max_log_file = 50` `/etc/audit/auditd.conf`.
+- **Prometheus retention 15 kun (default)** — kattaroq saqlash uchun `--storage.tsdb.retention.time=30d`.
+- **Grafana password unutish** — `/etc/grafana/grafana.ini` reset.
+- **Node Exporter container'da** — `--pid host` va `/proc`, `/sys` mount kerak.
+- **Alerts spam** — `for: 5m` (transient muammolarni filtrlash).
+
+## 14. Eng yaxshi amaliyot
+
+- **auditd security uchun production'da** — har serverda.
+- **Prometheus + Grafana** — long-term metrics.
+- **Netdata** — boshlovchilar uchun yoki one-off server uchun.
+- **Markazlashtirilgan logging** (Loki, ELK).
+- **Alert "noise" dan saqlanish** — kerakli alarmlar.
+- **PagerDuty / OpsGenie** — incident response.
+- **Runbook'lar** — har alert uchun nima qilish ko'rsatma.
+- **SLO/SLI** — service level objectives.
+
+## 15. Mashqlar
+
+1. **auditd:** O'rnatib `/etc/passwd` watch qo'shing. `passwd` o'zgartirish'dan keyin `ausearch -k passwd_changes`.
+2. **Node Exporter:** O'rnating va `curl http://localhost:9100/metrics | head`.
+3. **Prometheus:** Docker'da ishga tushiring. UI'ga kirib `up` query qiling.
+4. **Grafana:** O'rnatib Node Exporter dashboard import qiling (ID 1860).
+5. **Netdata:** O'rnating va UI'ni o'rganing.
+6. **Alert:** Test alert yarating (disk usage > 80%).
+
+## 16. Bilim sinovi
+
+**Savol 1.** auditd nima uchun?
+
+- a) Performance monitoring
+- b) Tizim hodisalarini xavfsizlik audit uchun yozish (kim, qachon, nima)
+- c) Backup
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Security audit standart vositasi.[¹](https://github.com/linux-audit/audit-documentation)
+</Callout>
+
+**Savol 2.** Prometheus qaysi modelni ishlatadi:
+
+- a) Push (klient server'ga yuboradi)
+- b) Pull (server klient'lardan oladi)
+- c) Stream
+- d) Both
+
+<Callout type="success" title="Javob">
+**(b)** Pull model — Prometheus targetlarni scrape qiladi.[²](https://prometheus.io/docs/)
+</Callout>
+
+**Savol 3.** Grafana'ni Prometheus bilan ishlatish uchun:
+
+- a) Hech narsa
+- b) Data Source sifatida Prometheus URL qo'shish
+- c) Aloqachi
+- d) Faqat agent
+
+<Callout type="success" title="Javob">
+**(b)** Data Source — Prometheus URL.
+</Callout>
+
+**Savol 4.** Boshlovchilar uchun eng oson monitoring:
+
+- a) Prometheus + Grafana
+- b) Netdata — install va ishlaydi
+- c) ELK stack
+- d) Splunk
+
+<Callout type="success" title="Javob">
+**(b)** Netdata — bir buyruq, hamma narsa tayyor.
+</Callout>
+
+**Savol 5.** Alert "noise" dan saqlanish:
+
+- a) Hech qachon alert qo'shmaslik
+- b) `for: 5m` kabi cheklash — transient muammolarni filtrlash
+- c) Hammasini disable qilish
+- d) Manual nazorat
+
+<Callout type="success" title="Javob">
+**(b)** Aniq, actionable alerts faqat.
+</Callout>
+
+## Manbalar
+
+1. Linux Audit. [https://github.com/linux-audit/audit-documentation](https://github.com/linux-audit/audit-documentation)
+2. Prometheus. [https://prometheus.io/docs/](https://prometheus.io/docs/)
+3. Grafana. [https://grafana.com/docs/](https://grafana.com/docs/)
+4. Netdata. [https://learn.netdata.cloud/](https://learn.netdata.cloud/)
+
+## Keyingi qadam
+
+👉 [Network bonding va bridge](/fundamentals/network-bonding-bridge)

@@ -65,26 +65,39 @@ export const distros: DistroConfig[] = [
                 iconName: "book-open",
                 items: [
                     { title: "Linux nima?", slug: "intro" },
+                    { title: "Linux tarixi", slug: "history" },
                     { title: "Linux Oila Shajarasi", slug: "family-tree" },
                     { title: "Fayl Tizimi Ierarxiyasi", slug: "file-system" },
                 ],
             },
-            // Module 2: Terminal Bilan Ishlash
+            // Module 2: Terminal va Shell
             {
                 id: "module-2",
-                title: "2. Terminal Bilan Ishlash",
+                title: "2. Terminal va Shell",
                 iconName: "terminal",
                 items: [
                     { title: "Nega Terminal?", slug: "terminal" },
+                    { title: "Shell nima?", slug: "shell" },
                     { title: "Asosiy buyruqlar", slug: "basic-commands" },
+                    { title: "Fayl operatsiyalari", slug: "file-operations" },
+                    { title: "Matnni qayta ishlash", slug: "text-processing" },
                     { title: "Nano vs Vim", slug: "text-editors" },
+                ],
+            },
+            // Module 3: Foydalanuvchilar va ruxsatlar
+            {
+                id: "module-3",
+                title: "3. Foydalanuvchilar va ruxsatlar",
+                iconName: "shield",
+                items: [
+                    { title: "Foydalanuvchilar va guruhlar", slug: "users-groups" },
                     { title: "Ruxsatlar (chmod, sudo)", slug: "permissions" },
                 ],
             },
-            // Module 3: Dasturlar Bilan Ishlash
+            // Module 4: Paket Boshqaruvi
             {
-                id: "module-3",
-                title: "3. Paket Boshqaruvi",
+                id: "module-4",
+                title: "4. Paket Boshqaruvi",
                 iconName: "package",
                 items: [
                     { title: "Repozitoriy nima?", slug: "repositories" },
@@ -93,10 +106,46 @@ export const distros: DistroConfig[] = [
                     { title: "Flatpak, Snap, AppImage", slug: "package-wars" },
                 ],
             },
-            // Module 4: Tizimni Sozlash
+            // Module 5: Jarayonlar va xizmatlar
             {
-                id: "module-4",
-                title: "4. Tizimni Sozlash",
+                id: "module-5",
+                title: "5. Jarayonlar va xizmatlar",
+                iconName: "cpu",
+                items: [
+                    { title: "Jarayonlar boshqaruvi", slug: "processes" },
+                    { title: "systemd xizmatlari", slug: "services" },
+                    { title: "Monitoring", slug: "monitoring" },
+                    { title: "Cron va rejalashtirilgan ishlar", slug: "cron" },
+                ],
+            },
+            // Module 6: Tarmoq va xavfsizlik
+            {
+                id: "module-6",
+                title: "6. Tarmoq va xavfsizlik",
+                iconName: "shield",
+                items: [
+                    { title: "Tarmoq asoslari", slug: "networking" },
+                    { title: "SSH kalitlari", slug: "ssh" },
+                    { title: "Firewall (UFW)", slug: "firewall" },
+                    { title: "Xavfsizlik asoslari", slug: "security-basics" },
+                ],
+            },
+            // Module 7: Skript va boshqaruv
+            {
+                id: "module-7",
+                title: "7. Skript va boshqaruv",
+                iconName: "code",
+                items: [
+                    { title: "Bash asoslari", slug: "bash-fundamentals" },
+                    { title: "Loglar bilan ishlash", slug: "logs" },
+                    { title: "Muammolarni hal qilish", slug: "troubleshooting" },
+                    { title: "Zaxiralash strategiyalari", slug: "backup-strategies" },
+                ],
+            },
+            // Module 8: Tizimni Sozlash (Bonus)
+            {
+                id: "module-8",
+                title: "8. Tizimni sozlash",
                 iconName: "palette",
                 items: [
                     { title: "DE vs WM", slug: "de-vs-wm" },
@@ -104,25 +153,129 @@ export const distros: DistroConfig[] = [
                     { title: "Dotfiles nima?", slug: "dotfiles" },
                 ],
             },
-            // Module 5: Tarmoq va Xavfsizlik
-            {
-                id: "module-5",
-                title: "5. Tarmoq va Xavfsizlik",
-                iconName: "shield",
-                items: [
-                    { title: "SSH kalitlari", slug: "ssh" },
-                    { title: "Firewall (UFW)", slug: "firewall" },
-                    { title: "Jarayonlar boshqaruvi", slug: "processes" },
-                ],
-            },
             // Advanced Topics
             {
                 id: "advanced",
-                title: "Chuqurroq O'rganish",
+                title: "Chuqurroq o'rganish",
                 iconName: "code",
                 items: [
                     { title: "Display Serverlar", slug: "display-servers" },
+                    { title: "Wayland va modern grafik", slug: "wayland-modern" },
                     { title: "Fayl Tizimlari", slug: "filesystems" },
+                    { title: "Fayl tizimlari chuqurroq", slug: "file-systems-deep" },
+                    { title: "Boot jarayoni", slug: "boot-process" },
+                    { title: "Yadro modullari", slug: "kernel-modules" },
+                ],
+            },
+            // Distributivlar va paketlash
+            {
+                id: "module-9",
+                title: "9. Distributivlar va paketlash",
+                iconName: "package",
+                items: [
+                    { title: "Distributivlar — chuqur tahlil", slug: "linux-distributions-deep-dive" },
+                    { title: "Paket qurish (.deb / .rpm)", slug: "package-building" },
+                ],
+            },
+            // Shell va skriptlash chuqur
+            {
+                id: "module-10",
+                title: "10. Shell va skriptlash",
+                iconName: "terminal",
+                items: [
+                    { title: "Muhit o'zgaruvchilari", slug: "environment-variables" },
+                    { title: "Globbing va wildcards", slug: "globbing-wildcards" },
+                    { title: "I/O redirection va pipes", slug: "io-redirection" },
+                    { title: "Signallar va kill", slug: "signals" },
+                    { title: "Job control va background", slug: "job-control" },
+                    { title: "Shell scripting ilg'or", slug: "shell-scripting-advanced" },
+                    { title: "Vim chuqurroq", slug: "vim-deep" },
+                ],
+            },
+            // Tizim chuqurroq
+            {
+                id: "module-11",
+                title: "11. Tizim chuqurroq",
+                iconName: "settings",
+                items: [
+                    { title: "systemd unit chuqur", slug: "systemd-units-deep" },
+                    { title: "journalctl ilg'or", slug: "journalctl-advanced" },
+                    { title: "cron vs systemd timers", slug: "cron-vs-systemd-timers" },
+                    { title: "cgroups va namespaces", slug: "cgroups-namespaces" },
+                    { title: "strace va tracing", slug: "strace-tracing" },
+                    { title: "audit va monitoring", slug: "audit-and-monitoring" },
+                    { title: "Performance tuning", slug: "performance-tuning" },
+                ],
+            },
+            // Storage va disk
+            {
+                id: "module-12",
+                title: "12. Storage va disk",
+                iconName: "layers",
+                items: [
+                    { title: "Disk boshqaruvi", slug: "disk-management" },
+                    { title: "LVM", slug: "lvm" },
+                    { title: "RAID", slug: "raid" },
+                    { title: "fstab va mount", slug: "fstab" },
+                    { title: "Swap xotira", slug: "swap-memory" },
+                    { title: "rsync chuqur", slug: "rsync-deep" },
+                    { title: "Tar arxivlash", slug: "tar-archives" },
+                    { title: "Compression", slug: "compression" },
+                    { title: "Dotfiles boshqaruv", slug: "dotfiles-management" },
+                ],
+            },
+            // Tarmoq chuqurroq
+            {
+                id: "module-13",
+                title: "13. Tarmoq chuqurroq",
+                iconName: "shield",
+                items: [
+                    { title: "SSH ilg'or (tunneling)", slug: "ssh-advanced" },
+                    { title: "iptables va nftables", slug: "iptables-nftables" },
+                    { title: "WireGuard VPN", slug: "vpn-wireguard" },
+                    { title: "DNS va systemd-resolved", slug: "dns-systemd-resolved" },
+                    { title: "DHCP server", slug: "dhcp-server" },
+                    { title: "Bonding va bridge", slug: "network-bonding-bridge" },
+                    { title: "systemd-networkd", slug: "systemd-networkd" },
+                    { title: "NFS", slug: "nfs" },
+                    { title: "Samba", slug: "samba" },
+                ],
+            },
+            // Xavfsizlik chuqurroq
+            {
+                id: "module-14",
+                title: "14. Xavfsizlik chuqurroq",
+                iconName: "shield",
+                items: [
+                    { title: "Foydalanuvchi chuqur (PAM, shadow)", slug: "users-deep" },
+                    { title: "Linux capabilities", slug: "capabilities" },
+                    { title: "SELinux va AppArmor", slug: "selinux-apparmor" },
+                ],
+            },
+            // Server va xizmatlar
+            {
+                id: "module-15",
+                title: "15. Server va xizmatlar",
+                iconName: "cpu",
+                items: [
+                    { title: "Apache HTTP", slug: "apache-basics" },
+                    { title: "Nginx", slug: "nginx-basics" },
+                    { title: "PostgreSQL", slug: "postgresql-basics" },
+                    { title: "SQLite", slug: "sqlite-basics" },
+                    { title: "Redis va RabbitMQ", slug: "redis-rabbitmq" },
+                ],
+            },
+            // Container va DevOps
+            {
+                id: "module-16",
+                title: "16. Container va DevOps",
+                iconName: "package",
+                items: [
+                    { title: "Docker asoslari", slug: "docker-basics" },
+                    { title: "Podman (rootless)", slug: "podman" },
+                    { title: "Kubernetes kirish", slug: "kubernetes-intro" },
+                    { title: "Git asoslari", slug: "git-fundamentals" },
+                    { title: "Python Linux'da", slug: "python-on-linux" },
                 ],
             },
         ],
@@ -433,7 +586,7 @@ export const distros: DistroConfig[] = [
         color: "#E95420",
         colorClass: "ubuntu",
         docsUrl: "https://ubuntu.com/tutorials",
-        status: "coming-soon",
+        status: "active",
         navigation: [
             {
                 id: "getting-started",
@@ -441,6 +594,85 @@ export const distros: DistroConfig[] = [
                 iconName: "book-open",
                 items: [
                     { title: "Kirish", slug: "introduction" },
+                ],
+            },
+            {
+                id: "installation",
+                title: "O'rnatish",
+                iconName: "download",
+                items: [
+                    { title: "Tizim talablari", slug: "installation/requirements" },
+                    { title: "USB dan o'rnatish", slug: "installation/usb" },
+                    { title: "WSL ostida Ubuntu", slug: "installation/wsl" },
+                    { title: "Ubuntu Server", slug: "installation/server" },
+                ],
+            },
+            {
+                id: "packages",
+                title: "Paketlar",
+                iconName: "package",
+                items: [
+                    { title: "APT bilan ishlash", slug: "apt-basics" },
+                    { title: "Snap paketlar", slug: "snap" },
+                ],
+            },
+            {
+                id: "system",
+                title: "Tizim",
+                iconName: "settings",
+                items: [
+                    { title: "LTS va relizlar tsikli", slug: "lts-release-cycle" },
+                    { title: "Canonical Livepatch", slug: "livepatch" },
+                    { title: "GNOME ish stoli", slug: "gnome-desktop" },
+                ],
+            },
+        ],
+    },
+    {
+        id: "debian",
+        name: "Debian",
+        description: "Erkin dasturlarga sodiq, eng eski va barqaror distributivlardan biri",
+        logo: "/images/distros/debian.svg",
+        color: "#A81D33",
+        colorClass: "debian",
+        docsUrl: "https://www.debian.org/doc/",
+        status: "active",
+        navigation: [
+            {
+                id: "getting-started",
+                title: "Boshlash",
+                iconName: "book-open",
+                items: [
+                    { title: "Kirish", slug: "introduction" },
+                    { title: "Debian ijtimoiy shartnomasi", slug: "social-contract" },
+                ],
+            },
+            {
+                id: "installation",
+                title: "O'rnatish",
+                iconName: "download",
+                items: [
+                    { title: "Debian o'rnatish", slug: "installation" },
+                ],
+            },
+            {
+                id: "package-management",
+                title: "Paket boshqaruvi",
+                iconName: "package",
+                items: [
+                    { title: "APT (Debian usuli)", slug: "apt-debian" },
+                    { title: "dpkg asoslari", slug: "dpkg-fundamentals" },
+                    { title: "Backports", slug: "backports" },
+                ],
+            },
+            {
+                id: "system",
+                title: "Tizim",
+                iconName: "settings",
+                items: [
+                    { title: "Stable / Testing / Sid", slug: "release-cycle" },
+                    { title: "Tizim administratsiyasi", slug: "system-administration" },
+                    { title: "Xavfsizlik yangilanishlari", slug: "security-updates" },
                 ],
             },
         ],

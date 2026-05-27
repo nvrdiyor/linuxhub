@@ -1,0 +1,196 @@
+---
+title: "Linux tarixi"
+description: "Linux operatsion tizimining yaratilishi — Unix'dan GNU loyihasiga, 1991-yildan bugungi kungacha bo'lgan asosiy voqealar."
+order: 2
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/fundamentals/intro"
+learning_objectives:
+  - "Unix, GNU va Linuxning bog'liqligini izohlash"
+  - "1991-yildagi Linus Torvaldsning e'lonini va undagi muhim jihatlarni bilish"
+  - "Linux ekotizimining asosiy davrlarini sanab o'tish"
+tags: ["beginner", "history", "linus-torvalds", "gnu"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "kernel.org — About"
+    url: "https://www.kernel.org/category/about.html"
+  - title: "GNU Project — The GNU Operating System and the Free Software Movement"
+    url: "https://www.gnu.org/gnu/thegnuproject.html"
+  - title: "Linus Torvalds — original announcement (25 Aug 1991)"
+    url: "https://groups.google.com/g/comp.os.minix/c/dlNtH7RRrGA"
+  - title: "Debian Project History"
+    url: "https://www.debian.org/doc/manuals/project-history/"
+---
+
+Linuxni tushunish uchun u qaerdan kelib chiqqanini bilish kerak. Bu dars Unix'dan GNU loyihasi, undan Linuxgacha bo'lgan yo'lni qisqacha bayon qiladi.
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- 1969 — Unix'ning paydo bo'lishi.
+- 1983 — Richard Stallman GNU loyihasini boshlaydi.
+- 1991 — Linus Torvalds Linux yadrosini e'lon qiladi.
+- 1993-2004 — Debian, Red Hat, Ubuntu — asosiy distributivlarning paydo bo'lishi.
+</Callout>
+
+## 1. Unix — Linuxning ajdodi
+
+**1969-yil** Bell Labs'da Ken Thompson, Dennis Ritchie va boshqalar **Unix** operatsion tizimini yaratishadi. Unix g'oyalari Linuxga jiddiy ta'sir ko'rsatadi:
+
+- "Hammasi fayl" tamoyili.
+- Kichik vositalar, har biri bitta vazifani bajaradi.
+- Pipe (`|`) orqali ularni birlashtirish.
+
+1980-yillarga kelib Unix tijoriy mahsulotga aylandi va manba kodi yopildi. Bu erkin alternativaga ehtiyojni keltirib chiqardi.
+
+## 2. GNU loyihasi
+
+**1983-yil 27-sentyabr** — Richard Stallman GNU loyihasini e'lon qiladi.[²](https://www.gnu.org/gnu/thegnuproject.html) Maqsad: butunlay erkin Unix'ga o'xshash operatsion tizim yaratish.
+
+GNU loyihasi 1980-1990 yillar davomida operatsion tizimning **deyarli barcha qismlarini** yozdi:
+
+- `gcc` — GNU C kompilyatori
+- `bash` — Bourne Again Shell
+- `coreutils` — ls, cp, mv, cat va boshqalar
+- `glibc` — GNU C kutubxonasi
+- `emacs` — matn muharriri
+
+**Lekin yadro (Hurd) tugallanmagan edi.**
+
+## 3. Linus Torvalds va 1991-yil
+
+**1991-yil 25-avgust** — Finlandiyalik talaba Linus Torvalds (21 yosh) `comp.os.minix` Usenet guruhiga elon yozadi:[³](https://groups.google.com/g/comp.os.minix/c/dlNtH7RRrGA)
+
+> "Hello everybody out there using minix — I'm doing a (free) operating system (just a hobby, won't be big and professional like gnu) for 386(486) AT clones."
+
+E'londa muhim jihatlar:
+
+- "Hobby" — Linus uni faqat hobby loyiha deb hisoblagan.
+- "Won't be big and professional like gnu" — u GNUni katta loyiha deb tan olgan.
+- "386(486) AT clones" — boshlanishida faqat Intel 386 protsessorlar uchun.
+
+**1991-yil 17-sentyabr** — birinchi rasmiy reliz, **versiya 0.01**. 1992-yilda GPL litsenziyasiga o'tdi va GNU dasturlari bilan birlashtirildi — "GNU/Linux" operatsion tizimi tug'ildi.
+
+## 4. Asosiy distributivlar paydo bo'lishi
+
+```
+1991 ── Linux 0.01
+1992 ── SLS (Softlanding Linux System) — birinchi distributiv
+1993 ── Slackware, Debian
+1994 ── Red Hat Linux 1.0
+1995 ── Linux 1.0 rasmiy reliz, SUSE
+1998 ── Linux Mandrake, openSUSE'ning ajdodi
+1999 ── Red Hat Enterprise Linux 1.0
+2002 ── Arch Linux
+2004 ── Ubuntu 4.10 (Warty Warthog)
+2008 ── Android — Linux yadrosi asosida
+2013 ── NixOS 13.10 — birinchi barqaror reliz
+2015 ── systemd asosiy distributivlarda standart bo'ladi
+```
+
+[³](https://www.debian.org/doc/manuals/project-history/)
+
+## 5. Hozir
+
+- **TOP500 superkomputerlar:** 100% Linux.
+- **Internet serverlari:** Linux ustun.
+- **Mobil:** Android (Linux yadrosi) — milliardlab qurilmalar.
+- **Embedded:** routerlar, smart TV, IoT — ko'pchiligi Linux.
+- **Kosmik kemalar va Mars roverlari:** SpaceX Falcon, NASA Perseverance — Linux.
+
+Linux **2.5 milliarddan ortiq qurilmalarda** ishlaydi. Linus Torvalds esa hozirgacha kernel rivojlanishini boshqarib kelmoqda.[¹](https://www.kernel.org/category/about.html)
+
+## 6. Amaliy misol
+
+Linux o'rnatilgan tizimda yadroning yaratilgan sanasini ko'rish:
+
+```bash
+uname -v
+```
+
+Misol natija:
+
+```
+#1 SMP PREEMPT_DYNAMIC Debian 6.1.94-1 (2024-06-21)
+```
+
+`2024-06-21` — sizdagi yadro versiyasining yig'ilgan sanasi.
+
+```bash
+# Yadro versiyasi tarixi
+cat /proc/version
+```
+
+## 7. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `uname -v` | Yadroning yig'ilgan sanasi va versiyasi |
+| `cat /proc/version` | To'liq yadro va kompilyator ma'lumotlari |
+| `uptime -s` | Tizimning oxirgi marta ishga tushgan sanasi |
+
+## 8. Eng tez-tez uchraydigan xatolar
+
+- **"Linux 1991-yilda yaratilgan, demak u Unix"** — Yo'q. Linux **Unix-like** (Unix'ga o'xshash), lekin uning kodi Unix'dan emas.
+- **"GNU/Linux deyish — bu siyosiy bayonot"** — Bu shunchaki tarixiy haqiqat: tizim asosan GNU dasturlari + Linux yadrosi.
+- **"Linus Torvalds Linuxni Microsoft uchun ish yo'qotgani uchun yozgan"** — Yo'q, u talaba paytida yozgan, hech qachon Microsoft uchun ishlamagan.
+
+## 9. Eng yaxshi amaliyot
+
+- **Loyihalarda Linux versiyasini doim hujjatlashtiring** — yangilanish farqlari kelajakdagi muammolarni hal qilishni osonlashtiradi.
+- **Yadro versiyasi muhim** — drayverlar va xizmatlar ma'lum bir yadro versiyasiga muhtoj bo'lishi mumkin.
+- **GNU loyihasini eslab turing** — u ozod dasturlarning falsafiy va texnik poydevori.
+
+## 10. Bilim sinovi
+
+**Savol 1.** Linuxni yaratgan kishi kim?
+
+- a) Richard Stallman
+- b) Ken Thompson
+- c) Linus Torvalds
+- d) Dennis Ritchie
+
+<Callout type="success" title="Javob">
+**(c)** Linus Torvalds 1991-yilda Finlandiyada talaba paytida yaratdi.
+</Callout>
+
+**Savol 2.** GNU loyihasi qachon boshlangan?
+
+- a) 1969
+- b) 1983
+- c) 1991
+- d) 2004
+
+<Callout type="success" title="Javob">
+**(b)** 1983-yil 27-sentyabr — Richard Stallman e'loni.[²](https://www.gnu.org/gnu/thegnuproject.html)
+</Callout>
+
+**Savol 3.** Ubuntu birinchi reliz qachon chiqdi?
+
+- a) 1991
+- b) 1998
+- c) 2004
+- d) 2010
+
+<Callout type="success" title="Javob">
+**(c)** 2004-yil oktyabr — Ubuntu 4.10 "Warty Warthog".
+</Callout>
+
+## 11. Mashq
+
+Quyidagi savollar bo'yicha qisqa hisobot yozing (har biriga 2-3 jumla):
+
+1. Nima uchun Linux Linus Torvaldsning shaxsiy ismi bilan atalgan?
+2. Agar GNU yadro tugallangan bo'lganida, Linux paydo bo'larmidi?
+3. Sizning kompyuteringizdagi yadro versiyasini toping (`uname -r`). Bu yadro qancha vaqtdan beri faol?
+
+## Manbalar
+
+1. kernel.org — About. [https://www.kernel.org/category/about.html](https://www.kernel.org/category/about.html)
+2. GNU Project — The GNU Operating System. [https://www.gnu.org/gnu/thegnuproject.html](https://www.gnu.org/gnu/thegnuproject.html)
+3. Linus Torvalds — original announcement. [https://groups.google.com/g/comp.os.minix/c/dlNtH7RRrGA](https://groups.google.com/g/comp.os.minix/c/dlNtH7RRrGA)
+4. Debian Project History. [https://www.debian.org/doc/manuals/project-history/](https://www.debian.org/doc/manuals/project-history/)
+
+## Keyingi qadam
+
+👉 [Linux oila shajarasi](/fundamentals/family-tree)

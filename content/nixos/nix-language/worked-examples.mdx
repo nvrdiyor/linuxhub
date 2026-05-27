@@ -1,0 +1,175 @@
+---
+title: "Nix tilida amaliy misollar"
+description: "Real Nix kod misollari — shell, paket va modul yozish."
+order: 7
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/nix-language/derivations"
+learning_objectives:
+  - "Real-life Nix kodlarini o'qish"
+  - "Misollar orqali sintaksis va idioms"
+tags: ["nixos", "nix-language", "examples"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Worked examples"
+    url: "https://nix.dev/tutorials/nix-language.html#worked-examples"
+---
+
+Real kod misollari Nix sintaksisini yaxshi tushunishga yordam beradi. Quyida bir nechta tipik patternlar.[¹](https://nix.dev/tutorials/nix-language.html#worked-examples)
+
+## 1. Misol — bir nechta paketlar bilan shell
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.mkShell {
+  packages = with pkgs; [
+    git
+    nodejs_20
+    yarn
+    docker-compose
+  ];
+
+  shellHook = ''
+    echo "Loyiha muhitiga xush kelibsiz"
+    export PROJECT_ROOT=$PWD
+  '';
+}
+```
+
+## 2. Misol — fetchurl bilan paket
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.stdenv.mkDerivation rec {
+  pname = "hello-script";
+  version = "1.0";
+
+  src = pkgs.fetchurl {
+    url = "https://example.com/hello-${version}.tar.gz";
+    sha256 = "sha256-abc...";
+  };
+
+  installPhase = ''
+    mkdir -p $out/bin
+    cp hello $out/bin/
+    chmod +x $out/bin/hello
+  '';
+}
+```
+
+## 3. Misol — Python paketi
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.python3Packages.buildPythonApplication rec {
+  pname = "mytool";
+  version = "1.0.0";
+
+  src = pkgs.fetchPypi {
+    inherit pname version;
+    sha256 = "sha256-abc...";
+  };
+
+  propagatedBuildInputs = with pkgs.python3Packages; [
+    requests
+    click
+  ];
+}
+```
+
+## 4. Misol — NixOS modul (xizmat)
+
+```nix
+{ config, pkgs, ... }:
+
+{
+  services.myapp = {
+    enable = true;
+    port = 8080;
+  };
+
+  systemd.services.myapp = {
+    description = "My Application";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.myapp}/bin/myapp --port 8080";
+      User = "myapp";
+      Restart = "on-failure";
+    };
+  };
+
+  users.users.myapp = {
+    isSystemUser = true;
+    group = "myapp";
+  };
+  users.groups.myapp = {};
+}
+```
+
+## 5. Misol — har bir maydon ustida funksiya
+
+```nix
+let
+  pkgs = import <nixpkgs> {};
+  inherit (pkgs) lib;
+
+  servers = {
+    web1 = { ip = "10.0.0.1"; role = "web"; };
+    web2 = { ip = "10.0.0.2"; role = "web"; };
+    db1  = { ip = "10.0.0.3"; role = "db"; };
+  };
+
+  webServers = lib.filterAttrs (name: cfg: cfg.role == "web") servers;
+in
+lib.attrNames webServers
+# [ "web1" "web2" ]
+```
+
+## 6. Misol — overlay bilan paketni override
+
+```nix
+let
+  overlay = self: super: {
+    nodejs = super.nodejs_20;
+    myPython = super.python311.withPackages (ps: with ps; [
+      numpy pandas requests
+    ]);
+  };
+
+  pkgs = import <nixpkgs> { overlays = [ overlay ]; };
+in
+pkgs.mkShell {
+  packages = [ pkgs.nodejs pkgs.myPython ];
+}
+```
+
+## 7. Mashq
+
+1. Yuqoridagi shell.nix'ni kompyuteringizda sinab ko'ring. `nix-shell` qiling.
+2. NodeJS versiyani tekshiring: `node --version`.
+
+## 8. Bilim sinovi
+
+**Savol 1.** `pkgs.fetchurl` da `sha256` nima uchun majburiy?
+
+- a) Tezroq yuklab olish
+- b) Faylning yaxlitligini tekshirish va takrorlanish uchun
+- c) HTTPS uchun
+- d) Faqat shaklan
+
+<Callout type="success" title="Javob">
+**(b)** SHA hash bilan Nix bilib oladi — fayl o'zgardimi yoki yo'q. O'zgargan bo'lsa — build to'xtaydi.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Worked examples. [https://nix.dev/tutorials/nix-language.html#worked-examples](https://nix.dev/tutorials/nix-language.html#worked-examples)
+
+## Keyingi qadam
+
+👉 [Paketlash — Mavjud dasturni paketlash](/nixos/packaging/existing-software)

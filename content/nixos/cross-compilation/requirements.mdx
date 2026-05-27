@@ -1,0 +1,84 @@
+---
+title: "Kross-kompilyatsiya — nimalar kerak?"
+description: "Bir arxitekturadan boshqasiga build qilish — Nix bilan tushunish."
+order: 1
+level: "advanced"
+estimated_minutes: 4
+prerequisites:
+  - "/nixos/packaging/dependencies"
+learning_objectives:
+  - "Cross-compilation tushunchasi"
+  - "Build, Host, Target tushunchalari"
+tags: ["nixos", "cross-compilation"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Cross compilation"
+    url: "https://nix.dev/tutorials/cross-compilation.html"
+---
+
+**Cross-compilation** — bir mashinada (masalan, x86_64 noutbuk) boshqa arxitektura (masalan, ARM Raspberry Pi) uchun binary yaratish. Nix buni first-class qo'llab-quvvatlaydi.[¹](https://nix.dev/tutorials/cross-compilation.html)
+
+## 1. Asosiy tushunchalar
+
+GNU autotools an'anasiga ko'ra:
+
+| Termin | Ma'no |
+|---|---|
+| **Build** | Build jarayoni ishlayotgan mashina |
+| **Host** | Yaratilayotgan binary ishlash uchun mashina |
+| **Target** | Compiler yaratayotgan kod uchun mashina |
+
+Ko'p hollarda Host = Target. Build ≠ Host bo'lganda — bu cross-compilation.
+
+Misol: x86_64 noutbukda ARM uchun build:
+
+- Build: `x86_64-linux`
+- Host: `aarch64-linux`
+
+## 2. Nixpkgs'da
+
+```nix
+import <nixpkgs> {
+  crossSystem = { config = "aarch64-unknown-linux-gnu"; };
+}
+```
+
+So'ng `pkgs.firefox` — ARM uchun build qiladi.
+
+## 3. Aniq paket cross-build
+
+```bash
+nix-build '<nixpkgs>' -A pkgsCross.aarch64-multiplatform.hello
+```
+
+`pkgsCross.<target>.<package>` — built-in muhitlar.
+
+## 4. Mavjud target'lar
+
+```bash
+nix-instantiate --eval -E 'with import <nixpkgs> {}; builtins.attrNames pkgsCross'
+```
+
+Misol natija: `aarch64-multiplatform`, `armv6l-musl`, `mingwW64` va boshqalar.
+
+## 5. Bilim sinovi
+
+**Savol 1.** "Cross-compilation" deganda nima:
+
+- a) Bir tilda kod yozish, boshqa tilga compile qilish
+- b) Bir mashinada turli arxitektura uchun binary yaratish
+- c) Bir vaqtda bir necha kompyuterda build
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** Boshqa arxitektura uchun build.[¹](https://nix.dev/tutorials/cross-compilation.html)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Cross compilation. [https://nix.dev/tutorials/cross-compilation.html](https://nix.dev/tutorials/cross-compilation.html)
+
+## Keyingi qadam
+
+👉 [Platformalar](/nixos/cross-compilation/platforms)

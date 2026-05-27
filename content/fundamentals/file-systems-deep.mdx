@@ -1,0 +1,456 @@
+---
+title: "Fayl tizimlari chuqurroq"
+description: "ext4, btrfs, xfs, zfs, f2fs solishtirish — strukturasi, snapshots, performance va tuning."
+order: 146
+level: "advanced"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/filesystems"
+learning_objectives:
+  - "Modern fayl tizimlari xususiyatlari"
+  - "Btrfs subvolume va snapshots"
+  - "ZFS dataset va pool"
+  - "Fayl tizim tuning"
+tags: ["advanced", "filesystem", "ext4", "btrfs", "zfs"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — File systems"
+    url: "https://wiki.archlinux.org/title/File_systems"
+  - title: "Btrfs Wiki"
+    url: "https://btrfs.readthedocs.io/"
+  - title: "OpenZFS Documentation"
+    url: "https://openzfs.github.io/openzfs-docs/"
+---
+
+Fayl tizimi — ma'lumotlar saqlash va boshqarish usuli. Linux'da turli xil mavjud, har birining o'z xususiyatlari. Bu darsda modern fayl tizimlarini chuqur ko'rib chiqamiz.[¹](https://wiki.archlinux.org/title/File_systems)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- ext4, btrfs, xfs, zfs solishtirish.
+- Copy-on-Write (CoW) tushunchasi.
+- Btrfs subvolume va snapshots.
+- ZFS pool, dataset, snapshots.
+- Fayl tizimi tuning.
+</Callout>
+
+## 1. Solishtirish jadvali
+
+| Filesystem | Yili | CoW | Snapshots | Sub-volume | Compression | Max file |
+|---|---|---|---|---|---|---|
+| **ext4** | 2008 | Yo'q | Yo'q | Yo'q | Yo'q | 16 TB |
+| **xfs** | 1993/2001 | Yo'q | Reflink (CoW lite) | Yo'q | Yo'q | 8 EB |
+| **btrfs** | 2009 | Ha | Ha | Ha | Ha | 16 EB |
+| **zfs** | 2005 | Ha | Ha | Ha | Ha | 16 EB |
+| **f2fs** | 2012 | Ha (SSD) | Ha | Yo'q | Ha | 16 TB |
+| **bcachefs** | 2015 | Ha | Ha | Ha | Ha | 16 EB |
+
+## 2. ext4 — universal default
+
+Stable, mature, Linux'ning eng keng tarqalgan fayl tizimi.
+
+### Yaratish
+
+```bash
+sudo mkfs.ext4 /dev/sdb1
+
+# Label bilan
+sudo mkfs.ext4 -L "DATA" /dev/sdb1
+
+# Block size (4K default)
+sudo mkfs.ext4 -b 4096 /dev/sdb1
+```
+
+### Tekshirish va to'g'rilash
+
+```bash
+# fsck (faqat unmount)
+sudo fsck.ext4 /dev/sdb1
+
+# Force
+sudo fsck.ext4 -f /dev/sdb1
+```
+
+### Tuning
+
+```bash
+# Reserved blocks (default 5%)
+sudo tune2fs -m 1 /dev/sdb1     # 1% ga kamaytirish
+
+# Mount opsiyalar
+# noatime, discard (SSD)
+```
+
+## 3. xfs — eng tezkor (HPC, server)
+
+```bash
+sudo mkfs.xfs /dev/sdb1
+
+# Tuning
+sudo mkfs.xfs -d agcount=8 -l size=128m /dev/sdb1
+```
+
+XFS faqat **kengaytirish** mumkin — kichraytirish yo'q.
+
+### Reflink (CoW lite)
+
+XFS 5.0+ reflink — fayl tezkor nusxalash (link kabi):
+
+```bash
+sudo mkfs.xfs -m reflink=1 /dev/sdb1
+sudo mount /dev/sdb1 /mnt
+sudo cp --reflink /mnt/big.iso /mnt/big2.iso   # zero disk
+```
+
+## 4. Btrfs — modern CoW
+
+Btrfs — modern fayl tizim. Ko'p afzalliklar, ammo ba'zi konfiguratsiyalar production'da diqqat talab qiladi.[²](https://btrfs.readthedocs.io/)
+
+### Yaratish
+
+```bash
+sudo mkfs.btrfs /dev/sdb1
+
+# RAID
+sudo mkfs.btrfs -d raid1 -m raid1 /dev/sdb1 /dev/sdc1
+# -d data, -m metadata
+```
+
+### Subvolume — virtual fayl tizim
+
+```bash
+sudo mount /dev/sdb1 /mnt
+
+# Subvolume yaratish
+sudo btrfs subvolume create /mnt/@home
+sudo btrfs subvolume create /mnt/@var
+sudo btrfs subvolume create /mnt/@snapshots
+
+# Ro'yxat
+sudo btrfs subvolume list /mnt
+
+# Mount qilish (subvol option bilan)
+sudo mount -o subvol=@home /dev/sdb1 /home
+```
+
+Tipik Btrfs layout:
+
+```
+/dev/sdb1
+├── @ (root)              → /
+├── @home                 → /home
+├── @var                  → /var
+├── @snapshots            → /.snapshots
+└── @log                  → /var/log
+```
+
+Har subvolume alohida snapshot olish mumkin.
+
+### Snapshot
+
+```bash
+# Snapshot
+sudo btrfs subvolume snapshot /home /home/.snapshot-2026-05-26
+
+# Read-only snapshot
+sudo btrfs subvolume snapshot -r /home /home/.snapshot-readonly
+
+# Tiklash
+sudo umount /home
+sudo mount -o subvol=.snapshot-2026-05-26 /dev/sdb1 /home
+
+# Snapshot o'chirish
+sudo btrfs subvolume delete /home/.snapshot-2026-05-26
+```
+
+### Compression
+
+```bash
+# Mount option bilan
+sudo mount -o compress=zstd:3 /dev/sdb1 /mnt
+
+# Yoki fstab
+UUID=...  /  btrfs  defaults,compress=zstd:3,subvol=@  0 0
+```
+
+`zstd:3` — level 1-15. 3 — default, balanced.
+
+### Scrubbing (xato tekshirish)
+
+```bash
+# Boshlash
+sudo btrfs scrub start /mnt
+
+# Status
+sudo btrfs scrub status /mnt
+
+# Toxir (cron orqali avtomatik)
+```
+
+### snapper — avtomatik snapshot
+
+```bash
+sudo apt install snapper
+
+# Config
+sudo snapper -c root create-config /
+
+# Snapshot
+sudo snapper -c root create --description "Before update"
+
+# Ro'yxat
+sudo snapper -c root list
+
+# Tiklash
+sudo snapper -c root rollback 5
+```
+
+openSUSE'da default — yangi snapshot har yangilanish'dan oldin.
+
+## 5. ZFS — enterprise-grade
+
+ZFS Sun Microsystems tomonidan ishlab chiqilgan, hozir OpenZFS.[³](https://openzfs.github.io/openzfs-docs/)
+
+### O'rnatish
+
+```bash
+# Ubuntu
+sudo apt install zfsutils-linux
+
+# Boshqalar uchun OpenZFS sayt
+```
+
+### Pool yaratish
+
+```bash
+# Sodda
+sudo zpool create mypool /dev/sdb /dev/sdc
+
+# Mirror
+sudo zpool create mypool mirror /dev/sdb /dev/sdc
+
+# RAIDZ (RAID 5 analog)
+sudo zpool create mypool raidz /dev/sdb /dev/sdc /dev/sdd
+
+# RAIDZ2 (RAID 6 analog)
+sudo zpool create mypool raidz2 /dev/sdb /dev/sdc /dev/sdd /dev/sde
+
+# Ro'yxat
+zpool list
+zpool status
+```
+
+### Dataset
+
+```bash
+# Dataset = ZFS volume + filesystem
+sudo zfs create mypool/home
+sudo zfs create mypool/var
+
+# Avtomatik mount /mypool/home
+
+# Properties
+sudo zfs set compression=zstd mypool/home
+sudo zfs set quota=100G mypool/home
+sudo zfs set atime=off mypool/home
+
+# Ro'yxat
+zfs list
+zfs get all mypool/home
+```
+
+### Snapshot
+
+```bash
+# Snapshot
+sudo zfs snapshot mypool/home@2026-05-26
+
+# Ro'yxat
+zfs list -t snapshot
+
+# Rollback
+sudo zfs rollback mypool/home@2026-05-26
+
+# Send/receive — backup
+sudo zfs send mypool/home@snap1 | ssh backup-server "zfs receive backuppool/home"
+
+# Incremental
+sudo zfs send -i mypool/home@snap1 mypool/home@snap2 | ssh backup-server "zfs receive backuppool/home"
+```
+
+### ZFS qisqacha
+
+- **CoW** — atomic write.
+- **Checksums** — bit rot detection.
+- **Self-healing** — RAID bilan birga.
+- **Compression** — zstd, lz4, gzip.
+- **Deduplication** — bir xil bloklar.
+- **ARC cache** — RAM cache.
+- **L2ARC** — SSD cache (HDD pool uchun).
+- **ZIL** — write log (SSD).
+
+## 6. f2fs — SSD uchun optimallashtirilgan
+
+```bash
+sudo apt install f2fs-tools
+
+sudo mkfs.f2fs /dev/sdb1
+sudo mount /dev/sdb1 /mnt
+```
+
+f2fs — flash storage uchun maxsus. SSD, eMMC, SD card. Android default'da ham ishlatadi.
+
+## 7. Fayl tizim tanlash
+
+| Vaziyat | Tavsiya |
+|---|---|
+| Default desktop | **ext4** (Ubuntu, Debian) yoki **btrfs** (Fedora, openSUSE) |
+| Server, ko'p disk | **xfs** yoki **ext4** |
+| Snapshot va RAID | **btrfs** yoki **zfs** |
+| Enterprise, NAS | **ZFS** |
+| SSD-only | **f2fs** yoki **btrfs** |
+| 16+ TB single volume | **xfs**, **btrfs**, **zfs** |
+| Real-time, low latency | **xfs** |
+| Embedded, kichik flash | **f2fs**, **ubifs**, **squashfs** |
+
+## 8. Mount opsiyalar tuning
+
+```
+# SSD performance
+UUID=...  /  ext4  defaults,noatime,commit=60  0 1
+
+# Btrfs SSD
+UUID=...  /  btrfs  defaults,noatime,compress=zstd:3,ssd  0 0
+
+# XFS
+UUID=...  /  xfs  defaults,noatime,nodiratime  0 0
+```
+
+## 9. Fayl tizim audit va monitoring
+
+```bash
+# Disk usage
+df -h
+df -i      # inodes
+
+# Filesystem statistika
+sudo tune2fs -l /dev/sda1 | head     # ext4
+
+# Btrfs
+sudo btrfs filesystem usage /mnt
+sudo btrfs filesystem df /mnt
+sudo btrfs device stats /mnt
+
+# ZFS
+zpool status
+zpool iostat 1
+zfs list -o name,used,avail,refer,mountpoint
+```
+
+## 10. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `mkfs.<fs> /dev/sdX` | Filesystem yaratish |
+| `fsck -f /dev/sdX` | Tekshirish |
+| `tune2fs -l /dev/sdX` | ext4 ma'lumotlari |
+| `btrfs subvolume create /path` | Btrfs subvolume |
+| `btrfs subvolume snapshot src dst` | Snapshot |
+| `btrfs scrub start /mnt` | Xato tekshirish |
+| `zpool create mypool ...` | ZFS pool |
+| `zfs create mypool/data` | Dataset |
+| `zfs snapshot mypool/data@snap1` | ZFS snapshot |
+| `zfs send/receive` | Backup |
+
+## 11. Eng tez-tez uchraydigan xatolar
+
+- **Btrfs RAID 5/6 production'da** — tarixiy stability muammosi. RAID 1 yoki RAID 10 ishlating.
+- **Mount qilingan FS'ni resize** — ext4 online OK, xfs faqat grow, btrfs/zfs ham.
+- **`fsck` mount qilinganda** — ma'lumot yo'qoladi. Unmount avval.
+- **ZFS ko'p RAM ishlatadi** — minimal 8 GB tavsiya. ARC default RAM yarim.
+- **Snapshot disk to'ldirib qo'yadi** — eskilarni periodik o'chirish.
+
+## 12. Eng yaxshi amaliyot
+
+- **ext4** — boshlovchilar va default.
+- **btrfs** — snapshot va rollback kerak bo'lsa.
+- **ZFS** — enterprise NAS, ko'p disk.
+- **`noatime` har vaqt** — performance.
+- **SSD'da `discard`** yoki `fstrim.timer`.
+- **Snapshot avtomatlashtirish** — snapper yoki sanoid.
+- **Backup avval major operatsiya'gacha.**
+- **`fsck` periodik** (har 30 mount yoki 180 kun ext4 default).
+
+## 13. Mashqlar
+
+1. **Tahlil:** `df -hT` — sizdagi mount'lar va fayl tizim turlari.
+2. **Btrfs test (VM):** Yangi diskda btrfs yarating, subvolume va snapshot bilan.
+3. **ZFS test (VM):** `zpool` yarating va dataset, snapshot, send/receive bilan.
+4. **SSD test:** SSD'ngiz uchun `noatime,discard` qo'shing.
+5. **Mount opsiyalar:** Joriy mount opsiyalarni `mount` orqali ko'ring.
+
+## 14. Bilim sinovi
+
+**Savol 1.** Copy-on-Write (CoW) nima beradi?
+
+- a) Tezroq yozish
+- b) Snapshot (sudoir vaqt nuqtasi), data integrity
+- c) Kichikroq disk
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** CoW — yangi versiya yangi joyga, eski qoladi. Snapshot trivial.[²](https://btrfs.readthedocs.io/)
+</Callout>
+
+**Savol 2.** Btrfs subvolume nima?
+
+- a) Partition
+- b) Virtual fayl tizim — alohida mount va snapshot
+- c) Backup
+- d) RAID
+
+<Callout type="success" title="Javob">
+**(b)** Bir partition ichida ko'p mantiqiy fayl tizim.
+</Callout>
+
+**Savol 3.** ZFS dataset:
+
+- a) Partition
+- b) ZFS pool ichida fayl tizim + boshqaruv unit
+- c) Snapshot
+- d) Container
+
+<Callout type="success" title="Javob">
+**(b)** Dataset = pool ichidagi fayl tizim.[³](https://openzfs.github.io/openzfs-docs/)
+</Callout>
+
+**Savol 4.** XFS kichraytirish:
+
+- a) Ha
+- b) Yo'q — faqat kengaytirish
+- c) Faqat root uchun
+- d) Hech qachon
+
+<Callout type="success" title="Javob">
+**(b)** XFS — fundamental cheklov.
+</Callout>
+
+**Savol 5.** SSD uchun mount opsiyasi:
+
+- a) `atime,sync`
+- b) `noatime,discard` (yoki fstrim.timer)
+- c) `noatime,nosuid`
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `noatime` — kam yozish; `discard` — TRIM.
+</Callout>
+
+## Manbalar
+
+1. ArchWiki — File systems. [https://wiki.archlinux.org/title/File_systems](https://wiki.archlinux.org/title/File_systems)
+2. Btrfs Wiki. [https://btrfs.readthedocs.io/](https://btrfs.readthedocs.io/)
+3. OpenZFS Documentation. [https://openzfs.github.io/openzfs-docs/](https://openzfs.github.io/openzfs-docs/)
+
+## Keyingi qadam
+
+👉 [Container security va seccomp](/fundamentals/seccomp-security)

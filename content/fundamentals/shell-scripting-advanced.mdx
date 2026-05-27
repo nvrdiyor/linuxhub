@@ -1,0 +1,683 @@
+---
+title: "Shell scripting ilg'or"
+description: "Bash skriptlarining ilg'or texnikalari — arraylar, functions, error handling, getopts, traps."
+order: 134
+level: "advanced"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/bash-fundamentals"
+learning_objectives:
+  - "Arraylar va associative arraylar"
+  - "Funksiyalar va lokal o'zgaruvchilar"
+  - "Error handling — set -euo pipefail va trap"
+  - "Command-line argumentlar (getopts)"
+  - "Modular skriptlar"
+tags: ["advanced", "bash", "scripting", "shell"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU Bash Reference Manual"
+    url: "https://www.gnu.org/software/bash/manual/bash.html"
+  - title: "ShellCheck"
+    url: "https://www.shellcheck.net/"
+  - title: "BashGuide"
+    url: "https://mywiki.wooledge.org/BashGuide"
+---
+
+Bash asoslari (`if`, `for`, funksiyalar) — bilamiz. Bu darsda kuchli xususiyatlarni — arraylar, getopts, modular dizayn va xato boshqaruvini chuqurroq o'rganamiz.[¹](https://www.gnu.org/software/bash/manual/bash.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Indexed va associative arraylar.
+- Funksiyalar va lokal o'zgaruvchilar.
+- Argumentlar — positional va `getopts`.
+- Robust error handling.
+- Modular skriptlar va source.
+</Callout>
+
+## 1. Arraylar — indexed
+
+```bash
+# E'lon
+fruits=("apple" "banana" "orange")
+
+# Yoki
+declare -a fruits
+fruits[0]="apple"
+fruits[1]="banana"
+fruits[2]="orange"
+
+# Murojaat
+echo "${fruits[0]}"           # apple
+echo "${fruits[@]}"           # hamma element
+echo "${fruits[*]}"           # hamma element (string)
+echo "${#fruits[@]}"          # hajm
+
+# Sikl
+for fruit in "${fruits[@]}"; do
+    echo "Fruit: $fruit"
+done
+
+# Index bo'yicha
+for i in "${!fruits[@]}"; do
+    echo "$i: ${fruits[$i]}"
+done
+
+# Qo'shish
+fruits+=("grape")
+
+# Bo'lim (slice)
+echo "${fruits[@]:1:2}"       # 1-indeksdan 2 ta
+```
+
+## 2. Associative arraylar (bash 4+)
+
+```bash
+# E'lon (majburiy)
+declare -A user
+
+user[name]="Ali"
+user[age]=25
+user[city]="Tashkent"
+
+# Murojaat
+echo "${user[name]}"
+
+# Hamma key
+echo "${!user[@]}"            # name age city
+
+# Hamma value
+echo "${user[@]}"
+
+# Hajm
+echo "${#user[@]}"
+
+# Sikl
+for key in "${!user[@]}"; do
+    echo "$key = ${user[$key]}"
+done
+
+# Mavjudligini tekshirish
+if [[ -v user[name] ]]; then
+    echo "name mavjud"
+fi
+```
+
+## 3. Funksiyalar — chuqurroq
+
+```bash
+#!/bin/bash
+
+# Asosiy
+greet() {
+    echo "Salom, $1!"
+}
+
+greet "Ali"
+# Salom, Ali!
+```
+
+### Return va exit code
+
+Bash funksiya 0-255 exit code qaytaradi (boolean kabi):
+
+```bash
+is_positive() {
+    if (( $1 > 0 )); then
+        return 0    # success
+    else
+        return 1    # failure
+    fi
+}
+
+if is_positive 5; then
+    echo "Ha, positive"
+fi
+```
+
+### String qaytarish — `echo`
+
+```bash
+add() {
+    local a=$1
+    local b=$2
+    echo $((a + b))
+}
+
+result=$(add 5 10)
+echo "Yig'indi: $result"      # 15
+```
+
+### Local variables
+
+```bash
+counter=0
+
+increment() {
+    local counter=10
+    counter=$((counter + 1))
+    echo "Funksiya ichida: $counter"
+}
+
+increment
+echo "Tashqarida: $counter"   # 0 — `local` saqladi
+```
+
+**Doim `local`** funksiya o'zgaruvchilari uchun. Global skopni iflos qilmaslik.
+
+### Multiple return values
+
+Bash funksiya bittadan ko'p qaytara olmaydi, lekin global yoki nameref ishlatish mumkin:
+
+```bash
+# Nameref (bash 4.3+)
+get_user_info() {
+    local -n out=$1     # nameref
+    out[name]="Ali"
+    out[age]=25
+}
+
+declare -A user
+get_user_info user
+echo "${user[name]}"   # Ali
+```
+
+## 4. Argument boshqaruvi
+
+### Positional
+
+```bash
+#!/bin/bash
+# script.sh arg1 arg2 arg3
+
+echo "$0"        # script.sh
+echo "$1"        # arg1
+echo "$#"        # argument soni
+echo "$@"        # hamma argumentlar
+echo "$*"        # hamma (string)
+```
+
+### `shift` — keyingi argument
+
+```bash
+while [[ $# -gt 0 ]]; do
+    echo "Argument: $1"
+    shift
+done
+```
+
+### `getopts` — flag'lar
+
+```bash
+#!/bin/bash
+
+verbose=0
+file=""
+output="out.txt"
+
+while getopts "vf:o:h" opt; do
+    case $opt in
+        v) verbose=1 ;;
+        f) file="$OPTARG" ;;
+        o) output="$OPTARG" ;;
+        h) echo "Usage: $0 [-v] [-f file] [-o output]"; exit 0 ;;
+        \?) echo "Noma'lum flag: -$OPTARG"; exit 1 ;;
+        :)  echo "Flag $OPTARG argument talab qiladi"; exit 1 ;;
+    esac
+done
+
+echo "Verbose: $verbose"
+echo "File: $file"
+echo "Output: $output"
+```
+
+Ishga tushirish:
+
+```bash
+./script.sh -v -f input.txt -o result.txt
+```
+
+### `getopts` cheklovlar
+
+- Faqat short flag'lar (`-v`, `-f`).
+- Long flag'lar (`--verbose`) uchun GNU `getopt` (alohida vosita).
+
+### Long flag — `getopt`
+
+```bash
+#!/bin/bash
+
+ARGS=$(getopt -o vf:o:h --long verbose,file:,output:,help -n "$0" -- "$@")
+eval set -- "$ARGS"
+
+while true; do
+    case "$1" in
+        -v|--verbose) verbose=1; shift ;;
+        -f|--file) file="$2"; shift 2 ;;
+        -o|--output) output="$2"; shift 2 ;;
+        -h|--help) echo "Help"; exit 0 ;;
+        --) shift; break ;;
+        *) echo "Xato"; exit 1 ;;
+    esac
+done
+```
+
+## 5. Robust error handling
+
+```bash
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'      # asl IFS
+
+# -e: birinchi xato to'xtatadi
+# -u: aniqlanmagan o'zgaruvchi xato
+# -o pipefail: pipe ichida xato bilinadi
+
+# Trap — har xato yoki exit'da
+cleanup() {
+    local exit_code=$?
+    echo "Tozalash..."
+    # Vaqtinchalik fayllar
+    rm -f /tmp/myscript.*
+    if (( exit_code != 0 )); then
+        echo "Xato bilan tugadi: $exit_code" >&2
+    fi
+    exit $exit_code
+}
+
+trap cleanup EXIT
+trap 'echo "Xato qatorda $LINENO"' ERR
+
+# Ish
+TMP=$(mktemp /tmp/myscript.XXXXXX)
+echo "Vaqtinchalik fayl: $TMP"
+
+# Xato test
+# false  # bu skriptni darrov tugatadi
+
+echo "Tugadi"
+```
+
+### Xato funksiya
+
+```bash
+die() {
+    echo "FATAL: $*" >&2
+    exit 1
+}
+
+[[ -f config.yaml ]] || die "config.yaml topilmadi"
+```
+
+## 6. String manipulation
+
+```bash
+str="Hello, World!"
+
+# Uzunlik
+echo ${#str}                  # 13
+
+# Substring
+echo ${str:7}                 # World!
+echo ${str:7:5}               # World
+
+# Almashtirish (birinchi)
+echo ${str/o/0}               # Hell0, World!
+
+# Almashtirish (hamma)
+echo ${str//o/0}              # Hell0, W0rld!
+
+# Prefix olib tashlash
+file="myfile.tar.gz"
+echo ${file%.gz}              # myfile.tar
+echo ${file%.*}               # myfile.tar
+echo ${file%.*.*}             # myfile
+
+# Suffix olib tashlash
+echo ${file#*.}               # tar.gz
+echo ${file##*.}              # gz
+
+# Case conversion (bash 4+)
+str="hello"
+echo ${str^^}                 # HELLO
+echo ${str^}                  # Hello
+echo ${str,,}                 # hello (already lower)
+```
+
+## 7. Conditional expressions
+
+```bash
+# String
+[[ "$str" == "value" ]]
+[[ "$str" =~ ^[A-Z] ]]        # regex
+[[ -z "$str" ]]               # bo'sh
+[[ -n "$str" ]]               # bo'sh emas
+
+# Number
+[[ $n -eq 10 ]]               # ==
+[[ $n -ne 10 ]]               # !=
+[[ $n -lt 10 ]]               # <
+(( n > 10 ))                  # arithmetic context
+(( n == 10 ))
+
+# File
+[[ -e /path ]]                # mavjud
+[[ -f /path ]]                # fayl
+[[ -d /path ]]                # katalog
+[[ -L /path ]]                # symlink
+[[ -r /path ]]                # o'qish
+[[ -w /path ]]                # yozish
+[[ -x /path ]]                # bajarish
+[[ -s /path ]]                # bo'sh emas
+
+# Boolean
+[[ -f a && -f b ]]            # AND
+[[ -f a || -f b ]]            # OR
+[[ ! -f a ]]                  # NOT
+```
+
+## 8. Subshell va process substitution
+
+```bash
+# Subshell — `( )`
+(
+    cd /tmp
+    pwd
+)
+pwd        # asl
+
+# Command substitution
+result=$(date)
+echo "Bugun: $result"
+
+# Process substitution
+diff <(ls /etc) <(ls /etc.bak)
+
+# Pipe ichida
+ls | tee >(grep ".log" > logs.txt) >(grep ".conf" > confs.txt) > /dev/null
+```
+
+## 9. Arithmetic
+
+```bash
+# `(( ))` arithmetic context
+result=$((5 + 3))
+result=$((5 ** 2))           # 25 — power
+result=$((10 % 3))           # 1 — mod
+
+# Variable o'zgartirish
+i=0
+((i++))
+((i += 5))
+
+# Floating point — bc bilan
+result=$(echo "scale=2; 10 / 3" | bc)
+echo "$result"               # 3.33
+```
+
+## 10. Modular skriptlar — source
+
+`/usr/local/lib/common.sh`:
+
+```bash
+#!/bin/bash
+
+# Constants
+readonly LOG_DIR="/var/log/myapp"
+readonly DEFAULT_USER="myapp"
+
+# Functions
+log_info() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: $*"
+}
+
+log_error() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" >&2
+}
+
+die() {
+    log_error "$*"
+    exit 1
+}
+```
+
+Main skript:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+source /usr/local/lib/common.sh
+
+log_info "Skript boshlandi"
+
+if [[ ! -d "$LOG_DIR" ]]; then
+    die "$LOG_DIR mavjud emas"
+fi
+
+log_info "Tugadi"
+```
+
+## 11. ShellCheck — skript lint
+
+```bash
+sudo apt install shellcheck
+
+shellcheck myscript.sh
+```
+
+Xato va ogohlantirishlarni topadi:
+
+- Quote'siz `$VAR`
+- `[ ]` o'rniga `[[ ]]`
+- Unused variable
+- `cd` qaytmagan path
+- Va boshqalar.
+
+**Har skriptni shellcheck'dan o'tkazing.**
+
+## 12. Misol — to'liq skript
+
+```bash
+#!/bin/bash
+#
+# backup.sh — to'liq backup skripti
+#
+# Usage: backup.sh [-d destination] [-s source] [-r retention_days] [-v]
+
+set -euo pipefail
+IFS=$'\n\t'
+
+# Defaults
+SOURCE="$HOME"
+DEST="/backup"
+RETENTION=30
+VERBOSE=0
+
+# Functions
+usage() {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+  -s SOURCE      Source directory (default: \$HOME)
+  -d DEST        Destination directory (default: /backup)
+  -r DAYS        Retention period in days (default: 30)
+  -v             Verbose
+  -h             Show this help
+EOF
+    exit 0
+}
+
+log() {
+    if (( VERBOSE )); then
+        echo "[$(date '+%H:%M:%S')] $*"
+    fi
+}
+
+die() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
+
+# Parse arguments
+while getopts "s:d:r:vh" opt; do
+    case "$opt" in
+        s) SOURCE="$OPTARG" ;;
+        d) DEST="$OPTARG" ;;
+        r) RETENTION="$OPTARG" ;;
+        v) VERBOSE=1 ;;
+        h) usage ;;
+        ?) usage ;;
+    esac
+done
+
+# Validation
+[[ -d "$SOURCE" ]] || die "Source not found: $SOURCE"
+[[ -d "$DEST" ]] || mkdir -p "$DEST"
+
+# Cleanup on exit
+TMPFILE=$(mktemp)
+cleanup() {
+    rm -f "$TMPFILE"
+}
+trap cleanup EXIT
+
+# Backup
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+ARCHIVE="$DEST/backup-$TIMESTAMP.tar.zst"
+
+log "Backup: $SOURCE → $ARCHIVE"
+
+tar --zstd -cf "$ARCHIVE" \
+    --exclude='.cache' \
+    --exclude='node_modules' \
+    "$SOURCE" 2>"$TMPFILE" || die "Tar xato"
+
+SIZE=$(du -h "$ARCHIVE" | cut -f1)
+log "Backup tugadi: $ARCHIVE ($SIZE)"
+
+# Eski backup'larni o'chirish
+log "Eski backup'lar (>$RETENTION kun) o'chirilmoqda..."
+find "$DEST" -name "backup-*.tar.zst" -mtime "+$RETENTION" -delete
+
+log "Done"
+```
+
+```bash
+./backup.sh -s /home/ali -d /backup -r 7 -v
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `declare -a array` | Indexed array |
+| `declare -A hash` | Associative |
+| `local var` | Funksiya lokal o'zgaruvchi |
+| `set -euo pipefail` | Strict mode |
+| `trap '...' EXIT` | Tozalash |
+| `getopts "vf:" opt` | Flag parsing |
+| `[[ ... ]]` vs `[ ... ]` | Modern test (bash) vs POSIX |
+| `(( ... ))` | Arithmetic |
+| `$(cmd)` | Command substitution |
+| `<(cmd)` | Process substitution |
+| `${var:offset:length}` | Substring |
+| `${var/old/new}` | Almashtirish |
+| `shellcheck script.sh` | Lint |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`[ ]` ichida quotes yo'q** — `[ -z $var ]` xato, `[[ -z "$var" ]]` to'g'ri.
+- **`for i in $(ls)`** — fayl nomida bo'sh joy bo'lsa buziladi. `for i in *` to'g'ri.
+- **`global var`** o'zgartirish funksiyada — `local` ishlatilsin.
+- **`set -e` va `||`** — `cmd || true` ko'rsatish bo'lmasa, exit darhol.
+- **`||` va `&&`** prioriteti — `(cmd1 && cmd2) || fallback` ehtiyot bilan.
+
+## 15. Eng yaxshi amaliyot
+
+- **`set -euo pipefail`** har skriptda.
+- **`shellcheck`** har skriptga.
+- **`local` funksiyada.**
+- **`"$var"`** qo'shtirnoq ichida har vaqt.
+- **`[[ ]]` modern** test.
+- **Comments yozish.**
+- **`die()` funksiyasi** xato uchun.
+- **`getopts`** flag uchun.
+- **Modular `source`** kod qayta ishlatish.
+- **Exit code'lar** — 0 success, non-zero xato.
+
+## 16. Mashqlar
+
+1. **Array:** Indexed array yarating va loop bilan har elementni chop eting.
+2. **Associative:** `declare -A` bilan user info hash yarating.
+3. **getopts:** Quyidagi flag'lar bilan skript yozing: `-v` (verbose), `-c COUNT` (count).
+4. **Strict mode:** `set -euo pipefail` yoqing va atayin xato kiriting — qanday tugadi?
+5. **Trap:** Test skriptda `trap 'echo cleanup' EXIT` qo'shing.
+6. **ShellCheck:** Mavjud skriptingizni `shellcheck` orqali tekshiring — qancha ogohlantirish?
+
+## 17. Bilim sinovi
+
+**Savol 1.** `set -euo pipefail` — bu nima?
+
+- a) Skriptni tezroq qiladi
+- b) Strict mode — xato to'xtatadi, aniqlanmagan o'zgaruvchi xato, pipe xato detected
+- c) Debug
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Eng muhim bash skript boshlanishi.[¹](https://www.gnu.org/software/bash/manual/bash.html)
+</Callout>
+
+**Savol 2.** Funksiya ichida lokal o'zgaruvchi:
+
+- a) `var=value`
+- b) `local var=value`
+- c) `global var=value`
+- d) `let var=value`
+
+<Callout type="success" title="Javob">
+**(b)** `local` — funksiya scope.
+</Callout>
+
+**Savol 3.** Associative array (bash 4+):
+
+- a) `declare -a hash`
+- b) `declare -A hash`
+- c) `hash=()`
+- d) `dict hash`
+
+<Callout type="success" title="Javob">
+**(b)** `-A` capital — associative.
+</Callout>
+
+**Savol 4.** Skriptni lint qilish uchun:
+
+- a) `bash --check`
+- b) `shellcheck script.sh`
+- c) `bash-lint`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** ShellCheck — must-have.[²](https://www.shellcheck.net/)
+</Callout>
+
+**Savol 5.** Bo'sh joyli fayl nomlari uchun xavfsiz:
+
+- a) `for f in $(ls)`
+- b) `for f in *` yoki `find . -print0 | xargs -0`
+- c) `for f in $(find .)`
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** Globbing yoki null-terminated processing.
+</Callout>
+
+## Manbalar
+
+1. GNU Bash Reference Manual. [https://www.gnu.org/software/bash/manual/bash.html](https://www.gnu.org/software/bash/manual/bash.html)
+2. ShellCheck. [https://www.shellcheck.net/](https://www.shellcheck.net/)
+3. BashGuide. [https://mywiki.wooledge.org/BashGuide](https://mywiki.wooledge.org/BashGuide)
+
+## Keyingi qadam
+
+👉 [Dotfiles boshqaruvi](/fundamentals/dotfiles-management)

@@ -86,11 +86,15 @@ dnf search video
 
 | Vazifa | APT (Debian) | Pacman (Arch) | DNF (Fedora) |
 |--------|--------------|---------------|--------------|
-| Yangilash | `apt update` | `pacman -Sy` | `dnf check-update` |
-| Upgrade | `apt upgrade` | `pacman -Syu` | `dnf upgrade` |
+| Paket bazasini yangilash | `apt update` | (`pacman -Syu` ichida) | `dnf check-update` |
+| Yangilash (full upgrade) | `apt upgrade` | `pacman -Syu` | `dnf upgrade` |
 | O'rnatish | `apt install X` | `pacman -S X` | `dnf install X` |
 | O'chirish | `apt remove X` | `pacman -R X` | `dnf remove X` |
 | Qidirish | `apt search X` | `pacman -Ss X` | `dnf search X` |
+
+<Callout type="warning" title="Pacman uchun muhim ogohlantirish">
+Arch va Manjaro tizimlarida **hech qachon faqat `pacman -Sy` ishlatmang** — bu paket ma'lumotlar bazasini yangilaydi, lekin paketlarni yangilamaydi va shu sababli "qisman yangilash" holatiga olib keladi. Bu Arch tomonidan rasmiy ravishda qo'llab-quvvatlanmaydi — manba: [ArchWiki: System maintenance — Partial upgrades are unsupported](https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported). Har doim `pacman -Syu` ishlating.
+</Callout>
 
 ## "sudo" nima?
 

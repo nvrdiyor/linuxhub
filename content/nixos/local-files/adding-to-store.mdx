@@ -1,0 +1,76 @@
+---
+title: "Nix store'ga qo'shish"
+description: "Lokal fayllar Nix store'ga qanday ko'chiriladi va manba hash hisoblanadi."
+order: 3
+level: "advanced"
+estimated_minutes: 3
+prerequisites:
+  - "/nixos/local-files/file-sets"
+learning_objectives:
+  - "`./.` yo'lining xulq-atvori"
+  - "Hash hisoblash"
+tags: ["nixos", "store"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Working with local files"
+    url: "https://nix.dev/tutorials/working-with-local-files.html"
+---
+
+Nix kodida `./katalog` yo'li avtomatik **Nix store'ga ko'chiriladi**. Hash katalog tarkibi asosida hisoblanadi.[¹](https://nix.dev/tutorials/working-with-local-files.html)
+
+## 1. Nima sodir bo'ladi
+
+```nix
+let
+  myFile = ./config.txt;
+in
+builtins.readFile myFile
+```
+
+`./config.txt` Nix store'ga ko'chiriladi (`/nix/store/<hash>-config.txt`). Hash — faylning tarkibi asosida.
+
+## 2. Katalog uchun
+
+```nix
+src = ./my-project;
+```
+
+Butun `my-project/` ko'chiriladi. Tarkibi o'zgarsa — hash o'zgaradi → build qaytadan ishlaydi.
+
+## 3. `.gitignore` qoidalari Nix uchun ishlamaydi
+
+Bu — eng tez-tez tepiladigan toshchak. `node_modules/`, `.git/`, `target/` — hammasi Nix store'ga ko'chiriladi (`fileset` ishlatilmasa).
+
+Yechim: `lib.fileset` yoki `lib.cleanSource`:
+
+```nix
+src = pkgs.lib.cleanSource ./.;
+```
+
+`cleanSource` — `.git`, `*.swp`, `result*` kabi standart "uvol" fayllarni chiqarib tashlaydi. Lekin `node_modules/` ni emas — ehtiyot bo'ling.
+
+## 4. Mashq
+
+`echo "Hi" > test.txt && nix repl <<< 'builtins.readFile ./test.txt'` — natija?
+
+## 5. Bilim sinovi
+
+**Savol 1.** `./katalog` Nix kodida nima qiladi?
+
+- a) Hech narsa
+- b) Katalog Nix store'ga ko'chiriladi va yo'li qaytariladi
+- c) Faqat path string
+- d) Fayl o'chiriladi
+
+<Callout type="success" title="Javob">
+**(b)** Ko'chirish + hash bilan yo'l.[¹](https://nix.dev/tutorials/working-with-local-files.html)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Working with local files. [https://nix.dev/tutorials/working-with-local-files.html](https://nix.dev/tutorials/working-with-local-files.html)
+
+## Keyingi qadam
+
+👉 [Filtrlash](/nixos/local-files/filtering)

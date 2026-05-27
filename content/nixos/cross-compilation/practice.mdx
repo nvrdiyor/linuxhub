@@ -1,0 +1,87 @@
+---
+title: "Cross-compilation amaliyot"
+description: "Raspberry Pi uchun real misol — `hello` ni cross-compile qilish."
+order: 3
+level: "advanced"
+estimated_minutes: 3
+prerequisites:
+  - "/nixos/cross-compilation/platforms"
+learning_objectives:
+  - "Real cross-build"
+  - "Natijani tekshirish"
+tags: ["nixos", "cross-compilation", "raspberry-pi"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Cross compilation"
+    url: "https://nix.dev/tutorials/cross-compilation.html"
+---
+
+Bu darsda real cross-compile misol — Raspberry Pi 4 uchun `hello` ni build qilamiz.[¹](https://nix.dev/tutorials/cross-compilation.html)
+
+## 1. Build
+
+x86_64 Linux mashinada:
+
+```bash
+nix-build '<nixpkgs>' -A pkgsCross.aarch64-multiplatform.hello
+```
+
+5-10 daqiqa kuting (toolchain'ning birinchi build'i sekin).
+
+```
+result -> /nix/store/...-hello-aarch64-unknown-linux-gnu-2.12.1
+```
+
+## 2. Tekshirish
+
+```bash
+file result/bin/hello
+```
+
+```
+result/bin/hello: ELF 64-bit LSB executable, ARM aarch64, ...
+```
+
+ARM binary.
+
+## 3. Raspberry Pi'da ishlatish
+
+Faylni Pi'ga ko'chiring (`scp result/bin/hello pi@<ip>:`). Pi'da:
+
+```bash
+./hello
+# Hello, world!
+```
+
+## 4. O'z paketingiz uchun
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+let
+  pkgsCross = pkgs.pkgsCross.aarch64-multiplatform;
+in
+pkgsCross.callPackage ./myapp.nix {}
+```
+
+## 5. Bilim sinovi
+
+**Savol 1.** `pkgsCross.aarch64-multiplatform.hello` qachon foydali?
+
+- a) x86 mashinada x86 uchun
+- b) x86 mashinada ARM uchun
+- c) Faqat sinov
+- d) Hech qachon
+
+<Callout type="success" title="Javob">
+**(b)** Cross-compile — host'dan farqli target.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Cross compilation. [https://nix.dev/tutorials/cross-compilation.html](https://nix.dev/tutorials/cross-compilation.html)
+
+## Keyingi qadam
+
+👉 [Modul tizimi — Kirish](/nixos/module-system/introduction)

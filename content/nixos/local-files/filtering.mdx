@@ -1,0 +1,90 @@
+---
+title: "Filtrlash"
+description: "Eski usul — builtins.filterSource va lib.cleanSource — fileset'gacha bo'lgan vositalar."
+order: 4
+level: "advanced"
+estimated_minutes: 3
+prerequisites:
+  - "/nixos/local-files/file-sets"
+learning_objectives:
+  - "Eski filter usullari"
+  - "Qaysisini qachon ishlatish"
+tags: ["nixos", "filter"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Working with local files"
+    url: "https://nix.dev/tutorials/working-with-local-files.html"
+---
+
+`lib.fileset` zamonaviy yo'l, lekin eski kod va Nix versiyalarida boshqa usullar uchraydi.[¹](https://nix.dev/tutorials/working-with-local-files.html)
+
+## 1. `builtins.filterSource`
+
+```nix
+src = builtins.filterSource
+  (path: type: !(builtins.elem (baseNameOf path) [ ".git" "target" "node_modules" ]))
+  ./.;
+```
+
+Eng past darajada. Imperative — har fayl uchun predicate.
+
+## 2. `lib.cleanSource`
+
+```nix
+src = lib.cleanSource ./.;
+```
+
+Standart "uvol" fayllarni chiqarib tashlaydi:
+
+- `.git`, `.hg`, `.svn`
+- Backup fayllar (`*~`, `*.bak`)
+- `result*` (Nix build symlink)
+- `.DS_Store`
+
+Lekin `node_modules/` ni emas.
+
+## 3. `lib.cleanSourceWith`
+
+```nix
+src = lib.cleanSourceWith {
+  src = ./.;
+  filter = path: type:
+    !(lib.hasSuffix ".log" path)
+    && !(lib.hasInfix "/node_modules/" path);
+};
+```
+
+`cleanSource` + custom filter.
+
+## 4. Solishtiruv
+
+| Usul | Yaxshi tomon | Yomon tomon |
+|---|---|---|
+| `./.` | Eng oddiy | Hammasini ko'chiradi |
+| `lib.cleanSource` | Standart "uvol"ni olib tashlaydi | Cheklangan |
+| `builtins.filterSource` | To'liq nazorat | Pastdarajali, og'ir o'qiladi |
+| `lib.fileset` (modern) | Aniq, kompozit | Yangiroq |
+
+**Tavsiya:** Yangi loyihalarda `lib.fileset`.
+
+## 5. Bilim sinovi
+
+**Savol 1.** Yangi loyihalar uchun tavsiya etilgan filtr usuli:
+
+- a) `builtins.filterSource`
+- b) `lib.cleanSource`
+- c) `lib.fileset`
+- d) Hech qanday filter
+
+<Callout type="success" title="Javob">
+**(c)** `lib.fileset` — eng modern va aniq.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Working with local files. [https://nix.dev/tutorials/working-with-local-files.html](https://nix.dev/tutorials/working-with-local-files.html)
+
+## Keyingi qadam
+
+👉 [Kross-kompilyatsiya — Nimalar kerak?](/nixos/cross-compilation/requirements)

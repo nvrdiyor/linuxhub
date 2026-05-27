@@ -1,0 +1,89 @@
+---
+title: "callPackage — umumiy ko'rinish"
+description: "Nixpkgs'da paketlarni chaqirish va bog'liqliklarni avtomatik o'tkazish — `callPackage`."
+order: 1
+level: "intermediate"
+estimated_minutes: 4
+prerequisites:
+  - "/nixos/packaging/first-package"
+learning_objectives:
+  - "`callPackage` nima qiladi"
+  - "Avtomatik argument o'tkazish"
+tags: ["nixos", "callpackage"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — callPackage"
+    url: "https://nix.dev/tutorials/callpackage.html"
+---
+
+`callPackage` — Nixpkgs'ning **eng asosiy** funksiyalaridan biri. U paket funksiyasiga avtomatik kerakli argumentlarni o'tkazadi.[¹](https://nix.dev/tutorials/callpackage.html)
+
+## 1. Muammo
+
+Sizning paketingiz:
+
+```nix
+# myapp.nix
+{ stdenv, fetchurl, openssl, zlib }:
+stdenv.mkDerivation { ... }
+```
+
+Chaqirish:
+
+```nix
+import ./myapp.nix {
+  inherit (pkgs) stdenv fetchurl openssl zlib;
+}
+```
+
+Argumentlar har safar qo'lda yozish — uzun va xatolarga moyil.
+
+## 2. `callPackage` yechim
+
+```nix
+pkgs.callPackage ./myapp.nix {}
+```
+
+`callPackage` paket funksiyasining argumentlarini qaraydi va Nixpkgs'dagi mos paketlarni avtomatik o'tkazadi.
+
+## 3. Maxsus argument
+
+Agar siz biron narsani override qilmoqchi bo'lsangiz:
+
+```nix
+pkgs.callPackage ./myapp.nix {
+  openssl = pkgs.openssl_3_2;    # boshqa versiya
+}
+```
+
+`{}` bo'sh bo'lsa — hamma narsa default.
+
+## 4. Mashq
+
+`hello.nix` ni `callPackage` orqali build qiling:
+
+```bash
+nix-build -E 'with import <nixpkgs> {}; callPackage ./hello.nix {}'
+```
+
+## 5. Bilim sinovi
+
+**Savol 1.** `callPackage` nima qiladi?
+
+- a) Paketni o'rnatadi
+- b) Funksiyaga avtomatik mos argumentlarni o'tkazadi
+- c) Yangi paket yaratadi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `callPackage` `func.params` orqali kerakli argumentlarni `pkgs` dan oladi.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — callPackage. [https://nix.dev/tutorials/callpackage.html](https://nix.dev/tutorials/callpackage.html)
+
+## Keyingi qadam
+
+👉 [Avtomatik funksiya chaqirish](/nixos/callpackage/automatic-calls)

@@ -1,0 +1,212 @@
+---
+title: "APT — Debian usuli"
+description: "Debian'da apt va apt-get bilan paket boshqaruvi, sources.list to'g'ri konfiguratsiyasi va `apt full-upgrade`."
+order: 1
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/ubuntu/apt-basics"
+  - "/debian/social-contract"
+learning_objectives:
+  - "Debian'da APT konfiguratsiyasini tushunish"
+  - "`sources.list` ni to'g'ri sozlash"
+  - "`apt-get`, `apt`, `aptitude` farqini bilish"
+tags: ["debian", "apt", "package-management"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Reference — Package management"
+    url: "https://www.debian.org/doc/manuals/debian-reference/ch02.en.html"
+  - title: "Debian — sources.list manpage"
+    url: "https://manpages.debian.org/bookworm/apt/sources.list.5.en.html"
+  - title: "Debian — apt(8)"
+    url: "https://manpages.debian.org/bookworm/apt/apt.8.en.html"
+---
+
+Debian va Ubuntu APT tizimini umumlashtiradi, lekin Debian'da bir necha o'ziga xos jihatlari bor. Bu darsda Debian'ga xos konfiguratsiya va eng yaxshi amaliyotlarni ko'rib chiqamiz.[¹](https://www.debian.org/doc/manuals/debian-reference/ch02.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Debian'ga xos `sources.list` qatorlari.
+- `main` / `contrib` / `non-free` / `non-free-firmware` ni yoqish.
+- `apt full-upgrade` Debian'da nima uchun standart.
+- `aptitude` — Debian'ning alternativ paket menejeri.
+</Callout>
+
+## 1. `sources.list` Debian usuli
+
+Tipik `/etc/apt/sources.list` Debian 12 (`bookworm`) uchun:[²](https://manpages.debian.org/bookworm/apt/sources.list.5.en.html)
+
+```
+# Asosiy paketlar
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+
+# Reliz oraliqdagi yangilanishlar (`bookworm-updates`)
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+
+# Xavfsizlik yangilanishlari
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+```
+
+Format:
+
+```
+deb <repo-URL> <kodli-nom> <bo'limlar>
+```
+
+- `deb` — binary paketlar.
+- `deb-src` — manba kodi (ko'pchilik foydalanuvchilarga kerak emas, lekin paketni qayta yig'ish uchun foydali).
+- `<kodli-nom>` — reliz nomi (`bookworm`, `bullseye` va boshqalar).
+- `<bo'limlar>` — qaysi bo'limlarni yoqamiz.
+
+<Callout type="tip">
+**`deb.debian.org`** — bu Debian'ning global CDN va yaqin ko'zgusiga avtomatik yo'naltiradi. Ko'p hollarda u'ni qo'lda mahalliy ko'zguga (`ftp.de.debian.org` va h.k.) o'zgartirishga ehtiyoj yo'q.
+</Callout>
+
+## 2. Bo'limlarni yoqish
+
+Standart o'rnatishda faqat `main` yoqilgan bo'lishi mumkin. Boshqalarini yoqish uchun `sources.list` ni tahrirlang:
+
+```bash
+sudo nano /etc/apt/sources.list
+```
+
+So'ng:
+
+```bash
+sudo apt update
+```
+
+## 3. Reliz yangilanishi (`apt full-upgrade`)
+
+Ubuntu'da kundalik foydalanish uchun `apt upgrade` yetarli. Debian'da esa ko'pincha `full-upgrade` tavsiya etiladi:[³](https://manpages.debian.org/bookworm/apt/apt.8.en.html)
+
+```bash
+sudo apt update
+sudo apt full-upgrade
+```
+
+Sababi: Debian'ning konservativ yondashuvi `apt upgrade` ni shunchaki yangilatadi va bog'liqliklarni o'zgartirishni rad qiladi. `full-upgrade` esa kerak bo'lsa eski paketlarni o'chiradi yoki yangilarini qo'shadi — bu reliz oraliqdagi yangilanishlar (`-updates`) uchun ko'pincha zarur.
+
+## 4. `apt` va `apt-get` — Debianda ham bir xil
+
+Ubuntu darsida o'rganganlar bu yerda ham amal qiladi:
+
+```bash
+# Paket bazasini yangilash
+sudo apt update
+
+# Paket o'rnatish
+sudo apt install vim
+
+# Paket o'chirish
+sudo apt remove vim
+sudo apt purge vim    # + sozlama fayllari
+
+# Qidirish
+apt search "text editor"
+
+# Paket haqida
+apt show vim
+
+# Yangilanish mumkin bo'lganlar
+apt list --upgradable
+```
+
+## 5. `aptitude` — alternativ paket menejeri
+
+Debian'da `aptitude` ham keng tarqalgan. U:
+
+- Matnli interaktiv interfeysi bor (`aptitude` ni argumentsiz ishga tushiring).
+- Bog'liqliklar nizolarini hal qilishda kuchli — ba'zan murakkab vaziyatlarda `apt`'dan ko'ra yaxshi taklif berishi mumkin.
+- "Why" va "Why-not" — paket sabablarini ko'rsatish:
+
+```bash
+aptitude why firefox-esr libgtk-3-0
+```
+
+O'rnatish:
+
+```bash
+sudo apt install aptitude
+sudo aptitude
+```
+
+<Callout type="info">
+Boshlovchilar uchun `apt` yetarli. `aptitude` — tajribali tizim administratorlari uchun qulay vosita.
+</Callout>
+
+## 6. Tezkor `dpkg` buyruqlari
+
+`apt` `dpkg` ustida ishlaydi. Ba'zi vaziyatlarda `dpkg` ni to'g'ridan-to'g'ri ishlatish kerak:
+
+```bash
+# .deb faylni o'rnatish
+sudo dpkg -i package.deb
+
+# Paket ro'yxati
+dpkg -l | grep firefox
+
+# Paket fayllarini ro'yxati
+dpkg -L vim
+
+# Qaysi paket faylga egalik qiladi?
+dpkg -S /usr/bin/vim
+```
+
+## 7. Amaliy: paketni manbadan qayta yig'ish
+
+Debian'ning afzalliklaridan biri — paketlarning manba kodlari ham mavjud. Misol, `vim` paketini boshqa parametrlar bilan yig'ish:
+
+```bash
+# deb-src yoqilgan bo'lsa
+mkdir ~/build && cd ~/build
+apt source vim
+cd vim-*
+
+# Yangi paket yasash (bu vim'ning bog'liqliklari kerak)
+sudo apt build-dep vim
+dpkg-buildpackage -us -uc
+```
+
+Bu darslar uchun bu yo'lni o'tishingiz shart emas, ammo qo'shimcha boshqaruv darajasi mavjud ekanligi sizga ma'lum bo'lsin.
+
+## 8. Mashqlar
+
+1. (Debian o'rnatilgan tizimda) `cat /etc/apt/sources.list` natijasini ko'ring. Qaysi bo'limlar yoqilgan?
+2. `apt policy vim` ni bajaring. Paket qaysi manbadan o'rnatilgan?
+3. `apt full-upgrade` va `apt upgrade` o'rtasidagi farqni manpage'da topib o'qing: `man apt`.
+
+## 9. Bilim sinovi
+
+**Savol 1.** Reliz oraliqdagi yangilanishlar uchun Debian'da tavsiya etiladigan buyruq qaysi?
+
+- a) `apt update`
+- b) `apt upgrade`
+- c) `apt full-upgrade`
+- d) `apt safe-upgrade`
+
+<Callout type="success" title="Javob">
+**(c)** `apt full-upgrade` Debian'da `-updates` repozitoriyni to'liq qo'llash uchun kerak.[³](https://manpages.debian.org/bookworm/apt/apt.8.en.html)
+</Callout>
+
+**Savol 2.** `sources.list` da `deb-src` qatorlari nimaga kerak?
+
+- a) Yangiroq paketlar olish uchun
+- b) Manba kodi paketlarini yuklab olish uchun
+- c) Server uchun
+- d) Hech narsaga — eskirgan
+
+<Callout type="success" title="Javob">
+**(b)** `deb-src` paket manba kodi (source) repozitoriylariga ishora qiladi. `apt source <paket>` orqali manba olinadi.[²](https://manpages.debian.org/bookworm/apt/sources.list.5.en.html)
+</Callout>
+
+## Manbalar
+
+1. Debian Reference — Package management. [https://www.debian.org/doc/manuals/debian-reference/ch02.en.html](https://www.debian.org/doc/manuals/debian-reference/ch02.en.html)
+2. Debian — sources.list manpage. [https://manpages.debian.org/bookworm/apt/sources.list.5.en.html](https://manpages.debian.org/bookworm/apt/sources.list.5.en.html)
+3. Debian — apt(8). [https://manpages.debian.org/bookworm/apt/apt.8.en.html](https://manpages.debian.org/bookworm/apt/apt.8.en.html)
+
+## Keyingi qadam
+
+👉 [dpkg asoslari](/debian/dpkg-fundamentals)

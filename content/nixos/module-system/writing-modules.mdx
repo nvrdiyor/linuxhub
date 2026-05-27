@@ -1,0 +1,142 @@
+---
+title: "Modullar yozish"
+description: "Yangi NixOS moduli yaratish — strukturasi, qoidalar va xato boshqaruvi."
+order: 2
+level: "advanced"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/module-system/introduction"
+learning_objectives:
+  - "Modul strukturasini yozish"
+  - "mkEnableOption, mkOption"
+  - "assertions"
+tags: ["nixos", "modules"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Manual — Writing modules"
+    url: "https://nixos.org/manual/nixos/stable/#sec-writing-modules"
+---
+
+Yangi modul yozish — `options` (foydalanuvchi sozlay oladigan parametrlar) va `config` (ushbu parametrlardan nima qiladi) ikkita qism.[¹](https://nixos.org/manual/nixos/stable/#sec-writing-modules)
+
+## 1. Modul shabloni
+
+```nix
+# /etc/nixos/modules/myservice.nix
+
+{ config, lib, pkgs, ... }:
+
+let
+  cfg = config.services.myservice;
+in
+{
+  options.services.myservice = {
+    enable = lib.mkEnableOption "MyService";
+
+    port = lib.mkOption {
+      type = lib.types.port;
+      default = 8080;
+      example = 9000;
+      description = "Port to listen on";
+    };
+
+    package = lib.mkOption {
+      type = lib.types.package;
+      default = pkgs.myservice;
+      description = "MyService package";
+    };
+
+    user = lib.mkOption {
+      type = lib.types.str;
+      default = "myservice";
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
+    users.users.${cfg.user} = {
+      isSystemUser = true;
+      group = cfg.user;
+    };
+    users.groups.${cfg.user} = {};
+
+    systemd.services.myservice = {
+      description = "My Service";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network.target" ];
+
+      serviceConfig = {
+        ExecStart = "${cfg.package}/bin/myservice --port ${toString cfg.port}";
+        User = cfg.user;
+        Restart = "on-failure";
+      };
+    };
+
+    networking.firewall.allowedTCPPorts = [ cfg.port ];
+
+    assertions = [
+      {
+        assertion = cfg.port > 1024 || cfg.user == "root";
+        message = "Privileged port (<= 1024) requires user = root";
+      }
+    ];
+  };
+}
+```
+
+## 2. Import qilish
+
+`/etc/nixos/configuration.nix`:
+
+```nix
+{
+  imports = [
+    ./modules/myservice.nix
+  ];
+
+  services.myservice = {
+    enable = true;
+    port = 9000;
+  };
+}
+```
+
+## 3. `assertions`
+
+Modul foydalanuvchi xatosini sezadi va aniq xabar beradi:
+
+```nix
+assertions = [
+  { assertion = ...; message = "..."; }
+];
+```
+
+`nixos-rebuild` paytida assertion failed bo'lsa, build to'xtaydi.
+
+## 4. `lib.mkEnableOption` va `lib.mkOption`
+
+| Funksiya | Qachon |
+|---|---|
+| `mkEnableOption "foo"` | `enable` boolean opsiyasini default `false` bilan |
+| `mkOption { type = ...; ... }` | To'liq sozlanadigan opsiya |
+
+## 5. Bilim sinovi
+
+**Savol 1.** Modul `enable` opsiyasi uchun eng oddiy yo'l:
+
+- a) `mkOption { type = bool; default = false; }`
+- b) `mkEnableOption "..."`
+- c) `enable = false;`
+- d) `lib.types.bool`
+
+<Callout type="success" title="Javob">
+**(b)** `mkEnableOption "..."` qisqaroq, description avtomatik.
+</Callout>
+
+## Manbalar
+
+1. NixOS Manual — Writing modules. [https://nixos.org/manual/nixos/stable/#sec-writing-modules](https://nixos.org/manual/nixos/stable/#sec-writing-modules)
+
+## Keyingi qadam
+
+👉 [Modul opsiyalari](/nixos/module-system/options)

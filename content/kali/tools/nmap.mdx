@@ -1,0 +1,312 @@
+---
+title: "Nmap asoslari"
+description: "Network Mapper — tarmoq skanerlash va xost aniqlash uchun klassik vosita. Rasmiy Nmap kitobi asosida."
+order: 1
+level: "intermediate"
+estimated_minutes: 8
+prerequisites:
+  - "/kali/ethical-hacking"
+  - "/fundamentals/networking"
+learning_objectives:
+  - "Nmap nima va qaysi maqsadda ishlatiladi"
+  - "Asosiy skan turlarini bilish (host discovery, port scan)"
+  - "Xizmat aniqlash va OS detection"
+  - "Skan natijalarini xulosalash va saqlash"
+tags: ["kali", "nmap", "scanning", "tools"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nmap Reference Guide"
+    url: "https://nmap.org/book/man.html"
+  - title: "Nmap Network Scanning (online book)"
+    url: "https://nmap.org/book/"
+  - title: "Nmap — Host Discovery"
+    url: "https://nmap.org/book/man-host-discovery.html"
+---
+
+<Callout type="danger" title="Faqat ruxsat etilgan tizimda">
+Nmap kuchli vosita — uni faqat **sizga tegishli** yoki **yozma ruxsati bor** tarmoqda ishlating. Tasodifiy IP yoki saytni skanerlash ko'p mamlakatlarda jinoiy javobgarlikka olib keladi.
+
+Mashq uchun rasmiy ravishda ruxsat berilgan resurslar: [scanme.nmap.org](http://scanme.nmap.org/), [HackTheBox](https://www.hackthebox.com/), [TryHackMe](https://tryhackme.com/).
+</Callout>
+
+**Nmap** (Network Mapper) — 1997-yildan beri rivojlanayotgan, eng keng tarqalgan tarmoq skanerlash vositasi. Rasmiy kitob — [Nmap Network Scanning](https://nmap.org/book/).[²](https://nmap.org/book/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Host discovery — qaysi xostlar tirik.
+- Port skanerlash — qaysi portlar ochiq.
+- Xizmat aniqlash — qaysi dastur portda ishlamoqda.
+- OS detection.
+- Natijalarni saqlash.
+</Callout>
+
+## 1. Nmap nima qila oladi?
+
+- **Host discovery** — tarmoqda qaysi xostlar tirik.
+- **Port scanning** — har bir xostda qaysi portlar ochiq.
+- **Service detection** — port'da qaysi dastur (`-sV`).
+- **OS detection** — operatsion tizim guess qilish (`-O`).
+- **Script Engine (NSE)** — kengaytiriladigan tekshiruvlar (`--script`).
+
+## 2. Asosiy skan turlari
+
+### Tirik xostlarni topish (`-sn`)
+
+```bash
+# Tarmoq diapazonida tirik xostlar
+nmap -sn 192.168.1.0/24
+```
+
+`-sn` (No port scan, formerly ping scan) — faqat host discovery, port skanerlamaydi.
+
+### Port skan — default TCP SYN
+
+```bash
+# Top 1000 portni skanerlash
+nmap 192.168.1.50
+
+# Faqat aniq portlar
+nmap -p 22,80,443 192.168.1.50
+
+# Diapazon
+nmap -p 1-1000 192.168.1.50
+
+# Hamma portlar (1-65535)
+nmap -p- 192.168.1.50
+```
+
+`nmap` default holatida **TCP SYN scan** (`-sS`) qiladi — bu `root` ruxsati talab qiladi.
+
+### TCP Connect (root'siz)
+
+```bash
+nmap -sT 192.168.1.50
+```
+
+Sekinroq, lekin sudo'siz ishlaydi.
+
+### UDP scan
+
+```bash
+sudo nmap -sU 192.168.1.50
+```
+
+UDP juda sekin — chunki UDP javob bermasligi mumkin.
+
+## 3. Xizmat va versiya aniqlash
+
+```bash
+# `-sV` — port'da qaysi versiya ishlayotganini topish
+nmap -sV 192.168.1.50
+
+# Tezroq, agressiv versiya aniqlash
+nmap -sV --version-intensity 9 192.168.1.50
+```
+
+Misol natija:
+
+```
+PORT    STATE SERVICE VERSION
+22/tcp  open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.10
+80/tcp  open  http    nginx 1.18.0 (Ubuntu)
+443/tcp open  ssl/http nginx 1.18.0 (Ubuntu)
+```
+
+Bu ma'lumot ma'lum CVE'larni qidirish uchun foydali.
+
+## 4. OS detection
+
+```bash
+sudo nmap -O 192.168.1.50
+```
+
+Misol natija:
+
+```
+OS details: Linux 5.4 - 5.10
+```
+
+OS aniqlash 100% emas — bu **guess**.
+
+## 5. Agressiv skan (`-A`)
+
+`-A` = `-sV` + `-O` + `--script=default` + `--traceroute`:
+
+```bash
+sudo nmap -A 192.168.1.50
+```
+
+Eng informativ, lekin eng "shovqinli" — uzoq vaqt va xost loglarida ko'rinadi.
+
+## 6. Tezlik (`-T0` - `-T5`)
+
+| Flag | Sur'at | Foydalanish |
+|---|---|---|
+| `-T0` | Paranoid | IDS yashirinish |
+| `-T1` | Sneaky | Sekin, kam shovqinli |
+| `-T2` | Polite | Tinch tarmoq uchun |
+| `-T3` | Normal (default) | Standart |
+| `-T4` | Aggressive | LAN'da tezroq |
+| `-T5` | Insane | Eng tez, paketlarni yo'qotishi mumkin |
+
+```bash
+sudo nmap -T4 -A 192.168.1.0/24
+```
+
+## 7. Nmap Scripting Engine (NSE)
+
+NSE — Lua skriptlari orqali ko'p maxsus testlar:
+
+```bash
+# Default skriptlar (xavfsizroq)
+nmap --script=default 192.168.1.50
+
+# Kategoriya bo'yicha
+nmap --script=safe 192.168.1.50
+nmap --script=vuln 192.168.1.50      # zaiflik tekshiruvi
+nmap --script=auth 192.168.1.50
+
+# Aniq skript
+nmap --script=ssh-hostkey 192.168.1.50
+
+# Aniq skript + argument
+nmap --script=http-headers -p 80 192.168.1.50
+```
+
+Skriptlar `/usr/share/nmap/scripts/` katalogida.
+
+NSE kategoriyalar:
+
+- `auth` — autentifikatsiya
+- `broadcast` — tarmoqda topish
+- `brute` — brute-force (**EHTIYOT BO'LING**)
+- `default` — xavfsiz, foydali
+- `discovery` — ma'lumot to'plash
+- `dos` — DoS (**Ishlatmang!**)
+- `exploit` — exploit (**Ishlatmang!**)
+- `fuzzer`, `intrusive` — agressiv testlar
+- `safe` — yumshoq
+- `vuln` — zaiflik
+
+## 8. Natijalarni saqlash
+
+```bash
+# Normal format (matn)
+nmap -oN scan.txt 192.168.1.50
+
+# XML — boshqa vositalar uchun
+nmap -oX scan.xml 192.168.1.50
+
+# Grepable
+nmap -oG scan.gnmap 192.168.1.50
+
+# Hamma format birga
+nmap -oA scan-result 192.168.1.50
+# Yaratadi: scan-result.nmap, scan-result.xml, scan-result.gnmap
+```
+
+## 9. Amaliy misol — to'liq audit
+
+```bash
+# 1. Host discovery
+sudo nmap -sn 192.168.1.0/24
+
+# 2. Tirik xostda hamma port
+sudo nmap -p- -T4 -oN ports.txt 192.168.1.50
+
+# 3. Ochiq portlarda xizmat aniqlash
+sudo nmap -sV -p 22,80,443 -oN services.txt 192.168.1.50
+
+# 4. Xavfsiz NSE skriptlar
+sudo nmap -sV --script=safe -p 22,80,443 192.168.1.50
+
+# 5. Hisobotga uchun XML
+sudo nmap -A -p 22,80,443 -oX report.xml 192.168.1.50
+```
+
+## 10. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `nmap -sn <range>` | Host discovery |
+| `nmap -sS <host>` | TCP SYN scan (default, root kerak) |
+| `nmap -sT <host>` | TCP connect (root'siz) |
+| `nmap -sU <host>` | UDP scan |
+| `nmap -p 1-1000` | Port diapazoni |
+| `nmap -p-` | Hamma 65535 port |
+| `nmap -sV` | Xizmat versiyasini aniqlash |
+| `nmap -O` | OS aniqlash |
+| `nmap -A` | Agressiv (versiya+OS+script) |
+| `nmap --script=<kategoriya>` | NSE skript |
+| `nmap -oN <fayl>` | Matn formatda saqlash |
+| `nmap -oA <prefix>` | Hamma formatda |
+
+## 11. Eng tez-tez uchraydigan xatolar
+
+- **Ruxsatsiz skanerlash** — qonun bo'yicha jinoiy.
+- **Production tizimda `-A` yoki `-T4/5`** — xizmatga ta'sir qilishi mumkin.
+- **`-p-` cheksiz vaqt** — bitta xost ~65 daqiqada (LAN'da).
+- **`--script=vuln` ko'r-ko'rona** — false positive ko'p; har bir topilmani qo'lda tasdiqlash kerak.
+- **UDP scan tez deb o'ylash** — UDP juda sekin.
+- **Firewall orqasidagi xost "yo'q" deb hisoblash** — ICMP bloklangan bo'lishi mumkin; `-Pn` (no ping) bilan sinash.
+
+## 12. Eng yaxshi amaliyot
+
+- **Doim ruxsat oling** yoki rasmiy sinov muhitida ishlang.
+- **Sekin boshlang** — `-T3` (default) yetarli ko'p hollarda.
+- **Natijalarni `-oA` bilan saqlang** — keyingi tahlil va hisobot uchun.
+- **`--reason` qo'shing** — port holatining sababini ko'rsatadi.
+- **`scanme.nmap.org`** mashq uchun rasmiy ruxsat etilgan.
+- **`nmap` mavzularini chuqurroq o'rganish uchun** — [Nmap Network Scanning](https://nmap.org/book/) bepul onlayn kitob.
+
+## 13. Bilim sinovi
+
+**Savol 1.** Default Nmap skan turi qaysi?
+
+- a) TCP Connect (`-sT`)
+- b) TCP SYN (`-sS`)
+- c) UDP (`-sU`)
+- d) Ping (`-sn`)
+
+<Callout type="success" title="Javob">
+**(b)** TCP SYN — root ruxsati bilan default. Root'siz `-sT` bo'ladi.[¹](https://nmap.org/book/man.html)
+</Callout>
+
+**Savol 2.** Xizmat versiyasini aniqlash uchun:
+
+- a) `-sV`
+- b) `-O`
+- c) `-A`
+- d) Hammasi ham (a yoki c)
+
+<Callout type="success" title="Javob">
+**(d)** `-sV` aniq xizmat versiyasi, `-A` esa `-sV` + boshqa narsa.
+</Callout>
+
+**Savol 3.** Eng "shovqinli" skan flag:
+
+- a) `-T0`
+- b) `-T3`
+- c) `-T4`
+- d) `-T5`
+
+<Callout type="success" title="Javob">
+**(d)** `-T5` — Insane — eng tez va eng shovqinli.
+</Callout>
+
+## 14. Mashq
+
+1. **Faqat rasmiy ruxsat etilgan resursda:** `nmap scanme.nmap.org` ni bajaring. Qaysi portlar ochiq?
+2. `nmap -sV scanme.nmap.org` — qaysi xizmatlar va versiyalar?
+3. `nmap --script=default scanme.nmap.org` — NSE default skriptlar nima ma'lumot beradi?
+4. Natijani `-oN scanme-result.txt` bilan saqlang va matnni o'qing.
+
+## Manbalar
+
+1. Nmap Reference Guide. [https://nmap.org/book/man.html](https://nmap.org/book/man.html)
+2. Nmap Network Scanning (online book). [https://nmap.org/book/](https://nmap.org/book/)
+3. Nmap — Host Discovery. [https://nmap.org/book/man-host-discovery.html](https://nmap.org/book/man-host-discovery.html)
+
+## Keyingi qadam
+
+👉 [Metasploit Framework](/kali/tools/metasploit)

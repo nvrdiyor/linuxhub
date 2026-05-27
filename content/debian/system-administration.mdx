@@ -1,0 +1,253 @@
+---
+title: "Tizim administratsiyasi"
+description: "Debian tizimini boshqarish: foydalanuvchilar, xizmatlar, jurnal va asosiy konfiguratsiya."
+order: 2
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/debian/introduction"
+  - "/fundamentals/permissions"
+learning_objectives:
+  - "Asosiy Debian Reference manbasidagi tizim boshqaruv vositalarini bilish"
+  - "Foydalanuvchi qo'shish/o'chirish, xizmatlarni boshqarish"
+  - "Jurnalni o'qish va asosiy tashxis (`journalctl`)"
+tags: ["debian", "system-administration", "systemd", "journalctl"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Reference"
+    url: "https://www.debian.org/doc/manuals/debian-reference/"
+  - title: "Debian Reference — System and daemon management"
+    url: "https://www.debian.org/doc/manuals/debian-reference/ch03.en.html"
+  - title: "systemd documentation"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/"
+---
+
+Debian tizimini kunlik boshqaruv uchun **Debian Reference** manualining tegishli boblari (`Debian Reference` — rasmiy va eng ishonchli manba) ishlatamiz.[¹](https://www.debian.org/doc/manuals/debian-reference/) Bu darsda eng tez-tez kerak bo'ladigan vazifalarni qisqacha umumlashtiramiz.
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Foydalanuvchi va guruh boshqaruvi.
+- `systemd` xizmatlarini boshqarish.
+- Jurnalni o'qish (`journalctl`).
+- Tarmoq holati va asosiy diagnostika.
+</Callout>
+
+## 1. Foydalanuvchi boshqaruvi
+
+```bash
+# Yangi foydalanuvchi qo'shish (interaktiv)
+sudo adduser ali
+
+# Foydalanuvchi qo'shish (faqat hisob, parolsiz, uy katalogisiz)
+sudo useradd alisher
+
+# Parolni o'rnatish/o'zgartirish
+sudo passwd ali
+
+# Foydalanuvchini guruhga qo'shish
+sudo usermod -aG sudo ali
+sudo usermod -aG docker ali
+
+# Foydalanuvchini o'chirish (uy katalogi qoladi)
+sudo deluser ali
+
+# To'liq o'chirish (uy katalogi bilan)
+sudo deluser --remove-home ali
+
+# Foydalanuvchining qaysi guruhlarda ekanligini ko'rish
+groups ali
+id ali
+```
+
+**`adduser` va `useradd`** — `adduser` Debian'ga xos qulay skript bo'lib, `useradd` ustida ishlaydi va default uy katalogini yaratadi, parolni interaktiv tarzda so'raydi va h.k. Boshlovchilar uchun `adduser` tavsiya etiladi.[²](https://www.debian.org/doc/manuals/debian-reference/ch03.en.html)
+
+## 2. Guruh boshqaruvi
+
+```bash
+# Yangi guruh
+sudo addgroup developers
+
+# Guruhga foydalanuvchi qo'shish
+sudo adduser ali developers
+
+# Guruhdan o'chirish
+sudo deluser ali developers
+
+# Barcha guruhlar ro'yxati
+cat /etc/group
+```
+
+## 3. systemd va xizmatlar
+
+Zamonaviy Debian (`systemd` asosida) xizmatlarni `systemctl` orqali boshqaradi.[³](https://www.freedesktop.org/software/systemd/man/latest/)
+
+```bash
+# Xizmat holatini ko'rish
+sudo systemctl status ssh
+
+# Boshlash
+sudo systemctl start ssh
+
+# To'xtatish
+sudo systemctl stop ssh
+
+# Qayta boshlash
+sudo systemctl restart ssh
+
+# Konfiguratsiyani qayta yuklash (xizmatni to'xtatmasdan)
+sudo systemctl reload ssh
+
+# Tizim yuklanganida avtomatik boshlanishi uchun
+sudo systemctl enable ssh
+
+# Avtomatik boshlanishni o'chirish
+sudo systemctl disable ssh
+
+# Barcha ishlayotgan xizmatlar
+sudo systemctl list-units --type=service --state=running
+
+# Ishlamayotgan, xato bilan to'xtagan xizmatlar
+sudo systemctl --failed
+```
+
+## 4. Jurnalni o'qish (`journalctl`)
+
+`systemd-journald` barcha tizim loglarini markazlashtirilgan jurnalga yozadi.[³](https://www.freedesktop.org/software/systemd/man/latest/)
+
+```bash
+# Hamma loglar (chiqishni `q` bilan yopish)
+sudo journalctl
+
+# Joriy yuklanishdan boshlab
+sudo journalctl -b
+
+# Oxirgi 100 qator
+sudo journalctl -n 100
+
+# Faqat ssh xizmati uchun
+sudo journalctl -u ssh
+
+# Real-time (tail -f kabi)
+sudo journalctl -f
+
+# Bugungi loglar
+sudo journalctl --since today
+
+# Faqat xatolar
+sudo journalctl -p err
+```
+
+## 5. Tarmoq holati
+
+```bash
+# Tarmoq interfeyslari va IP manzillar
+ip -brief addr
+
+# Tarmoq marshrutlash jadvali
+ip route
+
+# Faol tarmoq ulanishlari
+ss -tunap
+
+# DNS tekshirish
+nslookup debian.org
+dig debian.org
+
+# Ping
+ping -c 4 debian.org
+```
+
+## 6. Disk va xotira
+
+```bash
+# Disk hajmi
+df -h
+
+# Katalog hajmi
+du -sh /var/log
+
+# Bo'limlar ro'yxati
+lsblk
+
+# RAM va swap
+free -h
+
+# Top jarayonlar (interaktiv)
+htop          # avval o'rnating: sudo apt install htop
+```
+
+## 7. Konfiguratsiya fayllari
+
+Debian konfiguratsiyalari odatda `/etc/` ostida:
+
+| Yo'l | Mazmuni |
+|---|---|
+| `/etc/passwd` | Foydalanuvchilar ro'yxati |
+| `/etc/group` | Guruhlar |
+| `/etc/shadow` | Parol xeshlari (faqat root o'qiy oladi) |
+| `/etc/sudoers` | sudo huquqlari (`visudo` orqali tahrirlang) |
+| `/etc/apt/sources.list` | APT manbalari |
+| `/etc/systemd/system/` | Lokal systemd xizmatlari |
+| `/etc/network/interfaces` | An'anaviy tarmoq sozlamalari |
+| `/etc/hostname` | Server nomi |
+| `/etc/hosts` | Lokal DNS |
+
+<Callout type="warning">
+`/etc/sudoers` ni faqat `sudo visudo` orqali tahrirlang — bu sintaksis xatolarini tekshiradi va sizni tizimga kira olmaslikdan saqlaydi.
+</Callout>
+
+## 8. Vaqt va vaqt mintaqasi
+
+```bash
+# Joriy vaqt
+date
+
+# Vaqt mintaqasini ko'rish
+timedatectl
+
+# Vaqt mintaqasini o'rnatish
+sudo timedatectl set-timezone Asia/Tashkent
+
+# NTP (vaqt sinxronlash) holati
+timedatectl status
+```
+
+## 9. Mashqlar
+
+1. `sudo journalctl -p err --since "1 week ago"` bajaring. Oxirgi haftada qanday xatolar yozilgan?
+2. `systemctl list-units --type=service --state=running | wc -l` — tizimda nechta xizmat ishlayapti?
+3. `cat /etc/passwd | wc -l` — tizimda nechta foydalanuvchi mavjud (tizim foydalanuvchilari bilan birga)?
+
+## 10. Bilim sinovi
+
+**Savol 1.** Xizmatni avtomatik boshlanishini yoqish uchun qaysi buyruq?
+
+- a) `systemctl start <xizmat>`
+- b) `systemctl enable <xizmat>`
+- c) `systemctl on <xizmat>`
+- d) `systemctl autostart <xizmat>`
+
+<Callout type="success" title="Javob">
+**(b)** `enable` — yuklanishda avtomatik boshlanish; `start` — hozir boshlash.
+</Callout>
+
+**Savol 2.** Oxirgi yuklanishdan beri tizim loglarini ko'rish uchun:
+
+- a) `journalctl --last`
+- b) `journalctl -b`
+- c) `journalctl --boot-only`
+- d) `journalctl -1`
+
+<Callout type="success" title="Javob">
+**(b)** `journalctl -b` joriy yuklanishdan beri loglarni ko'rsatadi. `-b -1` — oldingi yuklanish.
+</Callout>
+
+## Manbalar
+
+1. Debian Reference. [https://www.debian.org/doc/manuals/debian-reference/](https://www.debian.org/doc/manuals/debian-reference/)
+2. Debian Reference — System and daemon management. [https://www.debian.org/doc/manuals/debian-reference/ch03.en.html](https://www.debian.org/doc/manuals/debian-reference/ch03.en.html)
+3. systemd documentation. [https://www.freedesktop.org/software/systemd/man/latest/](https://www.freedesktop.org/software/systemd/man/latest/)
+
+## Keyingi qadam
+
+👉 [Xavfsizlik yangilanishlari](/debian/security-updates)

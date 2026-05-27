@@ -1,0 +1,98 @@
+---
+title: "Override'lar"
+description: "Nixpkgs paketlarini override, overrideAttrs va overlays orqali o'zgartirish."
+order: 4
+level: "advanced"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/callpackage/parameterised-builds"
+learning_objectives:
+  - "`override` va `overrideAttrs` taqqoslash"
+  - "Overlay yaratish"
+tags: ["nixos", "callpackage", "overlay"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nixpkgs Manual — Overlays"
+    url: "https://nixos.org/manual/nixpkgs/stable/#chap-overlays"
+---
+
+Override'lar — tayyor paketni o'zgartirish texnikasi. Lokal yoki global (overlay) miqyosda.[¹](https://nixos.org/manual/nixpkgs/stable/#chap-overlays)
+
+## 1. `override` — paket argumentlari
+
+```nix
+pkgs.firefox.override { cfg = { ... }; }
+```
+
+Yangi paket funksiyasining argumentini o'zgartiradi.
+
+## 2. `overrideAttrs` — derivation atributlari
+
+```nix
+pkgs.vim.overrideAttrs (oldAttrs: {
+  version = "9.1";
+  postPatch = (oldAttrs.postPatch or "") + ''
+    echo "Mening tuzatishim"
+  '';
+})
+```
+
+Bu `mkDerivation`'ga uzatilgan atributlarni o'zgartiradi.
+
+## 3. Overlay — global o'zgartirish
+
+Overlay — `pkgs` ga butun globally qo'llaniladigan o'zgartirish:
+
+```nix
+# ~/.config/nixpkgs/overlays/my-overlay.nix
+self: super: {
+  myFirefox = super.firefox.override { /* ... */ };
+
+  vim = super.vim.overrideAttrs (old: {
+    version = "9.1-mine";
+  });
+}
+```
+
+Yoki configuration.nix:
+
+```nix
+nixpkgs.overlays = [
+  (self: super: {
+    myFirefox = super.firefox.override { ... };
+  })
+];
+```
+
+So'ng `pkgs.myFirefox` mavjud bo'ladi.
+
+## 4. `self` va `super`
+
+| Parametr | Ma'no |
+|---|---|
+| `self` | Yakuniy `pkgs` (overlays qo'llanilgandan keyin) |
+| `super` | Overlays qo'llanilmasdan oldingi `pkgs` |
+
+`super` — original paket. `self` — overlay ichida boshqa overlay paketga ishora qilish uchun.
+
+## 5. Bilim sinovi
+
+**Savol 1.** Paket atributlarini (masalan, `version`) o'zgartirish uchun:
+
+- a) `override`
+- b) `overrideAttrs`
+- c) `overlay` faqat
+- d) `mkDerivation` qaytadan
+
+<Callout type="success" title="Javob">
+**(b)** `overrideAttrs` — `mkDerivation` atributlari uchun.
+</Callout>
+
+## Manbalar
+
+1. Nixpkgs Manual — Overlays. [https://nixos.org/manual/nixpkgs/stable/#chap-overlays](https://nixos.org/manual/nixpkgs/stable/#chap-overlays)
+
+## Keyingi qadam
+
+👉 [Fayl to'plamlari](/nixos/local-files/file-sets)

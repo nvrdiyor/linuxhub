@@ -1,0 +1,70 @@
+---
+title: "Hujjatlashtirish"
+description: "NixOS hujjatlariga hissa qo'shish — Manual, Wiki, nix.dev."
+order: 2
+level: "intermediate"
+estimated_minutes: 3
+prerequisites: []
+tags: ["nixos", "documentation", "contribute"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Contributing"
+    url: "https://nix.dev/contributing/"
+---
+
+NixOS hujjatlari ham ko'ngillilar tomonidan saqlanadi. Sizning hissa qo'shishingiz katta yordam.[¹](https://nix.dev/contributing/)
+
+## 1. Hujjat manbalar
+
+| Sahifa | Repository |
+|---|---|
+| [NixOS Manual](https://nixos.org/manual/nixos/stable/) | `nixpkgs/nixos/doc/manual` |
+| [Nixpkgs Manual](https://nixos.org/manual/nixpkgs/stable/) | `nixpkgs/doc` |
+| [Nix Reference](https://nixos.org/manual/nix/stable/) | `nix/doc/manual` |
+| [nix.dev](https://nix.dev/) | `nix-dot-dev/nix.dev` |
+| [NixOS Wiki](https://nixos.wiki/) | wiki, direct edit |
+
+## 2. PR jarayoni
+
+1. GitHub'da repository fork.
+2. Lokal'da clone.
+3. Markdown/AsciiDoc tahrirlash.
+4. Lokal preview qilish (har repo bo'yicha ko'rsatma).
+5. PR yuborish.
+
+## 3. Misol — Nixpkgs Manual'ga PR
+
+```bash
+git clone https://github.com/NixOS/nixpkgs
+cd nixpkgs
+# Markdown/Docbook tahrirlash
+# doc/ ostida
+
+# Lokal build
+nix-build doc
+
+# PR yuborish
+```
+
+## 4. Yangi paket uchun docs
+
+Paket PR'ga ham `meta.description`, `meta.longDescription` qo'shish — hujjatlash.
+
+## 5. Tarjima
+
+NixOS hujjatlari hozircha asosan inglizcha. Tarjima loyihalar:
+
+- LinuxHub.uz — bu loyiha (o'zbek).
+- nixpkgs'da `meta.description` ko'p tilda emas.
+
+## Manbalar
+
+1. nix.dev — Contributing. [https://nix.dev/contributing/](https://nix.dev/contributing/)
+
+## Keyingi qadam
+
+Tabriklaymiz! NixOS kursini tugatdingiz. Endi loyihalarga hissa qo'shing:
+
+- [github.com/NixOS](https://github.com/NixOS)
+- [discourse.nixos.org](https://discourse.nixos.org/)

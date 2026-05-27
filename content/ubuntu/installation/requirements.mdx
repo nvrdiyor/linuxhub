@@ -1,0 +1,152 @@
+---
+title: "Ubuntu tizim talablari"
+description: "Ubuntu Desktop va Server o'rnatish uchun zarur bo'lgan kompyuter resurslari va apparat to'g'risida ma'lumot."
+order: 1
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "Ubuntu Desktop va Server uchun minimal va tavsiya etilgan talablarni bilish"
+  - "32-bit va 64-bit qo'llab-quvvatlash holatini izohlash"
+  - "O'z kompyuteringizning apparat parametrlarini qanday tekshirishni bilish"
+tags: ["ubuntu", "installation", "hardware"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu Community Help — Installation/SystemRequirements"
+    url: "https://help.ubuntu.com/community/Installation/SystemRequirements"
+  - title: "Ubuntu Desktop — Download"
+    url: "https://ubuntu.com/download/desktop"
+  - title: "Ubuntu Server — Download"
+    url: "https://ubuntu.com/download/server"
+---
+
+Ubuntuni o'rnatishdan oldin kompyuteringiz minimal apparat talablarini qondirayotganiga ishonch hosil qilish kerak. Yangi versiyalar har 6 oyda chiqadi va talablar asta-sekin ortib boradi.
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Ubuntu Desktop uchun minimal va tavsiya etilgan apparat.
+- Ubuntu Server uchun talablar (Desktop'dan ancha past).
+- Arxitektura qo'llab-quvvatlashi: amd64, arm64, RISC-V.
+- O'z kompyuteringiz xususiyatlarini ko'rish.
+</Callout>
+
+## 1. Ubuntu Desktop talablari
+
+Rasmiy Ubuntu hujjatlariga ko'ra, hozirgi Ubuntu Desktop relizi uchun:[¹](https://help.ubuntu.com/community/Installation/SystemRequirements)[²](https://ubuntu.com/download/desktop)
+
+| Resurs | Minimal | Tavsiya etilgan |
+|---|---|---|
+| Protsessor | 2 yadroli, 2 GHz | 4 yadroli, modern |
+| RAM | 4 GB | 8 GB yoki ko'proq |
+| Disk | 25 GB bo'sh joy | 40+ GB SSD |
+| Grafika | VGA, 1024×768 | Zamonaviy GPU |
+| Interfeys | USB port (yuklanish) yoki DVD | Internet ulanishi yangilanishlar uchun |
+
+Boshqa Ubuntu flavor'lar (Xubuntu, Lubuntu) sezilarli darajada past resurslar bilan kifoyalanadi.
+
+## 2. Ubuntu Server talablari
+
+Ubuntu Server grafik interfeyssiz ishlaydi va shuning uchun ancha kam resurs talab qiladi:[³](https://ubuntu.com/download/server)
+
+| Resurs | Minimal | Tavsiya etilgan |
+|---|---|---|
+| Protsessor | 1 yadroli | 2+ yadroli |
+| RAM | 1 GB | 2+ GB |
+| Disk | 2.5 GB | 10+ GB |
+
+Bu raqamlar **bo'sh** Server uchun. Veb-server, ma'lumotlar bazasi yoki konteynerlar ishlatsangiz, talablar ortadi.
+
+## 3. Qo'llab-quvvatlanadigan arxitekturalar
+
+Ubuntu hozirda quyidagi arxitekturalar uchun rasmiy ISO chiqaradi:
+
+- **amd64** — eng keng tarqalgan (Intel/AMD 64-bit kompyuterlar).
+- **arm64** — Raspberry Pi 4/5, ARM serverlari, Apple Silicon (cheklangan).
+- **riscv64** — RISC-V eksperimental qo'llab-quvvatlash.
+- **s390x**, **ppc64el** — server uchun maxsus.
+
+**Eski 32-bit kompyuterlar uchun:** Ubuntu rasmiy 18.04 LTS dan boshlab 32-bit (i386) Desktop ISO chiqarmaydi. Eski mashinalar uchun [Lubuntu](https://lubuntu.me/) yoki [Debian](https://www.debian.org/) ni tanlash mumkin.
+
+## 4. O'z kompyuteringiz xususiyatlarini tekshirish
+
+### Windows'da
+
+`Settings → System → About` ochib, protsessor turi, RAM hajmi va arxitektura (`64-bit operating system, x64-based processor`) ko'rinadi.
+
+### Linux'da (agar boshqa distributivda bo'lsangiz)
+
+```bash
+# Protsessor ma'lumoti
+lscpu
+
+# RAM
+free -h
+
+# Disklar
+lsblk
+
+# Arxitektura
+uname -m
+```
+
+`uname -m` natijasi `x86_64` bo'lsa — amd64 ISO kerak; `aarch64` bo'lsa — arm64 ISO.
+
+## 5. Qo'shimcha tekshiruvlar
+
+O'rnatishdan oldin **5 daqiqada hal qilinadigan ishlar**:
+
+<Steps>
+  <Step title="UEFI / BIOS rejimini bilish">
+    Windows kompyuterlarning aksariyati UEFI rejimida ishlaydi. Ubuntu UEFI va eski Legacy BIOS — ikkalasini ham qo'llab-quvvatlaydi, lekin o'rnatish jarayonida to'g'ri rejimda yuklanish muhim.
+  </Step>
+  <Step title="Secure Boot holati">
+    Secure Boot yoqilgan bo'lsa, Ubuntu uni qo'llab-quvvatlaydi. Lekin keyinroq maxsus drayverlar (NVIDIA, VirtualBox) o'rnatsangiz, qo'shimcha qadamlar talab qilinishi mumkin.
+  </Step>
+  <Step title="Disk bo'sh joyi">
+    Asosiy operatsion tizim yonida (dual boot) ishlatmoqchi bo'lsangiz, kamida 40 GB shartnomasiz joy ajrating.
+  </Step>
+  <Step title="Backup">
+    O'rnatishdan oldin **hozirgi tizimdagi muhim ma'lumotlarni zaxiralang**. O'rnatish jarayonidagi xato disk mazmunini yo'qotishi mumkin.
+  </Step>
+</Steps>
+
+## 6. Mashqlar
+
+1. O'z kompyuteringizning RAM hajmi va protsessor yadrolari sonini topib yozing. Ubuntu Desktop minimal talablariga mos keladimi?
+2. [Ubuntu Desktop yuklash sahifasini](https://ubuntu.com/download/desktop) oching va hozirgi LTS ISO faylining hajmini yozing.
+3. [Lubuntu sahifasini](https://lubuntu.me/) oching. Uning RAM talabini Ubuntu Desktop bilan solishtiring.
+
+## 7. Bilim sinovi
+
+**Savol 1.** Ubuntu Desktop uchun minimal RAM qancha?
+
+- a) 1 GB
+- b) 2 GB
+- c) 4 GB
+- d) 8 GB
+
+<Callout type="success" title="Javob">
+**(c)** Hozirgi rasmiy ko'rsatma — 4 GB minimal.[¹](https://help.ubuntu.com/community/Installation/SystemRequirements)
+</Callout>
+
+**Savol 2.** Ubuntu Server Desktop'dan kamroq resurs talab qiladi, nima sababdan?
+
+- a) Server xafsizroq tuzilgan
+- b) Server grafik ish stoli muhitisiz keladi
+- c) Server faqat Snap paketlarni ishlatadi
+- d) Server faqat 32-bit'da ishlaydi
+
+<Callout type="success" title="Javob">
+**(b)** Server odatda grafik ish stoli (GNOME) bilan kelmaydi — bu RAM va diskning katta qismini bo'shatadi.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Community Help — Installation/SystemRequirements. [https://help.ubuntu.com/community/Installation/SystemRequirements](https://help.ubuntu.com/community/Installation/SystemRequirements)
+2. Ubuntu Desktop — Download. [https://ubuntu.com/download/desktop](https://ubuntu.com/download/desktop)
+3. Ubuntu Server — Download. [https://ubuntu.com/download/server](https://ubuntu.com/download/server)
+
+## Keyingi qadam
+
+👉 [USB dan Ubuntu o'rnatish](/ubuntu/installation/usb)

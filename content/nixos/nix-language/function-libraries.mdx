@@ -1,0 +1,130 @@
+---
+title: "Funksiya kutubxonalari"
+description: "Nixpkgs'da kelgan funksiya kutubxonalari — lib va builtins."
+order: 4
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/nix-language/functions"
+learning_objectives:
+  - "`builtins` va `pkgs.lib` farqi"
+  - "Eng tez-tez ishlatiladigan funksiyalar"
+tags: ["nixos", "nix-language", "lib"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nixpkgs Manual — lib"
+    url: "https://nixos.org/manual/nixpkgs/stable/#sec-functions-library"
+  - title: "Nix Reference — builtins"
+    url: "https://nixos.org/manual/nix/stable/language/builtins.html"
+---
+
+Nix ikki asosiy funksiyalar to'plamiga ega: **`builtins`** (tilning o'zida) va **`pkgs.lib`** (Nixpkgs tomonidan).[¹](https://nixos.org/manual/nixpkgs/stable/#sec-functions-library)[²](https://nixos.org/manual/nix/stable/language/builtins.html)
+
+## 1. `builtins`
+
+Nix kompilyatorida o'rnatilgan. Hech qanday import shart emas:
+
+```nix
+builtins.length [ 1 2 3 ]           # 3
+builtins.head [ "a" "b" "c" ]       # "a"
+builtins.tail [ "a" "b" "c" ]       # [ "b" "c" ]
+builtins.map (x: x * 2) [ 1 2 3 ]   # [ 2 4 6 ]
+builtins.filter (x: x > 2) [ 1 2 3 4 ]  # [ 3 4 ]
+builtins.toString 42                # "42"
+builtins.toJSON { a = 1; }          # "{\"a\":1}"
+builtins.fromJSON "[1,2,3]"         # [ 1 2 3 ]
+builtins.readFile ./fayl.txt        # fayl tarkibi
+builtins.fetchurl "https://..."     # fayl yuklash
+builtins.elemAt [ "a" "b" "c" ] 1   # "b"
+builtins.attrNames { a=1; b=2; }    # [ "a" "b" ]
+builtins.attrValues { a=1; b=2; }   # [ 1 2 ]
+```
+
+## 2. `pkgs.lib`
+
+Nixpkgs'da kelgan keng kutubxona — yuqori darajadagi yordamchilar.[¹](https://nixos.org/manual/nixpkgs/stable/#sec-functions-library)
+
+```nix
+let
+  pkgs = import <nixpkgs> {};
+  inherit (pkgs) lib;
+in
+{
+  # String'larda
+  joined = lib.concatStringsSep "," [ "a" "b" "c" ];   # "a,b,c"
+
+  # List'larda
+  filtered = lib.filter (x: x > 0) [ -1 2 -3 4 ];      # [ 2 4 ]
+  mapped = lib.map (x: x + 1) [ 1 2 3 ];               # [ 2 3 4 ]
+
+  # Attribute set'larda
+  merged = lib.recursiveUpdate { a = 1; } { b = 2; };  # { a=1; b=2; }
+  hasA = lib.hasAttr "a" { a = 1; };                   # true
+  getOrDefault = lib.attrByPath [ "a" "b" ] "default" { a = { b = "yes"; }; };  # "yes"
+}
+```
+
+## 3. Eng tez ishlatiladigan `lib` funksiyalari
+
+| Funksiya | Maqsad |
+|---|---|
+| `lib.optional cond x` | Agar cond true → `[ x ]`, aks holda `[ ]` |
+| `lib.optionals cond xs` | List variant |
+| `lib.mkIf cond value` | Modul tizimida shart |
+| `lib.mkDefault value` | Default qiymat |
+| `lib.mkForce value` | Boshqa qiymatni majburiy bostiradi |
+| `lib.mapAttrs f set` | Set'dagi har maydon ustida funksiya |
+| `lib.filterAttrs f set` | Set'ni filtr |
+| `lib.toUpper` / `lib.toLower` | String case |
+| `lib.splitString sep str` | String'ni list'ga |
+| `lib.concatStringsSep sep list` | List'ni string'ga |
+| `lib.removeSuffix` / `lib.removePrefix` | String operatsiya |
+
+## 4. Misol — file fayllarni o'qish va birlashtirish
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+let
+  inherit (pkgs) lib;
+
+  files = [ "a.txt" "b.txt" "c.txt" ];
+  contents = lib.map (f: builtins.readFile (./. + "/${f}")) files;
+in
+lib.concatStringsSep "\n---\n" contents
+```
+
+## 5. Mashq
+
+`nix repl` da:
+
+```nix
+nix-repl> :p import <nixpkgs> {}
+# (juda katta — chiqishi cheklangan)
+
+nix-repl> let pkgs = import <nixpkgs> {}; in pkgs.lib.concatStringsSep "-" [ "a" "b" "c" ]
+"a-b-c"
+```
+
+## 6. Bilim sinovi
+
+**Savol 1.** `builtins` va `pkgs.lib` farqi:
+
+- a) `builtins` — Nix tilida; `lib` — Nixpkgs tomonidan
+- b) `builtins` faqat sonlar uchun
+- c) `lib` faqat NixOS'da
+- d) Hech qanday farq
+
+<Callout type="success" title="Javob">
+**(a)** `builtins` — tilning o'zi; `lib` — Nixpkgs paketi.[¹](https://nixos.org/manual/nixpkgs/stable/#sec-functions-library)
+</Callout>
+
+## Manbalar
+
+1. Nixpkgs Manual — lib. [https://nixos.org/manual/nixpkgs/stable/#sec-functions-library](https://nixos.org/manual/nixpkgs/stable/#sec-functions-library)
+2. Nix Reference — builtins. [https://nixos.org/manual/nix/stable/language/builtins.html](https://nixos.org/manual/nix/stable/language/builtins.html)
+
+## Keyingi qadam
+
+👉 [Nopokliklar](/nixos/nix-language/impurities)

@@ -1,0 +1,488 @@
+---
+title: "Job control va background jarayonlar"
+description: "Bash job control — background, foreground, suspend, jobs, fg, bg, disown, screen va tmux."
+order: 107
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/processes"
+  - "/fundamentals/signals"
+learning_objectives:
+  - "Foreground va background jarayonlar"
+  - "jobs, fg, bg buyruqlari"
+  - "disown va nohup farqi"
+  - "screen va tmux asoslari"
+tags: ["intermediate", "jobs", "background", "screen", "tmux"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU Bash — Job Control"
+    url: "https://www.gnu.org/software/bash/manual/bash.html#Job-Control"
+  - title: "GNU Screen Manual"
+    url: "https://www.gnu.org/software/screen/manual/screen.html"
+  - title: "tmux Manual"
+    url: "https://github.com/tmux/tmux/wiki"
+---
+
+Job control — bir vaqtning o'zida bir nechta buyruqni bir shelldan boshqarish. Ctrl+Z bilan to'xtatish, `bg` bilan background'ga, `fg` bilan qaytarish. Plus — `screen` va `tmux` orqali persistent sessiyalar.[¹](https://www.gnu.org/software/bash/manual/bash.html#Job-Control)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Background va foreground jarayonlar.
+- `jobs`, `fg`, `bg`, `&` ishlatish.
+- `disown` va `nohup` farqi.
+- `screen` va `tmux` asoslari — persistent sessiyalar.
+</Callout>
+
+## 1. Foreground vs background
+
+```bash
+# Foreground — terminal'ni bloklaydi
+sleep 60
+
+# Background — terminal bo'sh qoladi
+sleep 60 &
+# [1] 12345     ← Job ID va PID
+```
+
+Background ishga tushgan jarayon:
+
+- Terminal'da boshqa buyruq yozish mumkin.
+- Lekin terminal yopilsa, jarayon ham tugaydi (SIGHUP).
+
+## 2. `jobs` — joriy shelldagi job'lar
+
+```bash
+sleep 100 &       # [1] 12345
+sleep 200 &       # [2] 12346
+sleep 300 &       # [3] 12347
+
+jobs
+# [1]   Running    sleep 100 &
+# [2]-  Running    sleep 200 &
+# [3]+  Running    sleep 300 &
+```
+
+| Belgi | Ma'no |
+|---|---|
+| `+` | Joriy job (default fg/bg target) |
+| `-` | Oldingi job |
+| (yo'q) | Boshqa |
+
+```bash
+# PID bilan
+jobs -l
+
+# Faqat PID
+jobs -p
+```
+
+## 3. `fg` va `bg`
+
+```bash
+# Eng oxirgi job'ni foreground'ga
+fg
+
+# Aniq job (%N)
+fg %1
+
+# Nom bo'yicha
+fg %sleep
+
+# Eng oxirgi job'ni background'da davom ettirish
+bg
+
+# Aniq
+bg %2
+```
+
+### Workflow misol
+
+```bash
+# 1. Long-running buyruq
+make -j4 install
+
+# 2. Ctrl+Z — to'xtatish
+^Z
+# [1]+  Stopped     make -j4 install
+
+# 3. Background'da davom ettirish
+bg
+# [1]+ make -j4 install &
+
+# 4. Boshqa ish qilish
+ls /etc
+
+# 5. Tekshirish
+jobs
+# [1]+ Running     make -j4 install &
+
+# 6. Foreground'ga qaytish
+fg
+```
+
+## 4. `&` operator
+
+```bash
+# Bir nechta buyruq, hammasini background
+long-task1 &
+long-task2 &
+long-task3 &
+
+# Hammasini kutish
+wait
+
+echo "Hammasi tugadi"
+```
+
+## 5. `nohup` — SIGHUP'ni inkor qilish
+
+Default'da terminal yopilsa, background jarayonlarga SIGHUP yuboriladi:
+
+```bash
+sleep 1000 &
+# Terminal yopildi → sleep tugadi
+```
+
+`nohup` — SIGHUP'ni e'tiborga olmaslik:
+
+```bash
+nohup sleep 1000 &
+# nohup: ignoring input and appending output to 'nohup.out'
+
+# Terminal yopilsa ham, sleep davom etadi
+```
+
+Chiqish `nohup.out` faylga.
+
+### `nohup` va custom log
+
+```bash
+nohup long-script.sh > my.log 2>&1 &
+```
+
+## 6. `disown` — joriy shell'dan ajratish
+
+```bash
+sleep 1000 &
+disown %1       # endi terminal yopilsa ham davom etadi
+
+# Yoki disown -a — hamma background job'lar
+sleep 100 &
+sleep 200 &
+disown -a
+```
+
+### `nohup` vs `disown`
+
+| | `nohup` | `disown` |
+|---|---|---|
+| Qachon ishlatiladi | Boshlashdan oldin | Boshlangandan keyin |
+| Chiqish | `nohup.out` (default) | Asl terminal (yopilsa yo'qoladi) |
+| Sintaksis | `nohup cmd &` | `cmd & disown` |
+
+## 7. `screen` — persistent terminal sessiyalar
+
+`screen` — terminal sessiyasini terminal yopilganda ham saqlaydi.[²](https://www.gnu.org/software/screen/manual/screen.html)
+
+```bash
+# O'rnatish
+sudo apt install screen
+```
+
+### Asosiy ish jarayoni
+
+```bash
+# Yangi sessiya
+screen
+
+# Ichida ish qilish (Ctrl+A keyin boshqa tugma)
+
+# Ctrl+A, D — sessiyani uzish (detach), lekin saqlash
+# Terminal yopilsa ham sessiya ishlamoqda
+
+# Tashqaridan tekshirish
+screen -ls
+# 12345.pts-0.host    (Detached)
+
+# Qaytish (attach)
+screen -r 12345
+```
+
+### Nomli sessiyalar
+
+```bash
+# Yangi sessiya nom bilan
+screen -S myserver
+
+# Tashqaridan
+screen -r myserver
+
+# Hammasini ko'rsatish
+screen -ls
+```
+
+### Asosiy yorliqlar (Ctrl+A keyin)
+
+| Ketma-ketlik | Vazifa |
+|---|---|
+| `Ctrl+A`, `d` | Detach (sessiyani saqlash) |
+| `Ctrl+A`, `c` | Yangi window |
+| `Ctrl+A`, `n` | Keyingi window |
+| `Ctrl+A`, `p` | Oldingi window |
+| `Ctrl+A`, `"` | Window'lar ro'yxati |
+| `Ctrl+A`, `S` | Ekranni gorizontal bo'lish |
+| `Ctrl+A`, `\|` | Ekranni vertikal bo'lish |
+| `Ctrl+A`, `k` | Joriy window'ni o'chirish |
+
+## 8. `tmux` — modern muqobil
+
+[tmux](https://github.com/tmux/tmux) — `screen`'ning zamonaviy almashtiruvchisi. Yaxshi UI, ko'p funksiya.[³](https://github.com/tmux/tmux/wiki)
+
+```bash
+# O'rnatish
+sudo apt install tmux
+```
+
+### Asosiy buyruqlar
+
+```bash
+# Yangi sessiya
+tmux
+
+# Nom bilan
+tmux new -s myserver
+
+# Detach
+# Ctrl+B, d
+
+# Sessiyalar ro'yxati
+tmux ls
+
+# Attach
+tmux attach -t myserver
+# yoki qisqacha
+tmux a -t myserver
+
+# Sessiya o'chirish
+tmux kill-session -t myserver
+```
+
+### Asosiy yorliqlar (Ctrl+B keyin)
+
+| Ketma-ketlik | Vazifa |
+|---|---|
+| `Ctrl+B`, `d` | Detach |
+| `Ctrl+B`, `c` | Yangi window |
+| `Ctrl+B`, `n` / `p` | Keyingi/oldingi window |
+| `Ctrl+B`, `0-9` | Aniq window |
+| `Ctrl+B`, `,` | Window'ni nomlash |
+| `Ctrl+B`, `w` | Window'lar ro'yxati |
+| `Ctrl+B`, `%` | Vertikal bo'lish (pane) |
+| `Ctrl+B`, `"` | Gorizontal bo'lish |
+| `Ctrl+B`, arrow | Pane orasida o'tish |
+| `Ctrl+B`, `x` | Pane'ni o'chirish |
+| `Ctrl+B`, `[` | Scroll rejimi (q bilan chiqish) |
+| `Ctrl+B`, `?` | Yordam |
+
+### `~/.tmux.conf` — sozlash
+
+```bash
+# Yangi yorliq prefix (Ctrl+A — screen kabi)
+unbind C-b
+set -g prefix C-a
+bind C-a send-prefix
+
+# Mouse support
+set -g mouse on
+
+# 256 color
+set -g default-terminal "screen-256color"
+
+# Status bar
+set -g status-bg black
+set -g status-fg green
+```
+
+## 9. screen vs tmux
+
+| | screen | tmux |
+|---|---|---|
+| Yosh | 1987 | 2007 |
+| Default rang | Cheklangan | 256+ |
+| Window splitting | Sodda | Murakkab |
+| Sozlash | Cheklangan | Keng |
+| Active rivojlanish | Sekin | Aktiv |
+| Default Debian/Ubuntu'da | Yo'q | Yo'q (alohida o'rnatish) |
+
+**Tavsiya:** Yangi loyihalar uchun **tmux**.
+
+## 10. SSH va persistent sessiya
+
+```bash
+# 1. SSH'dan ulanish
+ssh user@server.com
+
+# 2. tmux ichida ishlash
+tmux new -s work
+
+# 3. Long-running task
+./long-script.sh
+
+# 4. Detach (Ctrl+B, d)
+
+# 5. SSH'ni uzish
+exit
+
+# 6. Boshqa joydan SSH
+ssh user@server.com
+tmux attach -t work
+# Skript hali ham ishlamoqda
+```
+
+Bu — server administratorlar uchun **majburiy** texnika.
+
+## 11. `parallel` — GNU parallel
+
+Bir nechta jarayonni parallel ishga tushirish:
+
+```bash
+sudo apt install parallel
+
+# 4 ta jarayonda parallel
+ls *.jpg | parallel -j 4 convert {} {.}.png
+
+# `{}` — input, `{.}` — kengaytirmasiz
+```
+
+Lekin bash skriptlarda ko'pincha `xargs -P` yetarli:
+
+```bash
+ls *.jpg | xargs -P 4 -I {} convert {} {}.png
+```
+
+## 12. Misol — server'da daily backup
+
+```bash
+ssh server
+
+# tmux sessiyani yaratish
+tmux new -s backup
+
+# Backup skript
+./daily-backup.sh
+
+# Detach (Ctrl+B, d)
+
+# Tashqariga chiqib ham backup davom etadi
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `cmd &` | Buyruqni background'da boshlash |
+| `Ctrl+Z` | Joriy jarayonni suspend |
+| `jobs` | Joriy shell job'lar |
+| `fg %N` | Foreground'ga |
+| `bg %N` | Background'da davom ettirish |
+| `nohup cmd &` | SIGHUP'ga toleant background |
+| `disown` | Job'ni shell'dan ajratish |
+| `wait` | Hamma child jarayonlarni kutish |
+| `screen` | GNU screen sessiya |
+| `tmux new -s NAME` | Yangi tmux sessiya |
+| `tmux attach -t NAME` | Sessiyaga qaytish |
+| `tmux ls` | Sessiyalar ro'yxati |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`nohup`'siz background** — SSH yopilsa, jarayon yo'qoladi.
+- **`tmux/screen` ichidan `exit`** — terminal sessiyaga kirgan window yopiladi. Detach uchun Ctrl+B, d.
+- **`fg` yoki `bg` PID bilan** — bu job ID (`%N`), PID emas.
+- **Long task SSH'dan** — `tmux` siz ish — uzilish xavfi.
+- **`screen` parolda muammo** — `Ctrl+A`, `x` — passwd protect.
+
+## 15. Eng yaxshi amaliyot
+
+- **SSH'dan har doim `tmux`** — uzilishdan saqlanish.
+- **`tmux` sozlamasi `~/.tmux.conf`** — komfortli ishlash.
+- **Background jarayonlar uchun log fayl** — `cmd > log.txt 2>&1 &`.
+- **`nohup`** SSH'da bir martalik buyruq uchun (tmux sessiya yaratishni xohlamasangiz).
+- **Sessiya nomlari** — `tmux new -s <nom>` — keyin topish oson.
+- **Mouse mode tmux'da** — yangi boshlovchilar uchun qulay.
+
+## 16. Mashqlar
+
+1. **Background test:** `sleep 300 &` ishga tushiring. `jobs` — ko'rinadimi?
+2. **Suspend/Resume:** `vim` oching, `Ctrl+Z` bilan to'xtating. `bg` orqali background. `jobs` — qaysi holatda?
+3. **tmux:** `tmux new -s test` bilan sessiya yarating. Ichida `top` ishga tushiring. `Ctrl+B, d` bilan detach. `tmux ls` — sessiya hali bormi?
+4. **Reattach:** `tmux attach -t test` — top hali ishlamoqdami?
+5. **Window:** tmux ichida `Ctrl+B, c` bilan yangi window yarating. `Ctrl+B, n` va `Ctrl+B, p` bilan o'ting.
+6. **Split:** `Ctrl+B, %` bilan vertikal bo'ling. Bir tomonda `top`, ikkinchi tomonda `df -h`.
+7. **`nohup` test:** `nohup sleep 300 &` ishga tushiring. Terminal yoping. Yangi terminal'da `pgrep sleep` — bormi?
+
+## 17. Bilim sinovi
+
+**Savol 1.** Job ID va PID farqi:
+
+- a) Bir xil
+- b) Job ID — joriy shell'dagi nom (`%1`, `%2`); PID — tizim darajasidagi unique
+- c) Job ID faqat root uchun
+- d) PID faqat skriptlar uchun
+
+<Callout type="success" title="Javob">
+**(b)** Job ID — shell xususiyati. PID — yadro xususiyati.[¹](https://www.gnu.org/software/bash/manual/bash.html#Job-Control)
+</Callout>
+
+**Savol 2.** Ctrl+Z signal:
+
+- a) SIGKILL
+- b) SIGTERM
+- c) SIGTSTP (suspend)
+- d) SIGINT
+
+<Callout type="success" title="Javob">
+**(c)** SIGTSTP — to'xtatish, lekin tiklash mumkin (`fg`/`bg`).
+</Callout>
+
+**Savol 3.** `nohup` va `disown` farqi:
+
+- a) Bir xil
+- b) `nohup` — boshlashdan oldin, chiqish `nohup.out`'ga. `disown` — boshlangandan keyin, chiqish asl terminalda.
+- c) `disown` faqat root
+- d) `nohup` faqat bash
+
+<Callout type="success" title="Javob">
+**(b)** Vaqt va chiqish farqi.
+</Callout>
+
+**Savol 4.** tmux'da detach yorlig'i:
+
+- a) Ctrl+D
+- b) Ctrl+B, d
+- c) Ctrl+A, d
+- d) Esc
+
+<Callout type="success" title="Javob">
+**(b)** Default tmux prefix Ctrl+B, keyin `d`.
+</Callout>
+
+**Savol 5.** SSH server'da long backup uchun:
+
+- a) `./backup.sh` — to'g'ridan-to'g'ri
+- b) `tmux` yoki `screen` ichida ishga tushirish (uzilish bo'lsa ham davom etadi)
+- c) `nohup ./backup.sh &`
+- d) Ikkalasi (b yoki c)
+
+<Callout type="success" title="Javob">
+**(d)** Ikkalasi ham ishlatish mumkin. tmux qulayroq — keyin tekshirish, qarash mumkin.
+</Callout>
+
+## Manbalar
+
+1. GNU Bash — Job Control. [https://www.gnu.org/software/bash/manual/bash.html#Job-Control](https://www.gnu.org/software/bash/manual/bash.html#Job-Control)
+2. GNU Screen Manual. [https://www.gnu.org/software/screen/manual/screen.html](https://www.gnu.org/software/screen/manual/screen.html)
+3. tmux Manual. [https://github.com/tmux/tmux/wiki](https://github.com/tmux/tmux/wiki)
+
+## Keyingi qadam
+
+👉 [SSH advanced — tunneling va port forwarding](/fundamentals/ssh-advanced)

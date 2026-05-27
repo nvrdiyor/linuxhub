@@ -1,0 +1,472 @@
+---
+title: "Cron vs systemd timers — chuqur taqqoslash"
+description: "Cron va systemd-timer batafsil taqqoslash — har biri qachon, qaysi vaziyatlarda mos."
+order: 131
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/cron"
+  - "/fundamentals/services"
+learning_objectives:
+  - "Cron va systemd timer farqlari"
+  - "Persistent timers"
+  - "OnCalendar expressions"
+  - "Migratsiya cron → timer"
+tags: ["intermediate", "cron", "systemd", "timer", "scheduling"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "systemd.timer(5)"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html"
+  - title: "systemd.time(7)"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd.time.html"
+  - title: "ArchWiki — systemd/Timers"
+    url: "https://wiki.archlinux.org/title/Systemd/Timers"
+---
+
+Cron — 1970-yillardan beri Unix dunyosida standart. systemd-timer — modern alternative. Bu darsda chuqur taqqoslab, qaysi qachon to'g'ri keladi.[¹](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Cron va systemd-timer farqlari.
+- Persistent timer'lar (offline kompyuter).
+- OnCalendar sintaksisi.
+- Migratsiya cron → timer.
+</Callout>
+
+## 1. Taqqoslash jadvali
+
+| | Cron | systemd-timer |
+|---|---|---|
+| Yosh | 1975 | 2013 |
+| Sodda sintaksis | Ha (bitta qator) | Yo'q (2 ta fayl) |
+| Default'da hamma joyda | Ha | Modern Linux'da |
+| Logs | Email (default) | journalctl |
+| Persistent (offline) | Yo'q | Ha |
+| Resource limits | Yo'q | Ha (CPUQuota, MemoryMax) |
+| Dependency | Yo'q | Ha (`After=`, `Requires=`) |
+| User-level | crontab -e | systemd --user |
+| Randomization | Yo'q | Ha (RandomizedDelaySec) |
+| Murakkab vaqt | Cheklangan | Keng (OnCalendar) |
+| Tarmoq tayyor | Yo'q | `After=network-online.target` |
+
+## 2. Cron qisqacha (eslatma)
+
+```
+m h dom mon dow command
+```
+
+Misol:
+
+```
+0 3 * * * /backup.sh           # har kun 03:00
+*/15 * * * * /check-disk.sh    # har 15 daqiqada
+0 0 1 * * /monthly.sh          # har oy 1-kun
+@reboot /startup.sh             # boot vaqtida
+```
+
+Konfiguratsiya:
+
+- User crontab: `crontab -e`
+- System: `/etc/cron.d/`, `/etc/cron.daily/`, etc.
+
+## 3. systemd-timer asoslari
+
+**Timer + Service** — ikki fayl.
+
+`/etc/systemd/system/backup.service`:
+
+```ini
+[Unit]
+Description=Daily backup
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup.sh
+User=root
+Nice=10
+IOSchedulingClass=idle
+```
+
+`/etc/systemd/system/backup.timer`:
+
+```ini
+[Unit]
+Description=Daily backup timer
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now backup.timer
+```
+
+## 4. `OnCalendar` sintaksisi
+
+systemd vaqt formati:
+
+```
+DayOfWeek Year-Month-Day Hour:Minute:Second
+```
+
+Misollar:
+
+| Format | Ma'no |
+|---|---|
+| `*-*-* 03:00:00` | Har kuni 03:00 |
+| `Mon..Fri 09:00` | Du-Ju 09:00 |
+| `Mon *-*-* 00:00:00` | Har dushanba yarim tunda |
+| `*-*-01 02:00:00` | Har oyning 1-kuni 02:00 |
+| `*-01-01 00:00:00` | Yangi yil |
+| `hourly` | Har soat boshida |
+| `daily` | Har kuni yarim tunda |
+| `weekly` | Har dushanba 00:00 |
+| `monthly` | Har oy 1-kun 00:00 |
+| `*-*-* *:0/15:00` | Har 15 daqiqada |
+| `*-*-* 09..17:00:00` | Har soat 09-17 |
+
+To'liq sintaksis: `man systemd.time`.
+
+### Sintaksisni tekshirish
+
+```bash
+systemd-analyze calendar "*-*-* 03:00:00"
+# Original form: *-*-* 03:00:00
+# Normalized form: *-*-* 03:00:00
+# Next elapse: Tue 2026-05-27 03:00:00 +05
+# (in UTC): Mon 2026-05-26 22:00:00 UTC
+# From now: 12h left
+```
+
+## 5. Persistent timers — eng katta afzallik
+
+```ini
+[Timer]
+OnCalendar=daily
+Persistent=true
+```
+
+`Persistent=true` — agar kompyuter o'chiq bo'lganda timer vaqti kelsa, **yoqilganda darrov bajariladi**.
+
+Cron bunday qila olmaydi — agar kompyuter o'chiq bo'lganda `0 3 * * *` vaqti kelsa, **o'tkazib yuboriladi**.
+
+Bu laptop foydalanuvchilari uchun **katta yutuq**.
+
+## 6. RandomizedDelaySec — server cluster'da
+
+100 server bir vaqtda backup boshlasa — tarmoq o'lik. `RandomizedDelaySec` — har serverga tasodifiy kechikish:
+
+```ini
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+```
+
+Har server 0-30 daqiqa orasida tasodifiy vaqt'da boshlanadi.
+
+## 7. Timer turlari
+
+| Tur | Tavsif |
+|---|---|
+| `OnCalendar=` | Calendar vaqt (har kuni 03:00) |
+| `OnBootSec=` | Boot'dan keyin N soniyada |
+| `OnStartupSec=` | systemd boshlangandan keyin |
+| `OnActiveSec=` | Timer faollashganidan keyin |
+| `OnUnitActiveSec=` | Service oxirgi marotaba ishga tushganidan keyin |
+| `OnUnitInactiveSec=` | Service oxirgi tugaganidan keyin |
+
+### `OnBootSec=` misol
+
+```ini
+[Timer]
+OnBootSec=5min      # boot'dan 5 daqiqa keyin bajarish
+```
+
+### Periodic `OnUnitActiveSec=`
+
+```ini
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h    # har bir bajarishdan 1 soat keyin
+```
+
+Bu cron uchun yo'q — har soat'da emas, har bajarishdan 1 soat keyin.
+
+## 8. User-level timer
+
+`~/.config/systemd/user/mybackup.service` va `~/.config/systemd/user/mybackup.timer`:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now mybackup.timer
+
+# Status
+systemctl --user list-timers
+```
+
+User-level — `loginctl enable-linger <user>` bilan user logout'dan keyin ham ishlaydi.
+
+## 9. Timer holatini ko'rish
+
+```bash
+# Hamma timerlar
+systemctl list-timers
+
+# Aktiv va keyingi vaqtlari
+systemctl list-timers --all
+
+# Aniq timer status
+systemctl status backup.timer
+
+# Service ham
+systemctl status backup.service
+
+# Loglar
+journalctl -u backup.service
+
+# Real-time
+journalctl -u backup.service -f
+```
+
+`list-timers` natija:
+
+```
+NEXT                        LEFT       LAST                        PASSED    UNIT
+Tue 2026-05-27 03:00:00     12h left   Mon 2026-05-26 03:00:00     11h ago   backup.timer
+Tue 2026-05-27 06:30:00     16h left   Mon 2026-05-26 06:30:00     8h ago    apt-daily.timer
+```
+
+## 10. Misol — cron migratsiya
+
+### Cron entry
+
+```
+30 2 * * * /usr/local/bin/cleanup.sh
+```
+
+### systemd ekvivalent
+
+`/etc/systemd/system/cleanup.service`:
+
+```ini
+[Unit]
+Description=Daily cleanup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/cleanup.sh
+```
+
+`/etc/systemd/system/cleanup.timer`:
+
+```ini
+[Unit]
+Description=Daily cleanup at 02:30
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now cleanup.timer
+```
+
+## 11. Misol — har 10 daqiqada (tarmoq tayyor bo'lgandan keyin)
+
+```ini
+# check-internet.timer
+[Unit]
+Description=Check internet every 10 minutes
+
+[Timer]
+OnBootSec=2min                  # boot'dan 2 daqiqa keyin
+OnUnitActiveSec=10min           # so'ng har 10 daqiqada
+
+[Install]
+WantedBy=timers.target
+```
+
+```ini
+# check-internet.service
+[Unit]
+Description=Check internet
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/curl --silent --fail https://1.1.1.1 || logger "Internet down"
+```
+
+## 12. Resource limits
+
+```ini
+[Service]
+ExecStart=/usr/local/bin/backup.sh
+
+# CPU
+CPUQuota=20%
+Nice=19
+
+# Memory
+MemoryMax=512M
+
+# I/O
+IOSchedulingClass=idle      # past prioritet
+IOWeight=10
+
+# Timeout
+TimeoutStartSec=2h
+```
+
+Cron'da bularning hech qaysisi yo'q.
+
+## 13. Cron logging vs systemd
+
+### Cron
+
+Cron default'da chiqishni email orqali yuboradi. Logger uchun:
+
+```
+0 3 * * * /backup.sh > /var/log/backup.log 2>&1
+```
+
+### systemd
+
+journalctl avtomatik:
+
+```bash
+journalctl -u backup.service --since today
+```
+
+So'rovi'da loglar markazlashtirilgan, qidirish oson.
+
+## 14. Asosiy buyruqlar va izoh
+
+### Cron
+
+| Buyruq | Vazifa |
+|---|---|
+| `crontab -e` | Edit |
+| `crontab -l` | Ro'yxat |
+| `crontab -r` | O'chirish |
+| `sudo cat /var/log/syslog \| grep CRON` | Loglar |
+
+### systemd-timer
+
+| Buyruq | Vazifa |
+|---|---|
+| `systemctl list-timers` | Hamma timerlar |
+| `systemctl status <foo>.timer` | Status |
+| `systemctl enable --now <foo>.timer` | Yoqish |
+| `systemctl disable --now <foo>.timer` | O'chirish |
+| `systemctl start <foo>.service` | Hozir bajarish (timer'siz) |
+| `journalctl -u <foo>.service` | Loglar |
+| `systemd-analyze calendar "*-*-* 03:00:00"` | Vaqt tekshirish |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **systemd unit'da `Type=oneshot` yo'q** — long-running deb topiladi, qayta start.
+- **`OnCalendar` sintaksis** — `*-*-* 03:00` (default seconds=00) yoki `*-*-* 03:00:00`.
+- **`Persistent=true`** unutish — laptop'da o'tkazib yuborilgan timerlar.
+- **`daemon-reload`** unutish — yangi/o'zgartirilgan unit fayllarni o'qish.
+- **Cron PATH muammosi** — bash skript'da to'liq yo'l yo'q.
+- **Cron har daqiqada** — `* * * * *` syntax. systemd: `*-*-* *:*:00`.
+
+## 16. Eng yaxshi amaliyot
+
+- **Yangi loyihalar — systemd-timer** — modern, ko'p funksiya.
+- **Eski tizimlar uchun cron** — universal.
+- **`Persistent=true`** har vaqt laptop uchun.
+- **`RandomizedDelaySec=`** server cluster'da.
+- **`After=network-online.target`** tarmoq kerak bo'lsa.
+- **Resource limits** (CPUQuota, IOSchedulingClass) — interactive ish ta'sirini kamaytirish.
+- **`Type=oneshot`** scheduled one-time tasks uchun.
+- **`journalctl -u`** loglarni o'qish.
+
+## 17. Mashqlar
+
+1. **Joriy timerlar:** `systemctl list-timers` — sizdagi nechta timer?
+2. **Calendar test:** `systemd-analyze calendar "Mon..Fri 09:00"` — keyingi qachon?
+3. **Yangi timer:** Yuqoridagi `cleanup.timer` ni yaratib enable qiling. `list-timers`'da ko'rinadi-mi?
+4. **Logs:** `journalctl -u cleanup.service` — ishlatilganmi?
+5. **Persistent test:** Kompyuter o'chiq bo'lsa, persistent timer keyin yoqilganda darrov bajarishni tekshiring.
+
+## 18. Bilim sinovi
+
+**Savol 1.** Cron va systemd-timer asosiy farqi:
+
+- a) Bir xil
+- b) Timer — modern, persistent, resource limits, journalctl integratsiya
+- c) Cron tezroq
+- d) Timer faqat Ubuntu'da
+
+<Callout type="success" title="Javob">
+**(b)** Timer ko'p qo'shimcha xususiyatlar.[¹](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)
+</Callout>
+
+**Savol 2.** `Persistent=true` nima qiladi?
+
+- a) Doimiy ishlash
+- b) Agar timer vaqti o'tkazilsa (kompyuter o'chiq edi), yoqilganda darrov bajarish
+- c) Loglar saqlash
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Cron uchun yo'q xususiyat — laptop foydalanuvchilari uchun katta yutuq.
+</Callout>
+
+**Savol 3.** `OnCalendar` vs `OnUnitActiveSec` farqi:
+
+- a) Bir xil
+- b) `OnCalendar` — aniq vaqt; `OnUnitActiveSec` — oxirgi bajarish'dan keyin N vaqt
+- c) `OnCalendar` faqat root uchun
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** Periodic interval — har bajarishdan keyin.
+</Callout>
+
+**Savol 4.** Timer va service ikkita fayl bo'lishi kerakmi?
+
+- a) Ha, har biri alohida
+- b) Yo'q, bitta faylda
+- c) Faqat root uchun ikkita
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(a)** `foo.timer` + `foo.service` — bir xil prefix.
+</Callout>
+
+**Savol 5.** Timer status va keyingi vaqt:
+
+- a) `cron status`
+- b) `systemctl list-timers`
+- c) `at -l`
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(b)** Hamma timerlar va keyingi vaqtlari.
+</Callout>
+
+## Manbalar
+
+1. systemd.timer(5). [https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)
+2. systemd.time(7). [https://www.freedesktop.org/software/systemd/man/latest/systemd.time.html](https://www.freedesktop.org/software/systemd/man/latest/systemd.time.html)
+3. ArchWiki — systemd/Timers. [https://wiki.archlinux.org/title/Systemd/Timers](https://wiki.archlinux.org/title/Systemd/Timers)
+
+## Keyingi qadam
+
+👉 [systemd unit chuqur](/fundamentals/systemd-units-deep)

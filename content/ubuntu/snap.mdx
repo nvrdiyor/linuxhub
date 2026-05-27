@@ -1,0 +1,206 @@
+---
+title: "Snap paketlar"
+description: "Canonical tomonidan ishlab chiqilgan universal paket formati — Snap'ning afzalliklari, ishlash usuli va asosiy buyruqlari."
+order: 2
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/ubuntu/apt-basics"
+learning_objectives:
+  - "Snap nima va u APT'dan qanday farq qiladi"
+  - "Snap paketlarni o'rnatish, yangilash, o'chirish"
+  - "Snap kanal va versiya tizimini tushunish"
+tags: ["ubuntu", "snap", "package-management"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Snapcraft — Documentation"
+    url: "https://snapcraft.io/docs"
+  - title: "Snapcraft — Getting started"
+    url: "https://snapcraft.io/docs/getting-started"
+  - title: "Ubuntu Core — Snap intro"
+    url: "https://ubuntu.com/core/services/guide/snaps-intro"
+---
+
+**Snap** — Canonical tomonidan ishlab chiqilgan, distributivga bog'liq bo'lmagan universal Linux paket formati. Snap paketlari o'zining barcha bog'liqliklarini ichida olib yuradi, izolyatsiya qilingan muhitda ishlaydi va avtomatik yangilanadi.[¹](https://snapcraft.io/docs)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Snap nima va u APT'dan qanday farq qiladi.
+- Snap kanal tizimi (stable, candidate, beta, edge).
+- Asosiy `snap` buyruqlari.
+- Snap qachon foydali, qachon emas.
+</Callout>
+
+## 1. Snap APT'dan nimasi bilan farq qiladi?
+
+| | APT (.deb) | Snap |
+|---|---|---|
+| Bog'liqliklar | Tizim bilan baham ko'riladi | Paket ichida |
+| Hajm | Kichik | Kattaroq (ko'plab bog'liqliklar bilan) |
+| Yangilanish | Foydalanuvchi qo'lda yoki tizim taymeri orqali | Avtomatik (snapd tomonidan) |
+| Izolyatsiya | Yo'q | Ha (`AppArmor` + namespace orqali) |
+| Distributivlar | Faqat Debian/Ubuntu oilasi | Hamma asosiy distributivlar |
+| Manba | Distributiv repozitoriylari | Snap Store (snapcraft.io) |
+
+Asosiy fikr: APT — tizim darajasidagi paketlar uchun (kernel modullari, asosiy kutubxonalar). Snap — foydalanuvchi ilovalari uchun (brauzerlar, IDE, multimedia ilovalari).
+
+## 2. Snap o'rnatilganmi?
+
+Ubuntu Desktop'da `snapd` standart kelib o'rnatilgan. Tekshirish:
+
+```bash
+snap version
+```
+
+Misol natija:
+
+```
+snap    2.65.3
+snapd   2.65.3
+series  16
+ubuntu  24.04
+kernel  6.8.0-49-generic
+```
+
+## 3. Asosiy buyruqlar
+
+```bash
+# Snap Store'da paket qidirish
+snap find "video editor"
+
+# Paket haqida ma'lumot
+snap info code
+
+# O'rnatish
+sudo snap install code --classic
+
+# O'rnatilgan paketlar ro'yxati
+snap list
+
+# Bitta paketni yangilash
+sudo snap refresh code
+
+# Hamma paketlarni yangilash
+sudo snap refresh
+
+# O'chirish
+sudo snap remove code
+```
+
+## 4. `--classic`, `--devmode` va boshqa muhitlar
+
+Snap izolyatsiyaning bir nechta darajasi bor:
+
+- **strict** (standart) — to'liq izolyatsiya. Ilova faqat ruxsat berilgan resurslarga kira oladi.
+- **classic** — izolyatsiyasiz, an'anaviy Linux dasturi kabi. IDE va dasturchi vositalari uchun (VS Code, Sublime Text). Manual `--classic` flag kerak.
+- **devmode** — dasturchilar uchun, izolyatsiya yumshatilgan, lekin yangilanmaydi.
+
+```bash
+# Klassik (an'anaviy) muhitda o'rnatish
+sudo snap install code --classic
+
+# Beta kanalidan o'rnatish
+sudo snap install discord --beta
+```
+
+## 5. Kanal tizimi
+
+Har bir Snap paket bir nechta kanal orqali tarqatiladi:[²](https://snapcraft.io/docs/getting-started)
+
+| Kanal | Maqsad |
+|---|---|
+| `stable` | Standart, ishlab chiqarish foydalanuvchilari uchun |
+| `candidate` | Stabil bo'lishga tayyorlanayotgan versiya |
+| `beta` | Yangi xususiyatlar, sinovdan o'tmagan |
+| `edge` | Eng yangi build, har kuni o'zgaradi |
+
+Kanalga o'tish:
+
+```bash
+sudo snap refresh code --channel=beta
+sudo snap refresh code --channel=stable
+```
+
+## 6. Avtomatik yangilanish
+
+Snap **avtomatik yangilanadi** — bu xavfsizlik nuqtai nazaridan yaxshi, lekin ba'zan noqulay. Default — kuniga 4 marta yangilanish tekshiruvi.
+
+Yangilanishni vaqtincha to'xtatish:
+
+```bash
+# 60 kunga to'xtatish
+sudo snap refresh --hold=60d
+
+# Holatni ko'rish
+snap refresh --time
+```
+
+## 7. Snap qaerda foydali, qaerda emas?
+
+**Foydali:**
+- Tarqatma versiyasi eskirgan dasturlar (masalan, Discord, Slack).
+- Bir nechta versiyasi kerak bo'lgan dasturlar.
+- Snap Store'da rasmiy ishlab chiqaruvchidan kelgan paketlar (Spotify, VS Code).
+
+**Foydali emas:**
+- Tizim kutubxonalari va kernel modullari — bu APT vazifasi.
+- Serverlar uchun engil ish stoli — APT yengilroq.
+- Boshqarish va monitoring vositalari uchun mukammal — apt yaxshi.
+
+## 8. Amaliy misol
+
+VS Code'ni Snap orqali o'rnatamiz:
+
+```bash
+# Qidirish
+snap find code
+
+# Ma'lumot
+snap info code
+
+# O'rnatish (--classic chunki VS Code an'anaviy fayl tizimiga ehtiyoj)
+sudo snap install code --classic
+
+# Versiyalarni ko'rish
+snap list
+```
+
+## 9. Mashqlar
+
+1. `snap find browser` ni bajaring. Nechta Snap paket ko'rinadi?
+2. `snap info firefox` ni o'qing. Qaysi kanallari mavjud?
+3. (Ixtiyoriy) Spotify yoki boshqa Snap paketni o'rnating, so'ng o'chirib `snap list` orqali tasdiqlang.
+
+## 10. Bilim sinovi
+
+**Savol 1.** Snap'ning APT'dan asosiy farqi qaysi?
+
+- a) Snap faqat o'yinlar uchun
+- b) Snap paketlari o'z bog'liqliklarini ichida olib yuradi va izolyatsiya qilingan
+- c) Snap faqat Ubuntu'da ishlaydi
+- d) Snap paketlari kichikroq
+
+<Callout type="success" title="Javob">
+**(b)** Snap har bir paketni o'z bog'liqliklari bilan birga, izolyatsiyada beradi.[¹](https://snapcraft.io/docs)
+</Callout>
+
+**Savol 2.** Eng oxirgi rivojlanish versiyalarini olish uchun qaysi kanal?
+
+- a) stable
+- b) candidate
+- c) beta
+- d) edge
+
+<Callout type="success" title="Javob">
+**(d)** `edge` har kuni yangilanadigan eng so'nggi build.[²](https://snapcraft.io/docs/getting-started)
+</Callout>
+
+## Manbalar
+
+1. Snapcraft — Documentation. [https://snapcraft.io/docs](https://snapcraft.io/docs)
+2. Snapcraft — Getting started. [https://snapcraft.io/docs/getting-started](https://snapcraft.io/docs/getting-started)
+3. Ubuntu Core — Snap intro. [https://ubuntu.com/core/services/guide/snaps-intro](https://ubuntu.com/core/services/guide/snaps-intro)
+
+## Keyingi qadam
+
+👉 [LTS va relizlar tsikli](/ubuntu/lts-release-cycle)

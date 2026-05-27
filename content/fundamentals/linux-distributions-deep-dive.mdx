@@ -1,0 +1,433 @@
+---
+title: "Linux distributivlari — chuqur tahlil"
+description: "Linux distributiv oilalari, package menejer asoslari, init tizimlari va distributiv tanlash mezonlari — to'liq tahlil."
+order: 100
+level: "intermediate"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/intro"
+  - "/fundamentals/family-tree"
+learning_objectives:
+  - "Asosiy distributiv oilalarini ajratish va ularning xususiyatlarini izohlash"
+  - "Reliz model'larini bilish (rolling, point release, hybrid)"
+  - "Distributivni tanlash uchun strategik mezonlarni qo'llash"
+  - "Distributiv darajasidagi muhim farqlarni amalda tushunish"
+tags: ["intermediate", "distributions", "comparison", "rolling-release"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "DistroWatch"
+    url: "https://distrowatch.com/"
+  - title: "Debian — About"
+    url: "https://www.debian.org/intro/about"
+  - title: "Red Hat — About"
+    url: "https://www.redhat.com/en/about/company"
+  - title: "Arch Linux — About"
+    url: "https://archlinux.org/about/"
+  - title: "ArchWiki — Arch compared to other distributions"
+    url: "https://wiki.archlinux.org/title/Arch_compared_to_other_distributions"
+---
+
+Linux dunyosida 600+ aktiv distributiv mavjud va har biri o'z falsafasi, foydalanuvchi auditoriyasi va texnik tanlovlariga ega. Bu darsda asosiy distributiv oilalarini chuqur tahlil qilamiz, ular orasidagi haqiqiy farqlarni o'rganamiz va sizning ehtiyojlaringizga eng mos kelganini tanlash uchun mezonlar ishlab chiqamiz.[¹](https://distrowatch.com/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Linux distributiv ekotizimining tuzilishi.
+- 5 ta asosiy oila: Debian, Red Hat, Arch, SUSE, mustaqil.
+- Reliz model'lari: rolling release, point release, hybrid.
+- Package menejer farqlari va falsafalari.
+- Init tizim tanlovlari.
+- Mos distributivni tanlash uchun chek-list.
+</Callout>
+
+## 1. Linux ekotizimi xaritasi
+
+Linux distributivi — bu Linux yadrosi, GNU asboblari va tanlangan dasturlar to'plamining birlashtirilgan, o'rnatishga tayyor versiyasi. Distributiv ishlab chiquvchilari quyidagi tanlovlarni qiladi:
+
+- Qaysi **yadro** versiyasi (LTS, stable, edge).
+- Qaysi **init tizim** (systemd, OpenRC, runit, SysV).
+- Qaysi **paket menejer** va formatlar (.deb, .rpm, .pkg.tar.zst).
+- Qaysi **ish stoli muhiti** (GNOME, KDE, XFCE) standart.
+- **Reliz strategiyasi** (rolling vs point release).
+- **Default dasturlar** to'plami.
+
+Bu tanlovlar distributivlar oilasini shakllantiradi. Asosiy 5 ta oila bor:
+
+```
+Linux ekotizimi
+│
+├── Debian oilasi
+│   ├── Debian (1993)
+│   │   ├── Ubuntu (2004) → Mint, Pop!_OS, Elementary
+│   │   ├── Kali Linux (2013)
+│   │   ├── Parrot OS (2013)
+│   │   ├── MX Linux
+│   │   └── Raspberry Pi OS
+│
+├── Red Hat oilasi
+│   ├── Red Hat Enterprise Linux (RHEL, 2002)
+│   │   ├── Fedora (2003) — RHEL'ning upstream
+│   │   ├── CentOS Stream (2019)
+│   │   ├── Rocky Linux (2021)
+│   │   └── AlmaLinux (2021)
+│
+├── Arch oilasi
+│   ├── Arch Linux (2002)
+│   │   ├── Manjaro (2011)
+│   │   ├── EndeavourOS (2019)
+│   │   ├── Garuda Linux
+│   │   └── ArcoLinux
+│
+├── SUSE oilasi
+│   ├── openSUSE Leap / Tumbleweed
+│   └── SUSE Linux Enterprise
+│
+└── Mustaqil
+    ├── NixOS — deklarativ konfiguratsiya
+    ├── Gentoo — source-based
+    ├── Slackware — eng eski (1993)
+    ├── Void Linux — runit init
+    └── Alpine Linux — musl libc, minimal
+```
+
+## 2. Debian oilasi — eng katta ekotizim
+
+**Debian** (1993) — Ian Murdock asoslagan, butunlay ko'ngillilardan iborat hamjamiyat loyihasi.[²](https://www.debian.org/intro/about) Falsafasi: 100% erkin dasturlar, sinovdan o'tgan barqarorlik, universal qo'llanish.
+
+### Asosiy texnik xususiyatlar
+
+- **Paket formati:** `.deb`
+- **Paket menejer:** `apt`, `apt-get`, `dpkg`, `aptitude`
+- **Init:** systemd (Debian 8+)
+- **Reliz model:** Point release (har 2 yilda)
+- **Shoxchalar:** Stable (production), Testing (kelajakdagi stable), Unstable/Sid (rolling)
+
+### Ubuntu farqi
+
+Ubuntu Debian Sid asosida quriladi, lekin:
+
+- 6 oyda bir reliz, har 2 yilda LTS.
+- Canonical kompaniyasi qo'llab-quvvatlaydi.
+- Default Snap paket menejer.
+- Yangiroq paketlar, proprietary drayverlar.
+
+### Kalit farq Ubuntu va Debian o'rtasida
+
+| Xususiyat | Debian | Ubuntu |
+|---|---|---|
+| Reliz | 2 yil stable | 6 oy + LTS |
+| Boshqarish | Hamjamiyat | Canonical |
+| Proprietary | `non-free` repo | Default'da |
+| Init | systemd | systemd |
+| Snap | Yo'q | Default |
+| Server yo'nalishi | Universal | Cloud-first |
+
+## 3. Red Hat oilasi — enterprise standart
+
+**Red Hat Enterprise Linux** (RHEL) — enterprise Linux'ning de facto standarti. Bank, hukumat, fortune 500 kompaniyalar uchun.[³](https://www.redhat.com/en/about/company)
+
+### Asosiy xususiyatlar
+
+- **Paket formati:** `.rpm`
+- **Paket menejer:** `dnf` (zamonaviy), `yum` (eski)
+- **Init:** systemd (RHEL 7+)
+- **Reliz model:** Point release, 10 yil yordam
+- **Maxsuslik:** SELinux default'da yoqilgan, podman > docker
+
+### Oilaning ichki tuzilishi
+
+```
+Fedora (upstream)
+     ↓
+CentOS Stream (rolling preview)
+     ↓
+RHEL (stable enterprise)
+     ↓
+Rocky Linux, AlmaLinux (RHEL clones, bepul)
+```
+
+**Fedora** — yangi texnologiyalarni birinchilardan sinash uchun. RHEL'ning "test maydonchasi".
+
+**Rocky Linux va AlmaLinux** — RHEL ning bit-by-bit binary mos clonelari. 2021-yilda CentOS Stream'ga o'tganidan keyin paydo bo'ldi.
+
+## 4. Arch oilasi — kuchli foydalanuvchilar uchun
+
+**Arch Linux** (2002) — "KISS" (Keep It Simple, Stupid) tamoyiliga sodiq. Foydalanuvchi tizimini o'zi qurati.
+
+### Asosiy xususiyatlar
+
+- **Paket formati:** `.pkg.tar.zst`
+- **Paket menejer:** `pacman`
+- **Init:** systemd
+- **Reliz model:** Rolling release
+- **Maxsuslik:** AUR (Arch User Repository) — 80,000+ hamjamiyat paketlari
+- **Hujjat:** [ArchWiki](https://wiki.archlinux.org) — Linux ekotizimining eng yaxshi texnik resursi
+
+### Arch falsafasi
+
+> "Arch Linux defines simplicity as without unnecessary additions or modifications."[⁴](https://archlinux.org/about/)
+
+Bu shuni anglatadi: Arch foydalanuvchini o'rgatmaydi, lekin to'liq nazorat beradi.
+
+## 5. SUSE oilasi
+
+**openSUSE** — Germaniyadan kelib chiqqan, Enterprise (SLES) va community (openSUSE Leap/Tumbleweed) versiyalarda.
+
+### Asosiy xususiyatlar
+
+- **Paket formati:** `.rpm`
+- **Paket menejer:** `zypper`
+- **Maxsus vositalar:** `YaST` — yaxlit system configuration GUI/TUI
+- **Btrfs + Snapper** — default filesystem va snapshot tizimi
+- **Versiyalar:**
+  - **Leap** — point release, RHEL kabi
+  - **Tumbleweed** — rolling release
+
+## 6. Mustaqil distributivlar
+
+### NixOS
+
+Butunlay boshqacha paradigma — **deklarativ konfiguratsiya**. Butun tizim bitta `configuration.nix` faylda tasvirlanadi. Atomik yangilanish, hech qachon "yarim singan" tizim bo'lmaydi.
+
+### Gentoo
+
+Hamma narsa **source-dan** kompilyatsiya qilinadi. Foydalanuvchi har paketning USE flag'lari (xususiyatlar) ni tanlaydi. Optimallashtirilgan, lekin sekin.
+
+### Alpine Linux
+
+**musl libc** + **BusyBox** + **OpenRC** init. 5 MB minimal install. Docker container'larida ko'p ishlatiladi.
+
+### Void Linux
+
+**runit** init (systemd o'rniga). Rolling release. Minimal va tezkor.
+
+## 7. Reliz model'lari chuqurroq
+
+### Point release
+
+Reliz fiksatsiyalangan sanada chiqadi. Yadro, kutubxonalar, dasturlar versiyalari **muzlatilgan** (faqat xavfsizlik yamoqlari).
+
+**Afzalliklari:** Barqaror, sinovdan o'tgan, server uchun mukammal.
+**Kamchiliklari:** Eski paketlar (1-2 yil eskirgan bo'lishi mumkin).
+
+Misol: Debian Stable, Ubuntu LTS, RHEL, Rocky Linux.
+
+### Rolling release
+
+Doimiy yangilanishlar — har paket yangi versiyasi mavjud bo'lgan zahoti chiqadi. "Reliz" tushunchasi yo'q.
+
+**Afzalliklari:** Eng yangi paketlar, yangi apparat darrov qo'llab-quvvatlanadi.
+**Kamchiliklari:** Ba'zan beqaror, ko'p yangilanishlar.
+
+Misol: Arch, Manjaro, openSUSE Tumbleweed, Void Linux.
+
+### Hybrid (semi-rolling)
+
+Asosiy tizim — point release, ammo ba'zi paketlar (masalan, brauzer) doim yangilanadi.
+
+Misol: Ubuntu interim relizlar, Fedora.
+
+## 8. Package menejerlar — chuqur taqqoslash
+
+| Menejer | Distributiv | Format | Asosiy buyruq |
+|---|---|---|---|
+| `apt` | Debian/Ubuntu | `.deb` | `apt install` |
+| `dnf` | Fedora/RHEL | `.rpm` | `dnf install` |
+| `zypper` | openSUSE | `.rpm` | `zypper install` |
+| `pacman` | Arch | `.pkg.tar.zst` | `pacman -S` |
+| `nix` | NixOS | derivation | `nix-env -iA` |
+| `emerge` | Gentoo | ebuild | `emerge` |
+| `apk` | Alpine | `.apk` | `apk add` |
+| `xbps` | Void | `.xbps` | `xbps-install` |
+
+### Falsafa farqlari
+
+- **`apt` / `dnf` / `zypper`** — yuqori darajadagi qulay interfeys.
+- **`pacman`** — minimal, tez, oz sintaksis qoidalari.
+- **`nix`** — funksional, atomik, rollback bilan.
+- **`emerge`** — source kompilyatsiya, USE flaglar.
+
+## 9. Init tizim farqlari
+
+| Init | Falsafa | Distributivlar |
+|---|---|---|
+| **systemd** | Ko'p funksiyali, modern | Debian, Ubuntu, Fedora, Arch, SUSE |
+| **OpenRC** | Sodda, klassik | Gentoo, Alpine |
+| **runit** | Minimal, super sodda | Void Linux |
+| **SysV init** | Eski klassik | Slackware |
+| **s6** | Minimal | obscure |
+
+systemd ekotizimning ko'p qismini egallagan — lekin u keng e'tirozli (juda ko'p funksiya, "Unix philosophy"ga zid).
+
+## 10. Distributivni tanlash — strategik mezonlar
+
+### 1. Kim foydalanadi?
+
+| Auditoriya | Tavsiya |
+|---|---|
+| Yangi boshlovchi | **Ubuntu LTS** yoki **Linux Mint** |
+| Dasturchi | **Ubuntu**, **Fedora**, **Arch** |
+| Server admin | **Debian Stable**, **Rocky Linux**, **Ubuntu LTS Server** |
+| Eski apparat | **Lubuntu**, **Xubuntu**, **Alpine** |
+| Maxfiylik | **Tails**, **Qubes**, **Parrot Home** |
+| Xavfsizlik testi | **Kali**, **Parrot Security** |
+| Eksperimentchi | **Arch**, **NixOS**, **Gentoo** |
+| Container/cloud | **Alpine**, **Ubuntu**, **Fedora CoreOS** |
+
+### 2. Apparat yangimi?
+
+- **Yangi apparat** (yangi GPU, Wi-Fi karta) → rolling release yoki **Fedora** (yangi yadro).
+- **Eski apparat** → **Debian Stable**, **Lubuntu**, **Alpine**.
+
+### 3. Barqarorlik vs yangilik?
+
+- **Barqarorlik birinchi** → Debian Stable, RHEL/Rocky.
+- **Yangilik birinchi** → Arch, Tumbleweed, Fedora.
+- **Muvozanat** → Ubuntu LTS, Manjaro.
+
+### 4. Hujjat va hamjamiyat?
+
+- **ArchWiki** — eng yaxshi texnik hujjat (Arch oilasi).
+- **Ubuntu Forums** — eng katta hamjamiyat.
+- **Red Hat Knowledgebase** — enterprise.
+- **NixOS Discourse** — tor doiraviy, lekin yuqori sifatli.
+
+## 11. Amaliy buyruqlar — distributivni tekshirish
+
+```bash
+# Distributiv aniqlash
+cat /etc/os-release
+lsb_release -a
+
+# Yadro versiyasi
+uname -r
+uname -a
+
+# Init tizim
+ps -p 1 -o comm=
+
+# Paket menejer (tekshirish)
+which apt 2>/dev/null && echo "Debian/Ubuntu"
+which dnf 2>/dev/null && echo "Fedora/RHEL"
+which pacman 2>/dev/null && echo "Arch"
+which zypper 2>/dev/null && echo "SUSE"
+which apk 2>/dev/null && echo "Alpine"
+
+# Reliz nomi
+lsb_release -cs
+
+# Architecture
+uname -m
+```
+
+### Buyruq tushuntirishlari
+
+| Buyruq | Vazifa |
+|---|---|
+| `cat /etc/os-release` | `NAME`, `VERSION`, `PRETTY_NAME` ko'rsatadi — universal usul |
+| `lsb_release -a` | LSB-uyg'unlashtirilgan ma'lumot (ba'zi minimal distributivlarda yo'q) |
+| `uname -r` | Yadro versiyasi (masalan: `6.8.0-49-generic`) |
+| `ps -p 1` | PID 1 jarayoni — bu init tizim |
+| `which <command>` | Buyruq qaerdaligini ko'rish (yo'q bo'lsa — distributivda yo'q) |
+| `lsb_release -cs` | Faqat kodli nom (Ubuntu uchun `noble`, Debian uchun `bookworm`) |
+| `uname -m` | Mashina arxitekturasi (`x86_64`, `aarch64`, `armv7l`) |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Ubuntu va Debian'ni almashtirib hisoblash.** Ular yaqin, lekin alohida loyihalar. Buyruqlar deyarli bir xil, lekin paket nomlari va sozlamalar farq qiladi.
+- **Distributivni tanlashda "eng yaxshi" deb hisoblash.** Sizning maqsadingiz uchun eng yaxshi bor — universal eng yaxshi yo'q.
+- **Yangi boshlovchi sifatida Arch tanlash.** ArchWiki ajoyib, lekin tushunmasdan o'rnatish — frustratsiya.
+- **Server uchun rolling release tanlash.** Production server uchun barqarorlik kerak — point release.
+- **Distributiv almashishni "yangi til o'rganishdek" deb hisoblash.** Asosiy Linux ko'nikmalari 90% har joyda bir xil — faqat package menejer va init farq qiladi.
+
+## 13. Eng yaxshi amaliyot
+
+- **Birinchi Linuxingiz uchun Ubuntu LTS** — eng katta hamjamiyat, eng ko'p hujjat.
+- **Productionda Debian Stable yoki RHEL clone** — kafolatlangan barqarorlik.
+- **Virtual mashinada 2-3 distributivni sinab ko'ring** — qaysi biri sizning ish jarayoningizga mos kelishini his qiling.
+- **`lsb_release -a` va `cat /etc/os-release` ni har serverda birinchi bajaring** — qayerda ekanligingizni bilish.
+- **Distributiv yo'qotish — ma'lumot yo'qotish** emas. Backup har doim.
+- **Reliz nomini eslab qoling** — `apt`/`dnf` repository'lari kodli nomga bog'liq.
+- **"Distributiv urushi" ga aralashmang** — har birining maqsadi bor.
+
+## 14. Mashqlar
+
+1. **Inventarizatsiya:** Mavjud kompyuteringizdagi distributivni `/etc/os-release` orqali aniqlang. PRETTY_NAME ni yozing.
+2. **Solishtirish:** [DistroWatch](https://distrowatch.com/) saytida hozirgi top 10 distributivni topib, har birini bir jumla bilan tavsiflang.
+3. **Sinov muhiti:** VirtualBox'da quyidagi 3 distributivni o'rnating va birinchi 30 daqiqada qaysi muammolarga duch kelganingizni yozing:
+   - Ubuntu Desktop LTS
+   - Fedora Workstation
+   - Debian Stable (Gnome)
+4. **Falsafa tahlili:** Quyidagi distributivlarning rasmiy "Falsafa" sahifalarini o'qing va har biridan 2-3 ta asosiy tamoyilini sanab chiqing:
+   - [debian.org/intro/about](https://www.debian.org/intro/about)
+   - [archlinux.org/about](https://archlinux.org/about/)
+   - [nixos.org](https://nixos.org/)
+5. **Amaliy farq:** Bitta dastur (masalan, `vim`) ni 3 ta turli distributiv menejeri orqali o'rnatish buyrug'ini yozing.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Quyidagi distributivlarning qaysi biri Debian asosida emas?
+
+- a) Ubuntu
+- b) Kali Linux
+- c) Manjaro
+- d) Linux Mint
+
+<Callout type="success" title="Javob">
+**(c)** Manjaro — Arch Linux asosida. Qolganlari Debian oilasidan.
+</Callout>
+
+**Savol 2.** Rolling release modelining asosiy afzalligi:
+
+- a) Eng yuqori barqarorlik
+- b) Eng yangi paketlar darrov mavjud
+- c) Hech qachon yangilanmaslik
+- d) Faqat server uchun
+
+<Callout type="success" title="Javob">
+**(b)** Rolling release — har paket yangi versiyasi darrov keladi.
+</Callout>
+
+**Savol 3.** RHEL uchun bepul, binary-mos clone:
+
+- a) Ubuntu
+- b) Rocky Linux yoki AlmaLinux
+- c) Manjaro
+- d) Debian
+
+<Callout type="success" title="Javob">
+**(b)** Rocky Linux va AlmaLinux — CentOS Stream'ga o'tganidan keyin paydo bo'lgan RHEL clonelari.
+</Callout>
+
+**Savol 4.** PID 1 jarayoni — bu...
+
+- a) systemd, OpenRC yoki boshqa init tizim
+- b) Yadro
+- c) Foydalanuvchi shelli
+- d) Tarmoq xizmati
+
+<Callout type="success" title="Javob">
+**(a)** PID 1 — init jarayoni. `ps -p 1 -o comm=` bilan tekshiriladi.
+</Callout>
+
+**Savol 5.** Quyidagi paket menejerlarining qaysi biri Arch Linux'ga tegishli?
+
+- a) `apt`
+- b) `dnf`
+- c) `pacman`
+- d) `zypper`
+
+<Callout type="success" title="Javob">
+**(c)** `pacman` — Arch va uning hosilalarida.
+</Callout>
+
+## Manbalar
+
+1. DistroWatch. [https://distrowatch.com/](https://distrowatch.com/)
+2. Debian — About. [https://www.debian.org/intro/about](https://www.debian.org/intro/about)
+3. Red Hat — About. [https://www.redhat.com/en/about/company](https://www.redhat.com/en/about/company)
+4. Arch Linux — About. [https://archlinux.org/about/](https://archlinux.org/about/)
+5. ArchWiki — Arch compared to other distributions. [https://wiki.archlinux.org/title/Arch_compared_to_other_distributions](https://wiki.archlinux.org/title/Arch_compared_to_other_distributions)
+
+## Keyingi qadam
+
+👉 [Linux yuklanish jarayoni](/fundamentals/boot-process)

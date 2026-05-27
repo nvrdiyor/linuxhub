@@ -1,0 +1,121 @@
+---
+title: "Nopokliklar"
+description: "Nix sof til, lekin tashqi dunyo bilan aloqasi (impurities) — fayllar, tarmoq, vaqt — bular qanday boshqariladi."
+order: 5
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/nix-language/functions"
+learning_objectives:
+  - "Sof (pure) va nopok (impure) ifodalar"
+  - "Fayl tizimi ilovalari"
+  - "Tarmoq va `fetch*` funksiyalari"
+tags: ["nixos", "nix-language", "impurities"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Towards reproducibility"
+    url: "https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html"
+  - title: "Nix Manual — Impurities"
+    url: "https://nixos.org/manual/nix/stable/language/index.html"
+---
+
+Nix sof funksional til — bir xil kirish doim bir xil chiqish. Lekin real dunyo bilan ishlash kerak: fayl o'qish, tarmoqdan yuklab olish. Bu — **nopoklik (impurity)**.[¹](https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html)
+
+## 1. Sof ifoda
+
+```nix
+1 + 1                # har doim 2
+"hello" + "!"        # har doim "hello!"
+```
+
+## 2. Nopok ifoda
+
+```nix
+builtins.currentTime     # har chaqirishda boshqacha
+builtins.getEnv "USER"   # tizim foydalanuvchisi
+```
+
+Nopok ifodalar **takrorlanmaydi**. Nix ularni **iloji boricha cheklaydi**.
+
+## 3. Fayl ilovalari
+
+```nix
+./fayl.txt              # joriy katalogga nisbatan
+./../config.nix         # otaga
+/etc/passwd             # absolyut
+```
+
+Bu yo'llar Nix store'ga **nusxalanadi** — kelajakda asl fayl o'zgarsa ham, Nix shu nusxa bilan ishlaydi.
+
+```nix
+let
+  config = builtins.readFile ./config.txt;
+in
+"Sozlama: ${config}"
+```
+
+## 4. Tarmoq — `fetchurl`, `fetchTarball`
+
+```nix
+builtins.fetchurl {
+  url = "https://example.com/file.tar.gz";
+  sha256 = "sha256-...";
+}
+```
+
+`sha256` majburiy — fayl yaxlitligi tekshiriladi. Aksi holda — har chaqirish nopok.
+
+```nix
+builtins.fetchTarball {
+  url = "https://github.com/NixOS/nixpkgs/archive/abc.tar.gz";
+  sha256 = "sha256-...";
+}
+```
+
+`sha256` bilan — sof; `sha256` siz — nopok va keshlanmaydi.
+
+## 5. Pure vs Impure eval
+
+Nix ikki rejimda ishlay oladi:
+
+- **Pure eval mode** — `<nixpkgs>`, env vars, current time — yo'q. To'liq takrorlanish.
+- **Impure mode** (default) — yuqoridagilar mavjud.
+
+Flake'lar default'da pure mode'da.
+
+```bash
+nix-instantiate --eval --strict --pure-eval ...
+```
+
+## 6. Tavsiya
+
+- **Loyihangizda har doim `sha256` bilan `fetchurl`** ishlatilsin.
+- **Aniq commit pin** (`https://github.com/.../archive/<commit>.tar.gz`) — `nixos-24.05` kabi reliz nomidan ham aniqroq.
+- **`builtins.currentTime`** dan saqlanish — log uchun foydali, lekin build natijasini o'zgartirsa — muammo.
+
+## 7. Mashq
+
+`shell.nix` da `fetchTarball` ishlatib Nixpkgs ni pin qiling (avvalgi darslarda ko'rdik).
+
+## 8. Bilim sinovi
+
+**Savol 1.** `builtins.fetchurl` sof qachon?
+
+- a) Hech qachon
+- b) `sha256` argument berilgan bo'lsa
+- c) Faqat HTTPS bilan
+- d) Doim sof
+
+<Callout type="success" title="Javob">
+**(b)** `sha256` bilan — fayl yaxlitligi kafolatlanadi, takrorlanadi.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Towards reproducibility. [https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html](https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html)
+2. Nix Manual. [https://nixos.org/manual/nix/stable/language/index.html](https://nixos.org/manual/nix/stable/language/index.html)
+
+## Keyingi qadam
+
+👉 [Derivatsiyalar](/nixos/nix-language/derivations)

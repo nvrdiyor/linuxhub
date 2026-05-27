@@ -1,0 +1,186 @@
+---
+title: "Derivatsiyalar"
+description: "Nix'da paket asosi — derivation. `mkDerivation` va Nix store'ga build."
+order: 6
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/nixos/nix-language/impurities"
+learning_objectives:
+  - "Derivation tushunchasi"
+  - "`stdenv.mkDerivation` asoslari"
+  - "Nix store output va hash"
+tags: ["nixos", "derivation", "mkDerivation", "store"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Nix language basics — Derivations"
+    url: "https://nix.dev/tutorials/nix-language.html#derivations"
+  - title: "Nixpkgs Manual — stdenv"
+    url: "https://nixos.org/manual/nixpkgs/stable/#chap-stdenv"
+---
+
+**Derivation** — Nix'da paket qurish ko'rsatmasi. Har bir paket, har bir output `/nix/store/` da derivation natijasidir.[¹](https://nix.dev/tutorials/nix-language.html#derivations)
+
+## 1. Eng oddiy derivation
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.stdenv.mkDerivation {
+  name = "salom-1.0";
+
+  src = ./.;     # joriy katalog
+
+  buildPhase = ''
+    echo "Hello, World!" > hello.txt
+  '';
+
+  installPhase = ''
+    mkdir -p $out
+    cp hello.txt $out/
+  '';
+}
+```
+
+Bu derivation:
+
+- `$out` — output yo'li `/nix/store/<hash>-salom-1.0/`.
+- Build natijasi shu yerda.
+
+## 2. Build qilish
+
+```bash
+nix-build default.nix
+# yoki
+nix-build
+```
+
+Natija:
+
+```
+/nix/store/abc123...-salom-1.0
+```
+
+```bash
+cat result/hello.txt
+# Hello, World!
+```
+
+`result` — `nix-build` yaratgan symlink Nix store yo'liga.
+
+## 3. `mkDerivation` parametrlari
+
+| Parametr | Maqsad |
+|---|---|
+| `name` / `pname + version` | Paket nomi |
+| `src` | Manba (lokal yoki `fetchurl`) |
+| `nativeBuildInputs` | Build-time vositalar |
+| `buildInputs` | Runtime kutubxonalari |
+| `configurePhase` | `./configure` |
+| `buildPhase` | `make` |
+| `installPhase` | `make install` |
+| `patches` | Manbaga qo'llaniladigan patch'lar |
+
+## 4. Standart C dasturi misol
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.stdenv.mkDerivation {
+  pname = "hello";
+  version = "1.0";
+
+  src = ./.;     # main.c bor
+
+  buildPhase = ''
+    gcc main.c -o hello
+  '';
+
+  installPhase = ''
+    mkdir -p $out/bin
+    cp hello $out/bin/
+  '';
+}
+```
+
+So'ng:
+
+```bash
+nix-build
+./result/bin/hello
+```
+
+## 5. Standart phases
+
+`stdenv.mkDerivation` quyidagi defaultlarni biladi:
+
+```
+unpackPhase     # src ni ochish
+patchPhase      # patches ni qo'llash
+configurePhase  # ./configure --prefix=$out
+buildPhase      # make
+checkPhase      # make check (testlar)
+installPhase    # make install
+fixupPhase      # post-install fix
+```
+
+Agar siz `installPhase` ni override qilmasangiz, default `make install` ishlatiladi.
+
+## 6. Nixpkgs'dan paket olish
+
+`/etc/nixos/configuration.nix` da:
+
+```nix
+environment.systemPackages = with pkgs; [
+  firefox
+  git
+  vim
+];
+```
+
+Har bir paket aslida derivation. `pkgs.firefox` — funksiya natijasi (ehtimol `callPackage <derivation> {}` formatida).
+
+## 7. Nix store
+
+```bash
+ls /nix/store | head
+# 0ay2glq...-bash-5.2
+# 0g0ya71...-glibc-2.38
+# ...
+```
+
+Har bir katalog — derivation natijasi. Birinchi qism — hash (build aniq inputlardan kelib chiqib).
+
+```bash
+# Hash siklning kirishlarini ham qamrab oladi
+nix-store --query --deriver /nix/store/<output>
+```
+
+## 8. Mashq
+
+1. Yuqoridagi `salom-1.0` derivation'ini yarating va `nix-build` qiling.
+2. `result/hello.txt` ni ko'ring.
+3. `nix-store -q --deriver result` — qaysi `.drv` faylga ishora qiladi?
+
+## 9. Bilim sinovi
+
+**Savol 1.** `$out` nimani anglatadi?
+
+- a) Joriy katalog
+- b) Nix store'dagi output yo'li
+- c) Home katalog
+- d) /tmp/
+
+<Callout type="success" title="Javob">
+**(b)** Build natijalari `$out` ga (Nix store ichida) o'rnatiladi.[¹](https://nix.dev/tutorials/nix-language.html#derivations)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Derivations. [https://nix.dev/tutorials/nix-language.html#derivations](https://nix.dev/tutorials/nix-language.html#derivations)
+2. Nixpkgs Manual — stdenv. [https://nixos.org/manual/nixpkgs/stable/#chap-stdenv](https://nixos.org/manual/nixpkgs/stable/#chap-stdenv)
+
+## Keyingi qadam
+
+👉 [Amaliy misollar](/nixos/nix-language/worked-examples)

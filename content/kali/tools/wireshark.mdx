@@ -1,0 +1,282 @@
+---
+title: "Wireshark"
+description: "Tarmoq paketlarini real vaqtda tahlil qilish vositasi — eng mashhur network analyzer."
+order: 4
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/fundamentals/networking"
+learning_objectives:
+  - "Wireshark interfeysi va asosiy panellar"
+  - "Display filter va capture filter farqi"
+  - "Asosiy protokollarni o'qish (HTTP, DNS, TCP)"
+tags: ["kali", "wireshark", "tcpdump", "network"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Wireshark Documentation"
+    url: "https://www.wireshark.org/docs/"
+  - title: "Wireshark User's Guide"
+    url: "https://www.wireshark.org/docs/wsug_html_chunked/"
+  - title: "Wireshark Display Filter Reference"
+    url: "https://www.wireshark.org/docs/dfref/"
+---
+
+<Callout type="warning" title="Faqat o'z tarmog'ingizda">
+Wireshark — tarmoq trafigini ko'rsatadi. Boshqa odam tarmog'ida (umumiy Wi-Fi yoki ish joyi) ruxsatsiz tinglash — qonun bo'yicha buzilish.
+
+Mashq uchun: o'z uy tarmog'i, virtual mashinalar orasidagi tarmoq, yoki rasmiy sinov muhitlar.
+</Callout>
+
+**Wireshark** — 1998-yildan beri rivojlanayotgan, eng keng tarqalgan tarmoq packet analyzer. Real vaqtda har bir paketni ko'rsatadi va minglab protokolni tushunadi.[¹](https://www.wireshark.org/docs/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Wireshark va `tshark` farqi.
+- Capture filter va Display filter.
+- Asosiy protokollarni o'qish.
+- Skript orqali `tcpdump` bilan birga ishlatish.
+</Callout>
+
+## 1. Wireshark vs `tshark` vs `tcpdump`
+
+| Vosita | Interfeys | Foydalanish |
+|---|---|---|
+| **Wireshark** | GUI | Tahlil, vizualizatsiya |
+| **tshark** | CLI | Skriptlar, server |
+| **tcpdump** | CLI | Engil, eng keng tarqalgan |
+
+Kali'da hammasi default. Ishga tushirish:
+
+```bash
+# GUI
+sudo wireshark
+
+# CLI
+sudo tshark -i eth0
+sudo tcpdump -i eth0 -nn
+```
+
+## 2. Interfeys va capture
+
+1. **Wireshark** ni ishga tushiring.
+2. Bosh ro'yxatda **interfeys** tanlang (eth0, wlan0, lo).
+3. **Start capture** (akula iconi) — paketlar oqimi boshlanadi.
+
+Yoki CLI:
+
+```bash
+sudo tshark -i eth0 -w capture.pcap
+# Ctrl+C bilan to'xtatish
+```
+
+## 3. Capture Filter va Display Filter
+
+| Tur | Qachon | Misol sintaksis |
+|---|---|---|
+| **Capture filter** | Yozish vaqtida (BPF sintaksis) | `host 192.168.1.50 and port 80` |
+| **Display filter** | Tahlil paytida (Wireshark sintaksis) | `http and ip.dst == 192.168.1.50` |
+
+Capture filter — diskka kam yozish (ko'p trafikda foydali).
+Display filter — keng, lekin barcha paketlar yozilgan bo'lishi kerak.
+
+### Capture filter misollar (`tcpdump` sintaksis)
+
+```
+host 192.168.1.50            # bitta IP
+net 192.168.1.0/24           # tarmoq
+port 80                      # bitta port
+tcp port 443                 # TCP+port
+not arp                      # ARP'siz
+src 192.168.1.50             # faqat source
+dst port 22                  # faqat destination
+```
+
+### Display filter misollar
+
+```
+ip.addr == 192.168.1.50
+tcp.port == 443
+http
+http.request.method == "POST"
+dns
+dns.qry.name contains "google"
+tcp.flags.syn == 1
+tcp contains "password"
+ssl.handshake.type == 1     # Client Hello
+icmp
+```
+
+To'liq ro'yxat: [Display Filter Reference](https://www.wireshark.org/docs/dfref/).[³](https://www.wireshark.org/docs/dfref/)
+
+## 4. Paketga qarash
+
+Wireshark uchta panelni ko'rsatadi:
+
+```
+┌────────────────────────────────────────┐
+│  Packet list (qisqacha)                │
+│  No.  Time   Source  Dest  Proto  Info │
+├────────────────────────────────────────┤
+│  Packet details (qatlamlar)            │
+│  Frame, Ethernet, IP, TCP, HTTP        │
+├────────────────────────────────────────┤
+│  Packet bytes (hex va ASCII)           │
+└────────────────────────────────────────┘
+```
+
+OSI qatlamlar har biri alohida bo'limda.
+
+## 5. TCP stream qayta tiklash
+
+HTTP yoki TCP'ning to'liq oqimini ko'rish:
+
+1. Bitta paketga right-click.
+2. **Follow** → **TCP Stream** (yoki **HTTP Stream**).
+3. So'rov + javob bir oynada ko'rinadi.
+
+## 6. Misol: DNS so'rovini tahlil qilish
+
+```
+Source: 192.168.1.50
+Destination: 8.8.8.8
+Protocol: DNS
+Info: Standard query 0x1234 A google.com
+```
+
+Paket details:
+
+- **Frame** — paket umumiy ma'lumot.
+- **Ethernet II** — MAC manzillar.
+- **IPv4** — IP manzillar, TTL.
+- **UDP** — port (53).
+- **DNS** — so'rov turi (A, AAAA, MX), domain nomi.
+
+## 7. Misol: HTTPS o'qib bo'lmaslik
+
+HTTPS shifrlangan — Wireshark faqat:
+
+- IP va port'larni ko'radi.
+- TLS handshake'ni ko'radi.
+- Encrypted Application Data'ni ko'radi, lekin **mazmunini emas**.
+
+Mazmunni ko'rish uchun TLS kalitlari kerak — bu odatda faqat o'z saytingiz uchun (debugging).
+
+```bash
+# Brauzer TLS kalitlarini saqlasin
+export SSLKEYLOGFILE=~/sslkeys.log
+```
+
+So'ngra Wireshark'da: **Preferences → Protocols → TLS → (Pre)-Master-Secret log filename** → `~/sslkeys.log`.
+
+## 8. `tshark` — CLI tahlil
+
+```bash
+# Real-time
+sudo tshark -i eth0
+
+# Filtr bilan
+sudo tshark -i eth0 -f "port 80"
+
+# Faylga yozish
+sudo tshark -i eth0 -w capture.pcap
+
+# Faylni o'qish + display filter
+tshark -r capture.pcap -Y "http.request.method == POST"
+
+# Faqat aniq maydonlarni chiqarish
+tshark -r capture.pcap -T fields -e ip.src -e ip.dst -e http.host
+```
+
+## 9. `tcpdump` — eng kichik vosita
+
+```bash
+# Asosiy capture
+sudo tcpdump -i eth0
+
+# Faylga
+sudo tcpdump -i eth0 -w capture.pcap
+
+# Faqat ko'rsatish, raqamlarda (DNS yo'q)
+sudo tcpdump -i eth0 -nn
+
+# Filtr
+sudo tcpdump -i eth0 'tcp port 443'
+
+# Hex + ASCII
+sudo tcpdump -i eth0 -X
+```
+
+## 10. Mashq uchun ma'lumot manbalar
+
+- **`pcap` namuna fayllar:** [Wireshark Sample Captures](https://wiki.wireshark.org/SampleCaptures).
+- [Malware-Traffic-Analysis.net](https://www.malware-traffic-analysis.net/) — tahlil mashqlari.
+- O'z lokal trafigi — `ping google.com`, `curl ...`, brauzerni oching.
+
+## 11. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo wireshark` | GUI |
+| `sudo tshark -i eth0` | CLI real-time |
+| `sudo tshark -w file.pcap` | Faylga yozish |
+| `tshark -r file.pcap` | Faylni o'qish |
+| `tshark -Y "<filter>"` | Display filter |
+| `sudo tcpdump -i eth0 -nn` | Eng oddiy CLI |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **`Permission denied`** — `sudo` kerak (yoki user `wireshark` guruhida).
+- **Hech qanday paket** — interfeys notog'ri tanlangan yoki promiscuous mode o'chirilgan.
+- **HTTPS ichini o'qishga harakat** — shifrlangan; TLS keylog'siz mumkin emas.
+- **Boshqa odam tarmog'ida** — qonuniy chegara.
+- **Katta `.pcap` fayl** — Wireshark sekin ochadi. `tshark` bilan filter qilib kichik fayl yarating.
+
+## 13. Eng yaxshi amaliyot
+
+- **Capture filter agar trafik ko'p bo'lsa** — disk to'lib qolishidan oldin.
+- **`-w file.pcap`** har doim — keyin tahlil qilish uchun.
+- **Display filter assistant** — Wireshark'da `expression...` tugmasi GUI orqali filter qurish.
+- **Coloring rules** — har bir protokol uchun rang (default'da TCP yashil, DNS ko'k).
+- **Statistics → Conversations** — kim kim bilan, qancha trafik.
+
+## 14. Bilim sinovi
+
+**Savol 1.** Capture filter va Display filter farqi:
+
+- a) Bir xil
+- b) Capture filter — yozish vaqtida, Display — tahlil vaqtida
+- c) Display filter faqat HTTPS uchun
+- d) Capture filter faqat Pro versiyada
+
+<Callout type="success" title="Javob">
+**(b)** Capture — yozishni cheklash; Display — barcha yozilgan paketlardan ko'rsatish.[²](https://www.wireshark.org/docs/wsug_html_chunked/)
+</Callout>
+
+**Savol 2.** HTTPS trafik ichidagi parolni ko'rish:
+
+- a) Wireshark avtomatik ko'rsatadi
+- b) Faqat TLS sertifikat va kalit bilan
+- c) Hech qachon mumkin emas
+- d) `-X` flag bilan
+
+<Callout type="success" title="Javob">
+**(b)** TLS pre-master-secret loglari yoki private key bilan — bu odatda faqat o'z infrastrukturangiz uchun.
+</Callout>
+
+## 15. Mashq
+
+1. Wireshark'ni Kali'da oching. **eth0** (yoki Wi-Fi) interfeysini tanlab capture boshlang.
+2. Terminal'da `ping -c 4 google.com` ni bajaring.
+3. Wireshark'da `icmp` display filter qo'llang. ICMP echo request va reply paketlarini ko'rasizmi?
+4. `dns` filter — DNS so'rov ko'rinadimi? Qaysi server'ga?
+5. (Ixtiyoriy) Brauzerda `http://example.com` ga kiring. `http` filtr orqali so'rov va javobni topib `Follow → HTTP Stream` qiling.
+
+## Manbalar
+
+1. Wireshark Documentation. [https://www.wireshark.org/docs/](https://www.wireshark.org/docs/)
+2. Wireshark User's Guide. [https://www.wireshark.org/docs/wsug_html_chunked/](https://www.wireshark.org/docs/wsug_html_chunked/)
+3. Wireshark Display Filter Reference. [https://www.wireshark.org/docs/dfref/](https://www.wireshark.org/docs/dfref/)
+
+## Keyingi qadam
+
+👉 [Tarmoq skanerlash](/kali/security/network-scanning)

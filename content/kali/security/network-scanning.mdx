@@ -1,0 +1,244 @@
+---
+title: "Tarmoq skanerlash"
+description: "Host discovery va port skanerlash — defensive maqsadlar uchun rasmiy Nmap qo'llanmasi asosida."
+order: 1
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/kali/ethical-hacking"
+  - "/kali/tools/nmap"
+learning_objectives:
+  - "Host discovery uslublari"
+  - "Port skan strategiyalari (TCP, UDP, SYN)"
+  - "Defensive ko'zda — o'z tarmog'ingizni audit qilish"
+tags: ["kali", "scanning", "nmap", "defensive"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nmap — Host Discovery"
+    url: "https://nmap.org/book/man-host-discovery.html"
+  - title: "Nmap — Port Scanning Techniques"
+    url: "https://nmap.org/book/man-port-scanning-techniques.html"
+---
+
+<Callout type="warning">
+Tarmoq skanerlash — faqat **o'z tarmog'ingiz**da yoki **yozma ruxsat** bilan. Tasodifiy IP yoki public xost skanerlash — qonun bo'yicha buzilish.
+</Callout>
+
+Tarmoq skanerlash — penetration testning birinchi bosqichi. Defensive jihatdan — o'z tarmog'ingizdagi noma'lum qurilmalar va ochiq portlarni topish.[¹](https://nmap.org/book/man-host-discovery.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Host discovery va port skanerlash farqi.
+- Defensive auditda nima izlash.
+- O'z tarmog'ingiz uchun audit ssenariyi.
+</Callout>
+
+## 1. Host discovery
+
+Birinchi savol — qaysi xostlar tirik?
+
+```bash
+# Ping scan (port skanerlash yo'q)
+sudo nmap -sn 192.168.1.0/24
+```
+
+Boshqa metodlar — agar ICMP bloklangan bo'lsa:
+
+```bash
+# TCP SYN to port 443
+sudo nmap -PS443 192.168.1.0/24
+
+# TCP ACK
+sudo nmap -PA80,443 192.168.1.0/24
+
+# UDP probe
+sudo nmap -PU53 192.168.1.0/24
+
+# ARP (faqat lokal tarmoqda — eng aniq)
+sudo nmap -PR 192.168.1.0/24
+
+# Ping'ni o'tkazib yuborib darhol skanerlash
+sudo nmap -Pn 192.168.1.50
+```
+
+## 2. Port skanerlash texnikasi
+
+[Nmap rasmiy qo'llanmasi](https://nmap.org/book/man-port-scanning-techniques.html) bo'yicha:[²](https://nmap.org/book/man-port-scanning-techniques.html)
+
+| Skan | Flag | Tavsif |
+|---|---|---|
+| TCP SYN | `-sS` | Default, root kerak; "yarim" handshake |
+| TCP Connect | `-sT` | Full handshake; root'siz |
+| UDP | `-sU` | Sekin; ko'p loglar |
+| TCP FIN | `-sF` | Stealth |
+| TCP NULL | `-sN` | Stealth |
+| TCP Xmas | `-sX` | Stealth, sintaks anomaly |
+| TCP ACK | `-sA` | Firewall qoidalarini topish |
+
+## 3. Port holatlari
+
+| Holat | Tavsif |
+|---|---|
+| **open** | Xizmat tinglaydi |
+| **closed** | Port mavjud, lekin xizmat yo'q |
+| **filtered** | Firewall to'sgan (javob yo'q) |
+| **unfiltered** | Tekshirib bo'lmaydi (ACK skan natijasi) |
+| **open\|filtered** | UDP'da ko'pincha — javob bo'lmasa |
+
+## 4. Defensive audit ssenariyi
+
+Maqsad: o'z uy yoki ofis tarmog'ingizdagi qurilmalarni inventarizatsiya qilish va ortiqcha ochiq portlarni topish.
+
+### Bosqich 1: tarmoq diapazonini topish
+
+```bash
+# Sizning IP va tarmoq
+ip -brief addr
+ip route
+```
+
+Misol: `192.168.1.50/24` — tarmoq `192.168.1.0/24`.
+
+### Bosqich 2: tirik xostlar
+
+```bash
+sudo nmap -sn 192.168.1.0/24 -oN tirik-xostlar.txt
+```
+
+Topilgan har bir qurilma siz bilasizmi? Noma'lum bo'lsa — qanday qurilma?
+
+### Bosqich 3: har bir xostda ochiq portlar
+
+```bash
+# Diapazon
+sudo nmap -p- --min-rate=1000 192.168.1.50 -oN ports-50.txt
+
+# Tezroq variant — top 1000
+sudo nmap 192.168.1.50 -oN ports-50.txt
+```
+
+### Bosqich 4: xizmatlar versiyalari
+
+```bash
+sudo nmap -sV -p <ochiq-portlar> 192.168.1.50
+```
+
+Topilgan versiyalarni [CVE Details](https://www.cvedetails.com/) yoki [NIST NVD](https://nvd.nist.gov/) da tekshiring. Eski versiyalar = ma'lum zaifliklar.
+
+### Bosqich 5: Kompleks audit
+
+```bash
+sudo nmap -A -p- 192.168.1.50 -oA full-audit-50
+```
+
+`-A` = OS detection + version + default scripts + traceroute.
+
+## 5. Tipik topilmalar va javoblar
+
+| Topilma | Defensive harakat |
+|---|---|
+| Noma'lum qurilma tarmoqda | Topib aniqlang yoki tarmoqdan ajrating |
+| SSH (22) — internetga ochiq | Port o'zgartirish, kalit asoslangan auth, fail2ban |
+| Eski xizmat versiyasi | Yangilang |
+| Telnet (23) | O'chiring, SSH ishlatilsin |
+| RDP (3389) — internetga ochiq | VPN orqasiga oling |
+| Open DNS resolver (53) | Recursive o'chiring, faqat lokal |
+| FTP (21) anonymous | Anonymous o'chiring, SFTP'ga o'ting |
+| Print server (515, 631) ochiq | LAN'ga cheklang |
+
+## 6. Vositalar zanjirini birlashtirish
+
+```bash
+# 1. Tirik xostlar
+sudo nmap -sn 192.168.1.0/24 -oG tirik.gnmap
+
+# 2. Faqat tirik IP'larni alohida faylga
+grep "Up$" tirik.gnmap | cut -d' ' -f2 > ip-list.txt
+
+# 3. Har bir IP uchun to'liq audit
+while read ip; do
+    sudo nmap -A "$ip" -oN "audit-$ip.txt"
+done < ip-list.txt
+```
+
+## 7. Skan natijasini Metasploit DB ga import
+
+```bash
+sudo nmap -sV -oX scan.xml 192.168.1.0/24
+
+# Metasploit ichida
+msf6 > db_import scan.xml
+msf6 > hosts
+msf6 > services
+```
+
+## 8. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `nmap -sn <range>` | Host discovery |
+| `nmap -Pn <host>` | Ping'siz darhol skan |
+| `nmap -sS` | TCP SYN (default) |
+| `nmap -sU` | UDP (sekin) |
+| `nmap -p-` | Hamma 65535 port |
+| `nmap -sV` | Xizmat versiyasi |
+| `nmap -A` | Hammasini birga |
+| `nmap -oA <prefix>` | Hamma formatda saqlash |
+
+## 9. Eng tez-tez uchraydigan xatolar
+
+- **Public IP skan** — qonuniy chegara.
+- **Skan'ning ish vaqtida ofisda** — xizmatlarga ta'sir qilishi mumkin.
+- **`-T5` production'da** — paketlar yo'qoladi, natija to'liq emas.
+- **UDP skan'ni unutib** — DNS, NTP, SNMP UDP'da.
+- **Xizmat versiyasini tekshirmaslik** — port ochiq, lekin qaysi versiya?
+
+## 10. Eng yaxshi amaliyot
+
+- **`-oA` doim ishlatilsin** — keyin tahlil va hisobot uchun.
+- **Audit jadval bilan hujjatlash** — har bir xost, port, xizmat va status.
+- **Avtomatlashtirish** — `cron` orqali har hafta yoki har oy.
+- **Differential audit** — bugungi natijani o'tgan oydagi bilan solishtirish.
+- **Faqat o'z tarmog'i** — har doim.
+
+## 11. Bilim sinovi
+
+**Savol 1.** ICMP bloklangan tarmoqda host discovery uchun:
+
+- a) `-sn` yetarli
+- b) `-PS`, `-PA`, `-PU` flag'lar bilan boshqa metodlar
+- c) Skan qila olmaymiz
+- d) `-Pn` bilan to'g'ridan-to'g'ri port skan
+
+<Callout type="success" title="Javob">
+**(b va d)** Bir nechta metod — `-PS<port>` TCP SYN probe, `-PA<port>` ACK, `-PU<port>` UDP. Yoki `-Pn` bilan ping'ni o'tkazib darhol port skan.[¹](https://nmap.org/book/man-host-discovery.html)
+</Callout>
+
+**Savol 2.** "filtered" holati nima anglatadi?
+
+- a) Port ochiq
+- b) Port yopiq
+- c) Firewall to'sgan, javob yo'q
+- d) Xizmat ishlamaydi
+
+<Callout type="success" title="Javob">
+**(c)** Firewall paketlarni tashladi yoki rad qildi — Nmap holatni aniqlay olmadi.[²](https://nmap.org/book/man-port-scanning-techniques.html)
+</Callout>
+
+## 12. Mashq
+
+**Faqat o'z uy tarmog'ingizda:**
+
+1. `ip route | grep default` — sizning tarmoq diapazoningiz nima?
+2. `sudo nmap -sn <tarmoq>/24` — qancha xost tirik? Hammasini bilasizmi?
+3. Yangi (noma'lum) xost topsangiz, MAC manzilini ko'ring: `sudo nmap -sn -PR <IP>` (ARP).
+4. `sudo nmap -sV <o'z-IP>` — sizdagi xizmatlar nima?
+
+## Manbalar
+
+1. Nmap — Host Discovery. [https://nmap.org/book/man-host-discovery.html](https://nmap.org/book/man-host-discovery.html)
+2. Nmap — Port Scanning Techniques. [https://nmap.org/book/man-port-scanning-techniques.html](https://nmap.org/book/man-port-scanning-techniques.html)
+
+## Keyingi qadam
+
+👉 [Zaiflik tahlili](/kali/security/vulnerability-assessment)

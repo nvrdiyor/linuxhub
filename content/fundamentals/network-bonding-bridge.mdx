@@ -1,0 +1,454 @@
+---
+title: "Network bonding va bridge"
+description: "Linux'da tarmoq aggregation (bonding) va bridge — VM va container'lar uchun."
+order: 141
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/networking"
+learning_objectives:
+  - "Bonding rejimlari va ularning maqsadi"
+  - "Bridge yaratish — VM, container, KVM"
+  - "Network teaming"
+  - "Netplan va NetworkManager bilan"
+tags: ["advanced", "networking", "bonding", "bridge", "vlan"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Linux Bonding Documentation"
+    url: "https://docs.kernel.org/networking/bonding.html"
+  - title: "ArchWiki — Network bridge"
+    url: "https://wiki.archlinux.org/title/Network_bridge"
+  - title: "Netplan"
+    url: "https://netplan.io/"
+---
+
+**Bonding** — bir nechta NIC (network interface) ni birga ishlatish (high availability, increased bandwidth). **Bridge** — virtual switch — VM, container'lar uchun. Bu darsda ikkalasini ko'rib chiqamiz.[¹](https://docs.kernel.org/networking/bonding.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Bonding rejimlari (active-backup, balance-rr, 802.3ad).
+- Bridge yaratish.
+- VLAN bilan birga.
+- Netplan, NetworkManager, ip bilan.
+</Callout>
+
+## 1. Bonding nima?
+
+```
+[NIC 1] ──┐
+[NIC 2] ──┼──▶ [bond0] ──▶ [Tarmoq]
+[NIC 3] ──┘
+```
+
+Foyda:
+
+- **Redundancy** — bir NIC yo'qolsa, ikkinchisi.
+- **Bandwidth** — agar switch ham qo'llab-quvvatlasa.
+- **Load balancing** — yuk tarqatish.
+
+## 2. Bonding rejimlari
+
+| Rejim | Nom | Maqsad |
+|---|---|---|
+| 0 | balance-rr | Round-robin — yuk tarqatish, switch konfiguratsiyasi yo'q |
+| 1 | active-backup | Failover (eng oddiy, switch'siz) |
+| 2 | balance-xor | XOR — load + redundancy |
+| 3 | broadcast | Hammaga yuborish |
+| 4 | 802.3ad (LACP) | Standart link aggregation (switch qo'llab-quvvatlash) |
+| 5 | balance-tlb | Adaptive transmit load balancing |
+| 6 | balance-alb | Adaptive load balancing |
+
+**Eng tez-tez:**
+
+- **active-backup** — desktop/server fail-over (switch'ga ehtiyoj yo'q).
+- **802.3ad (LACP)** — datacenter (switch LACP qo'llab-quvvatlashi kerak).
+
+## 3. Bonding — `ip` bilan vaqtinchalik
+
+```bash
+# Modullash
+sudo modprobe bonding
+
+# bond0 yaratish
+sudo ip link add bond0 type bond mode active-backup miimon 100
+
+# Slave NIC'larni qo'shish
+sudo ip link set eth0 down
+sudo ip link set eth1 down
+sudo ip link set eth0 master bond0
+sudo ip link set eth1 master bond0
+
+# Yoqish
+sudo ip link set bond0 up
+
+# IP berish
+sudo ip addr add 192.168.1.50/24 dev bond0
+sudo ip route add default via 192.168.1.1
+
+# Status
+cat /proc/net/bonding/bond0
+```
+
+## 4. Doimiy — `/etc/modprobe.d/bonding.conf`
+
+```
+alias bond0 bonding
+options bond0 mode=active-backup miimon=100
+```
+
+Yoki `/etc/modules-load.d/bonding.conf`:
+
+```
+bonding
+```
+
+## 5. Netplan bilan (Ubuntu Server)
+
+`/etc/netplan/01-bond.yaml`:
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: no
+    eth1:
+      dhcp4: no
+  bonds:
+    bond0:
+      interfaces: [eth0, eth1]
+      addresses: [192.168.1.50/24]
+      gateway4: 192.168.1.1
+      nameservers:
+        addresses: [1.1.1.1, 8.8.8.8]
+      parameters:
+        mode: active-backup
+        mii-monitor-interval: 100
+        primary: eth0
+```
+
+```bash
+sudo netplan apply
+
+# Status
+ip a show bond0
+cat /proc/net/bonding/bond0
+```
+
+## 6. NetworkManager bilan
+
+```bash
+# Bond yaratish
+nmcli connection add type bond ifname bond0 mode active-backup
+
+# Slaves
+nmcli connection add type ethernet ifname eth0 master bond0
+nmcli connection add type ethernet ifname eth1 master bond0
+
+# IP
+nmcli connection modify bond-bond0 ipv4.addresses 192.168.1.50/24
+nmcli connection modify bond-bond0 ipv4.gateway 192.168.1.1
+nmcli connection modify bond-bond0 ipv4.method manual
+
+# Yoqish
+nmcli connection up bond-bond0
+```
+
+## 7. Failover test
+
+```bash
+# Active interfeysni o'chirish
+sudo ip link set eth0 down
+
+# Status
+cat /proc/net/bonding/bond0
+# Currently Active Slave: eth1     ← avtomatik o'tdi
+
+# Qaytarish
+sudo ip link set eth0 up
+```
+
+## 8. Bridge — virtual switch
+
+```
+        ┌── VM 1 ──┐
+        ├── VM 2 ──┤
+[br0] ──┼── VM 3 ──┼── [eth0] ──▶ [Tarmoq]
+        ├── lxc1 ──┤
+        └── lxc2 ──┘
+```
+
+Bridge — host NIC va virtual interfeyslarni bog'lovchi virtual switch.
+
+## 9. Bridge `ip` bilan
+
+```bash
+# Modul
+sudo modprobe bridge
+
+# Bridge yaratish
+sudo ip link add br0 type bridge
+
+# Yoqish
+sudo ip link set br0 up
+
+# Eth interfeysini bridge'ga qo'shish
+sudo ip link set eth0 master br0
+sudo ip link set eth0 up
+
+# IP'ni eth0'dan br0'ga ko'chirish
+sudo ip addr flush dev eth0
+sudo ip addr add 192.168.1.50/24 dev br0
+sudo ip route add default via 192.168.1.1
+```
+
+## 10. Bridge — Netplan
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: no
+  bridges:
+    br0:
+      interfaces: [eth0]
+      addresses: [192.168.1.50/24]
+      gateway4: 192.168.1.1
+      nameservers:
+        addresses: [1.1.1.1]
+      parameters:
+        stp: false
+        forward-delay: 0
+```
+
+```bash
+sudo netplan apply
+
+# Status
+brctl show           # eski vosita
+bridge link          # zamonaviy
+```
+
+## 11. Bridge — KVM/QEMU va Docker
+
+### KVM
+
+VM eth0 sifatida bridge'ni ko'radi:
+
+```bash
+sudo virt-install --network bridge=br0 ...
+```
+
+VM real network'da o'z IP'sini oladi.
+
+### Docker
+
+```bash
+# Custom bridge network
+docker network create --driver bridge --subnet 172.20.0.0/16 mynet
+
+# Container shu network'da
+docker run --network mynet nginx
+```
+
+Docker default bridge — `docker0`.
+
+## 12. VLAN — Virtual LAN
+
+VLAN — bitta fizik tarmoq orqali bir nechta mantiqiy tarmoq.
+
+```bash
+# VLAN 10 eth0'da
+sudo ip link add link eth0 name eth0.10 type vlan id 10
+sudo ip addr add 10.10.0.1/24 dev eth0.10
+sudo ip link set eth0.10 up
+```
+
+### Netplan VLAN
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: no
+  vlans:
+    vlan10:
+      id: 10
+      link: eth0
+      addresses: [10.10.0.1/24]
+    vlan20:
+      id: 20
+      link: eth0
+      addresses: [10.20.0.1/24]
+```
+
+## 13. Bond + Bridge + VLAN
+
+Tipik enterprise setup:
+
+```
+[eth0] ─┐
+        ├── [bond0] ──── [br0] ──── [VM'lar]
+[eth1] ─┘                  │
+                           ├── vlan10 (10.10.0.0/24)
+                           ├── vlan20 (10.20.0.0/24)
+                           └── vlan30 (10.30.0.0/24)
+```
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: no
+    eth1:
+      dhcp4: no
+  bonds:
+    bond0:
+      interfaces: [eth0, eth1]
+      parameters:
+        mode: 802.3ad
+        lacp-rate: fast
+        mii-monitor-interval: 100
+  bridges:
+    br0:
+      interfaces: [bond0]
+      addresses: [192.168.1.50/24]
+      gateway4: 192.168.1.1
+  vlans:
+    br0.10:
+      id: 10
+      link: br0
+      addresses: [10.10.0.1/24]
+    br0.20:
+      id: 20
+      link: br0
+      addresses: [10.20.0.1/24]
+```
+
+## 14. MTU va Jumbo frames
+
+Default MTU 1500. Datacenter'da jumbo frames (9000) — performance.
+
+```bash
+# Vaqtinchalik
+sudo ip link set dev eth0 mtu 9000
+
+# Netplan
+network:
+  ethernets:
+    eth0:
+      mtu: 9000
+```
+
+Diqqat: butun zanjir (NIC, switch, server) bir xil MTU'ni qo'llab-quvvatlashi kerak.
+
+## 15. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `ip link add bond0 type bond mode <X>` | Bond yaratish |
+| `ip link set eth0 master bond0` | Slave qo'shish |
+| `cat /proc/net/bonding/bond0` | Bond status |
+| `ip link add br0 type bridge` | Bridge |
+| `bridge link` | Bridge port'lari |
+| `nmcli connection add type bond ...` | NetworkManager bond |
+| `netplan apply` | Netplan o'zgarishlarni qo'llash |
+| `netplan try` | Sinab ko'rish (60s'da revert) |
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **Slave eth interfeysiga IP berish** — bond/bridge interfeysiga berish kerak.
+- **`802.3ad` switch sozlamasi yo'q** — switch'da LACP yoqilmaganida active-backup bo'lib qoladi.
+- **Bridge bilan IP eth0'da qoldirish** — packet flow buziladi. IP faqat bridge'ga.
+- **Netplan apply'dan keyin SSH uziladi** — yangi config xato. `netplan try` ishlatilsin (sinaydi, 60s'da xato bo'lsa revert).
+- **MTU mismatch** — `ping -s 8972 -M do <host>` orqali test (`8972 + 28 = 9000`).
+
+## 17. Eng yaxshi amaliyot
+
+- **Production server uchun bond** — single NIC failure tolerance.
+- **VM hosting uchun bridge** — virtual mashinalar real network'da.
+- **`netplan try`** SSH server'da o'zgartirish'dan oldin.
+- **VLAN bilan tarmoq segmentatsiya** — security va broadcast domains.
+- **MTU butun yo'lida** — datacenter switch'lar config qiling.
+- **Monitoring bond holatini** — slave'lar yo'qolsa alert.
+
+## 18. Mashqlar
+
+1. **Test VM:** 2 NIC bilan VM yarating va active-backup bond sozlang.
+2. **Bridge:** `br0` yarating va eth0'ni qo'shing. IP konfiguratsiyasi to'g'ri ishlaydimi?
+3. **Failover test:** Bond active interfeysni `ip link set eth0 down` qiling. Tarmoq ishlamoqdami?
+4. **VLAN:** `eth0.10` virtual interfeys yarating.
+5. **MTU:** `ip link show eth0` — joriy MTU nima? `ping -s 1472 -M do 1.1.1.1` (1500 - 28 IP/ICMP header).
+
+## 19. Bilim sinovi
+
+**Savol 1.** Bonding mode `active-backup` foydasi:
+
+- a) Tezroq
+- b) Bir NIC yo'qolsa avtomatik failover, switch konfiguratsiyasi shart emas
+- c) Faqat datacenter uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Eng oddiy va keng qo'llaniladigan bonding.[¹](https://docs.kernel.org/networking/bonding.html)
+</Callout>
+
+**Savol 2.** Bridge nima uchun:
+
+- a) Faqat backup
+- b) Virtual switch — VM, container'lar bilan host NIC'ni bog'lash
+- c) Faqat bonding bilan
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** L2 switch funksionalligi.[²](https://wiki.archlinux.org/title/Network_bridge)
+</Callout>
+
+**Savol 3.** Bond IP qaerga berish:
+
+- a) Slave eth0
+- b) bond0 (master interfeys)
+- c) Ikkalasi
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(b)** Faqat master.
+</Callout>
+
+**Savol 4.** Netplan'da SSH server'da xavfsizroq:
+
+- a) `netplan apply` darrov
+- b) `netplan try` — 60 soniya kuting, OK bo'lmasa revert
+- c) Reboot
+- d) Manual config
+
+<Callout type="success" title="Javob">
+**(b)** `try` — connection broken bo'lsa avtomatik revert.[³](https://netplan.io/)
+</Callout>
+
+**Savol 5.** VLAN nima uchun:
+
+- a) Backup
+- b) Bitta fizik tarmoq orqali ko'p mantiqiy tarmoq (segmentatsiya)
+- c) Bonding
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Mantiqiy ajratish, security, broadcast domain'ni cheklash.
+</Callout>
+
+## Manbalar
+
+1. Linux Bonding Documentation. [https://docs.kernel.org/networking/bonding.html](https://docs.kernel.org/networking/bonding.html)
+2. ArchWiki — Network bridge. [https://wiki.archlinux.org/title/Network_bridge](https://wiki.archlinux.org/title/Network_bridge)
+3. Netplan. [https://netplan.io/](https://netplan.io/)
+
+## Keyingi qadam
+
+👉 [DHCP server o'rnatish](/fundamentals/dhcp-server)

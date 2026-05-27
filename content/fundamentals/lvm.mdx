@@ -1,0 +1,464 @@
+---
+title: "LVM — Logical Volume Manager"
+description: "Linux'da disk hajmini elastik boshqarish — PV, VG, LV; volume yaratish, kengaytirish, snapshot."
+order: 110
+level: "advanced"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/disk-management"
+learning_objectives:
+  - "LVM arxitekturasi: PV, VG, LV"
+  - "Volume yaratish va boshqarish"
+  - "Online resize"
+  - "Snapshot olish va tiklash"
+tags: ["advanced", "lvm", "storage", "snapshot"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — LVM"
+    url: "https://wiki.archlinux.org/title/LVM"
+  - title: "LVM HOWTO"
+    url: "https://tldp.org/HOWTO/LVM-HOWTO/"
+  - title: "Red Hat LVM Documentation"
+    url: "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/configuring_and_managing_logical_volumes/index"
+---
+
+**LVM** (Logical Volume Manager) — fizik disklarni mavhum qatlam orqali boshqarish tizimi. Online resize, snapshot, ko'p diskni birlashtirish — LVM'ning kuchli xususiyatlari.[¹](https://wiki.archlinux.org/title/LVM)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- LVM 3 ta darajasi: PV, VG, LV.
+- Volume yaratish va kengaytirish.
+- Online resize — filesystem'ni o'chirmasdan.
+- Snapshot — backup va eksperiment uchun.
+- Thin provisioning.
+</Callout>
+
+## 1. LVM arxitekturasi
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Logical Volumes (LV) — fayl tizim uchun         │
+│  /dev/myvg/root  /dev/myvg/home  /dev/myvg/swap  │
+├─────────────────────────────────────────────────────┤
+│            Volume Group (VG)                        │
+│              "myvg" (500 GB)                       │
+├─────────────────────────────────────────────────────┤
+│           Physical Volumes (PV)                     │
+│   /dev/sda2 (200 GB)    /dev/sdb1 (300 GB)        │
+└─────────────────────────────────────────────────────┘
+```
+
+| Daraja | Tavsif |
+|---|---|
+| **PV** (Physical Volume) | Disk yoki partition — LVM uchun "xom material" |
+| **VG** (Volume Group) | Bir nechta PV'ni birlashtirgan "bank" |
+| **LV** (Logical Volume) | VG ichidan ajratilgan "partition" |
+
+LV'lar filesystem (ext4, xfs, btrfs) uchun ishlatiladi — xuddi oddiy partition kabi, lekin ancha elastikroq.
+
+## 2. LVM o'rnatish
+
+Ko'p distributivlarda default keladi. Yo'q bo'lsa:
+
+```bash
+# Debian/Ubuntu
+sudo apt install lvm2
+
+# Fedora/RHEL
+sudo dnf install lvm2
+
+# Arch
+sudo pacman -S lvm2
+```
+
+## 3. Physical Volume yaratish
+
+```bash
+# Diskni LVM uchun belgilash
+sudo pvcreate /dev/sdb1
+
+# Ko'rish
+sudo pvs       # qisqacha
+sudo pvdisplay # batafsil
+```
+
+`pvs` natija:
+
+```
+  PV         VG     Fmt  Attr PSize    PFree
+  /dev/sda2  myvg   lvm2 a--  200.00g  10.00g
+  /dev/sdb1  myvg   lvm2 a--  300.00g 100.00g
+```
+
+## 4. Volume Group yaratish
+
+```bash
+# Yangi VG
+sudo vgcreate myvg /dev/sdb1
+
+# Yoki bir nechta PV bilan
+sudo vgcreate myvg /dev/sda2 /dev/sdb1
+
+# Ko'rish
+sudo vgs
+sudo vgdisplay myvg
+```
+
+`vgs`:
+
+```
+  VG    #PV #LV #SN Attr   VSize    VFree
+  myvg    2   3   0 wz--n- 499.99g  110.00g
+```
+
+### VG ga PV qo'shish
+
+```bash
+# Yangi disk
+sudo pvcreate /dev/sdc1
+
+# VG ga qo'shish
+sudo vgextend myvg /dev/sdc1
+```
+
+### VG dan PV olib tashlash
+
+```bash
+# Avval ma'lumotni boshqasiga ko'chirish
+sudo pvmove /dev/sdb1
+
+# Endi olib tashlash
+sudo vgreduce myvg /dev/sdb1
+```
+
+## 5. Logical Volume yaratish
+
+```bash
+# Aniq hajm
+sudo lvcreate -L 100G -n root myvg
+# /dev/myvg/root yaratiladi
+
+# Foiz hajm (VG'ning 50%)
+sudo lvcreate -l 50%VG -n home myvg
+
+# Qolgan hamma joy
+sudo lvcreate -l 100%FREE -n data myvg
+
+# Ko'rish
+sudo lvs
+sudo lvdisplay
+```
+
+`lvs`:
+
+```
+  LV   VG   Attr       LSize    Pool Origin Data%  Meta%
+  data myvg -wi-a-----  280.00g
+  home myvg -wi-ao---- 100.00g
+  root myvg -wi-ao---- 100.00g
+```
+
+## 6. Filesystem yaratish va mount
+
+LV — oddiy block qurilma kabi:
+
+```bash
+# Filesystem
+sudo mkfs.ext4 /dev/myvg/root
+
+# Mount
+sudo mkdir /mnt/data
+sudo mount /dev/myvg/data /mnt/data
+
+# `/etc/fstab` ga
+sudo blkid /dev/myvg/data
+# Misol: UUID="abc-123..."
+
+sudo nano /etc/fstab
+```
+
+```
+UUID=abc-123... /mnt/data ext4 defaults 0 2
+```
+
+## 7. Online resize — kengaytirish
+
+**LVM'ning eng katta afzalligi** — filesystem'ni o'chirmasdan kengaytirish.
+
+```bash
+# 1. LV ni kengaytirish (50G qo'shish)
+sudo lvextend -L +50G /dev/myvg/data
+
+# Yoki 100% bo'sh joy
+sudo lvextend -l +100%FREE /dev/myvg/data
+
+# 2. Filesystem ni kengaytirish (ext4 online)
+sudo resize2fs /dev/myvg/data
+
+# Yoki xfs uchun
+sudo xfs_growfs /mnt/data
+```
+
+### Bir buyruqda
+
+```bash
+# `-r` — filesystem'ni ham avtomatik resize
+sudo lvextend -L +50G -r /dev/myvg/data
+```
+
+## 8. Kichraytirish (xavfli)
+
+**Faqat ext4 bo'lsa** (xfs kichraytira olmaydi).
+
+```bash
+# 1. Unmount
+sudo umount /mnt/data
+
+# 2. Filesystem tekshirish
+sudo e2fsck -f /dev/myvg/data
+
+# 3. Filesystem avval kichraytirish
+sudo resize2fs /dev/myvg/data 50G
+
+# 4. LV ni kichraytirish (faqat keyin)
+sudo lvreduce -L 50G /dev/myvg/data
+
+# 5. Mount
+sudo mount /dev/myvg/data /mnt/data
+```
+
+<Callout type="danger">
+Kichraytirish bilan ehtiyot bo'ling — agar filesystem hajmidan kichik LV qilsangiz, ma'lumot yo'qoladi.
+</Callout>
+
+## 9. Snapshot — vaqt kapsulasi
+
+Snapshot — LV'ning **vaqtning aniq nuqtasidagi nusxasi**. Asosiy LV o'zgarishi mumkin, snapshot esa o'sha holatda qoladi.
+
+```bash
+# Snapshot yaratish (10 GB delta uchun joy)
+sudo lvcreate -L 10G -s -n data-snap /dev/myvg/data
+
+# Ro'yxat
+sudo lvs
+#  LV        VG   Attr       LSize  Pool Origin Data%
+#  data      myvg owi-aos--- 100.0g
+#  data-snap myvg swi-a-s---  10.0g      data   0.50
+```
+
+Snapshot read-only. Mount va backup uchun:
+
+```bash
+sudo mkdir /mnt/snap
+sudo mount -o ro /dev/myvg/data-snap /mnt/snap
+
+# Backup
+tar -czf /backup/data-$(date +%F).tar.gz /mnt/snap
+
+# Unmount va o'chirish
+sudo umount /mnt/snap
+sudo lvremove /dev/myvg/data-snap
+```
+
+### Snapshot'dan tiklash
+
+```bash
+# 1. Original LV'ni unmount
+sudo umount /mnt/data
+
+# 2. Snapshot'ni original'ga merge
+sudo lvconvert --merge /dev/myvg/data-snap
+
+# 3. Reboot yoki original'ni qayta mount
+sudo mount /dev/myvg/data /mnt/data
+```
+
+## 10. Thin provisioning
+
+Snapshot va LV uchun **virtual** hajm — haqiqiy joy faqat ishlatilganda olinadi.
+
+```bash
+# Thin pool yaratish (asosiy "konteyner")
+sudo lvcreate -L 100G --thinpool mypool myvg
+
+# Thin LV yaratish (virtual 50G, lekin pool'da o'rin oladi)
+sudo lvcreate -V 50G --thin -n thindata myvg/mypool
+
+# Yana bitta (virtual 30G)
+sudo lvcreate -V 30G --thin -n thinhome myvg/mypool
+
+# Hamma 80G virtual, 100G pool'da
+```
+
+Foydali — ko'p VM yoki container'lar uchun.
+
+## 11. Misol — yangi disk qo'shish va VG kengaytirish
+
+Diskni yangi olib keldingiz, mavjud VG'ga qo'shmoqchisiz:
+
+```bash
+# 1. Disk topish
+lsblk
+# /dev/sdc — yangi
+
+# 2. Partition yaratish (optional, butun disk ham mumkin)
+sudo parted /dev/sdc mklabel gpt
+sudo parted /dev/sdc mkpart primary 1MiB 100%
+sudo parted /dev/sdc set 1 lvm on
+
+# 3. PV
+sudo pvcreate /dev/sdc1
+
+# 4. Mavjud VG ga qo'shish
+sudo vgextend myvg /dev/sdc1
+
+# 5. Bo'sh joy
+sudo vgs
+# VFree endi kattaroq
+
+# 6. LV ni kengaytirish (data va filesystem)
+sudo lvextend -l +100%FREE -r /dev/myvg/data
+```
+
+## 12. Disk olib tashlash
+
+```bash
+# 1. Ma'lumot boshqa PV'larga
+sudo pvmove /dev/sdb1
+
+# 2. VG'dan olib tashlash
+sudo vgreduce myvg /dev/sdb1
+
+# 3. PV ni olib tashlash
+sudo pvremove /dev/sdb1
+
+# 4. Endi diskni jismonan olib tashlash mumkin
+```
+
+## 13. Backup va metadata
+
+VG metadata zaxirasi:
+
+```bash
+# Avtomatik backup (har lvm o'zgarishida)
+ls /etc/lvm/backup/
+
+# Qo'lda backup
+sudo vgcfgbackup myvg
+
+# Tiklash
+sudo vgcfgrestore myvg
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `pvcreate /dev/sdb1` | PV yaratish |
+| `pvs` / `pvdisplay` | PV ro'yxat |
+| `vgcreate myvg /dev/sdb1` | VG yaratish |
+| `vgextend myvg /dev/sdc1` | VG'ga PV qo'shish |
+| `vgreduce myvg /dev/sdb1` | VG'dan PV olib tashlash |
+| `vgs` / `vgdisplay` | VG ro'yxat |
+| `lvcreate -L 100G -n root myvg` | LV yaratish |
+| `lvextend -L +50G -r /dev/myvg/root` | LV kengaytirish + fs |
+| `lvreduce -L 50G /dev/myvg/root` | LV kichraytirish (avval fs!) |
+| `lvremove /dev/myvg/test` | LV o'chirish |
+| `lvs` / `lvdisplay` | LV ro'yxat |
+| `lvcreate -L 10G -s -n snap /dev/myvg/root` | Snapshot |
+| `lvconvert --merge /dev/myvg/snap` | Snapshot'dan tiklash |
+| `pvmove /dev/sdb1` | PV'dan ma'lumotni ko'chirish |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **LV ni kichraytirish — filesystem'ni avval kichraytirmaslik** — ma'lumot yo'qoladi.
+- **`pvremove` LV mavjud bo'lganda** — avval ma'lumot ko'chirish kerak.
+- **Snapshot to'lganda** — snapshot LV'ga ajratilgan joy yetmasa, u "Invalid" holatga o'tadi.
+- **Reboot va tiklanmagan snapshot** — `lvchange -ay` orqali aktivlash.
+- **VG yo'q bo'lib qolish** — `vgcfgrestore` orqali metadata backup'dan tiklash.
+
+## 16. Eng yaxshi amaliyot
+
+- **Yangi tizim o'rnatishda LVM'ni yoqing** — kelajakda elastiklik.
+- **Bitta VG yaxshi** — bir nechta VG faqat alohida storage tier'lar uchun.
+- **Snapshot uzun muddat saqlamang** — performance ta'siri va to'lib qolish xavfi.
+- **Backup avval snapshot orqali** — atomik nuqta.
+- **`/boot` LVM'da emas** — bootloader cheklovi (LVM2 GRUB'da qo'llab-quvvatlanadi, lekin boshlovchilar uchun murakkab).
+- **Monitoring** — `df`, `lvs` muntazam.
+- **Thin provisioning** — VM'lar va container'lar uchun.
+
+## 17. Mashqlar
+
+1. **Test VM:** VirtualBox VM'da 2-3 ta yangi disk qo'shing. LVM bilan ish qiling.
+2. **VG yaratish:** Yuqoridagi `pvcreate` + `vgcreate` ketma-ketligi bilan VG yarating.
+3. **LV va FS:** 5 GB LV yarating, ext4 formatlang, mount qiling.
+4. **Resize:** LV'ni 10 GB ga kengaytiring. `df` orqali tasdiqlang.
+5. **Snapshot:** Snapshot yarating. Asosiy LV'da fayllarni o'zgartiring. Snapshot fayllar saqlanganmi?
+6. **VG kengaytirish:** Yangi diskni VG'ga qo'shing va bo'sh joyni LV'ga ajrating.
+
+## 18. Bilim sinovi
+
+**Savol 1.** LVM 3 darajasi:
+
+- a) Partition, Volume, Filesystem
+- b) PV (Physical Volume), VG (Volume Group), LV (Logical Volume)
+- c) Disk, Sector, Block
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(b)** PV → VG → LV.[¹](https://wiki.archlinux.org/title/LVM)
+</Callout>
+
+**Savol 2.** LV ni kengaytirish + filesystem bir buyruqda:
+
+- a) `lvextend -L +50G /dev/myvg/data && resize2fs /dev/myvg/data`
+- b) `lvextend -L +50G -r /dev/myvg/data`
+- c) `lvgrow /dev/myvg/data`
+- d) `vgextend +50G`
+
+<Callout type="success" title="Javob">
+**(b)** `-r` (`--resizefs`) — avtomatik filesystem'ni ham resize qiladi. (a) ham to'g'ri, lekin uzun.
+</Callout>
+
+**Savol 3.** Snapshot nima uchun foydali?
+
+- a) Faqat backup uchun
+- b) Backup va eksperiment (eski holatga qaytish imkoniyati bilan)
+- c) Disk hajmini ko'paytirish
+- d) Tezroq filesystem
+
+<Callout type="success" title="Javob">
+**(b)** Backup yoki risky operatsiyalar (yangilanish, sinov) uchun.
+</Callout>
+
+**Savol 4.** PV diskdan olib tashlash uchun avval:
+
+- a) `pvremove` darrov
+- b) `pvmove` orqali ma'lumotni boshqa PV'ga ko'chirish, so'ng `vgreduce`, so'ng `pvremove`
+- c) Disk'ni jismonan olib tashlash
+- d) VG ni o'chirish
+
+<Callout type="success" title="Javob">
+**(b)** Ma'lumot yo'qotmaslik uchun ketma-ketlik.
+</Callout>
+
+**Savol 5.** Thin provisioning nima?
+
+- a) Faqat ko'p ma'lumot bo'lganida joy ajratish (virtual hajm > fizik)
+- b) Tezroq filesystem
+- c) Kompressiya
+- d) Shifrlash
+
+<Callout type="success" title="Javob">
+**(a)** Virtual hajm (50G LV) — lekin haqiqiy joy faqat ishlatilganda.
+</Callout>
+
+## Manbalar
+
+1. ArchWiki — LVM. [https://wiki.archlinux.org/title/LVM](https://wiki.archlinux.org/title/LVM)
+2. LVM HOWTO. [https://tldp.org/HOWTO/LVM-HOWTO/](https://tldp.org/HOWTO/LVM-HOWTO/)
+3. Red Hat LVM Documentation. [https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/configuring_and_managing_logical_volumes/index](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/configuring_and_managing_logical_volumes/index)
+
+## Keyingi qadam
+
+👉 [RAID — Redundant Array of Independent Disks](/fundamentals/raid)

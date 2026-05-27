@@ -1,0 +1,232 @@
+---
+title: "Nomlar va qiymatlar"
+description: "Nix tilida o'zgaruvchilar, attribute set'lar, ro'yxat va asosiy turlar."
+order: 2
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/nixos/nix-language/overview"
+learning_objectives:
+  - "Nix asosiy turlar (string, number, bool, null, list, set)"
+  - "Attribute set yaratish va ulardan o'qish"
+  - "`let ... in`, `with`, `inherit`"
+tags: ["nixos", "nix-language"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Nix language basics"
+    url: "https://nix.dev/tutorials/nix-language.html"
+---
+
+Nix tili — funksional, deklarativ, sof. Bu darsda asosiy qiymat turlari va ularni qanday e'lon qilish va ulardan o'qish kerakligini ko'rib chiqamiz.[¹](https://nix.dev/tutorials/nix-language.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Asosiy turlar.
+- Attribute set (`{ }`) va undagi maydonlar.
+- `let ... in`, `with`, `inherit`.
+- Ro'yxat (list).
+</Callout>
+
+## 1. Asosiy turlar
+
+```nix
+# String
+"salom"
+
+# Multi-line string
+''
+  Birinchi qator
+  Ikkinchi qator
+''
+
+# Son
+42
+3.14
+
+# Boolean
+true
+false
+
+# Null
+null
+
+# List (bo'sh joy bilan ajraladi)
+[ 1 2 3 "to'rt" ]
+
+# Attribute set (xashtable, dict)
+{
+  name = "Ali";
+  age = 25;
+}
+```
+
+## 2. Attribute set bilan ishlash
+
+```nix
+let
+  person = {
+    name = "Ali";
+    age = 25;
+    address = {
+      city = "Toshkent";
+      country = "Uzbekistan";
+    };
+  };
+in
+person.address.city
+```
+
+Natija: `"Toshkent"`.
+
+## 3. `let ... in`
+
+Lokal o'zgaruvchilar e'lon qilish:
+
+```nix
+let
+  x = 10;
+  y = 20;
+in
+x + y
+```
+
+`let` bo'limidagi o'zgaruvchilar **rekursiv** — bir-biriga ishora qila oladi:
+
+```nix
+let
+  a = 5;
+  b = a + 1;        # b = 6
+in
+b
+```
+
+## 4. `with`
+
+Attribute set'ning maydonlarini joriy skopga olib chiqish:
+
+```nix
+let
+  person = { name = "Ali"; age = 25; };
+in
+with person; "Ismi: ${name}, yoshi: ${toString age}"
+```
+
+`with` ehtiyot bilan ishlatilsin — kollizyalarga olib kelishi mumkin.
+
+## 5. `inherit`
+
+Attribute set'da boshqa skopdan o'zgaruvchini olish:
+
+```nix
+let
+  name = "Ali";
+  age = 25;
+in
+{
+  inherit name age;
+  city = "Toshkent";
+}
+```
+
+Bu shu bilan teng:
+
+```nix
+{
+  name = "Ali";
+  age = 25;
+  city = "Toshkent";
+}
+```
+
+`inherit (set) name age` — boshqa set'dan olish:
+
+```nix
+let
+  person = { name = "Ali"; age = 25; };
+in
+{
+  inherit (person) name age;
+}
+```
+
+## 6. String interpolyatsiya
+
+```nix
+let
+  name = "Ali";
+  age = 25;
+in
+"Salom, ${name}! Sizning yoshingiz ${toString age}."
+```
+
+`${...}` ichida har qanday Nix ifoda — lekin string bo'lishi kerak. Sonlardan `toString` orqali.
+
+## 7. List'lar
+
+```nix
+let
+  raqamlar = [ 1 2 3 ];
+  birinchi = builtins.elemAt raqamlar 0;     # 1
+  uzunlik = builtins.length raqamlar;        # 3
+in
+{
+  inherit birinchi uzunlik;
+}
+```
+
+Foydali builtin'lar:
+
+| Funksiya | Maqsad |
+|---|---|
+| `builtins.length` | Uzunlik |
+| `builtins.elemAt` | Indeks bo'yicha element |
+| `builtins.head` | Birinchi |
+| `builtins.tail` | Birinchidan tashqari |
+| `builtins.map` | Har bir element ustida funksiya |
+| `builtins.filter` | Filtr |
+
+## 8. Recursive set — `rec`
+
+Default attribute set'da maydon o'zga maydonga ishora qila olmaydi. `rec` orqali — qila oladi:
+
+```nix
+rec {
+  a = 5;
+  b = a + 1;        # 6
+  c = b * 2;        # 12
+}
+```
+
+## 9. Mashq
+
+```nix
+nix-repl> let p = { name = "Ali"; age = 25; }; in p.name
+"Ali"
+
+nix-repl> [ 1 2 3 ] ++ [ 4 5 ]
+[ 1 2 3 4 5 ]
+
+nix-repl> { x = 1; } // { y = 2; }
+{ x = 1; y = 2; }
+```
+
+## 10. Bilim sinovi
+
+**Savol 1.** Attribute set'da bir maydon boshqasiga ishora qilishi uchun:
+
+- a) Oddiy `{ ... }`
+- b) `rec { ... }`
+- c) `let { ... }`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** `rec` — recursive — maydonlar bir-biriga ishora qila oladi.[¹](https://nix.dev/tutorials/nix-language.html)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Nix language basics. [https://nix.dev/tutorials/nix-language.html](https://nix.dev/tutorials/nix-language.html)
+
+## Keyingi qadam
+
+👉 [Funksiyalar](/nixos/nix-language/functions)

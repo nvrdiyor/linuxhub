@@ -1,0 +1,514 @@
+---
+title: "I/O redirection va pipes"
+description: "Linux'da kirish/chiqish oqimlari — stdin, stdout, stderr; redirection (`>`, `>>`, `<`, `2>`, `&>`) va pipes (`|`)."
+order: 105
+level: "beginner"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/basic-commands"
+  - "/fundamentals/shell"
+learning_objectives:
+  - "Standart oqimlar — stdin, stdout, stderr"
+  - "Redirection operatorlari"
+  - "Pipes va vositalarni zanjirlash"
+  - "tee, xargs va process substitution"
+tags: ["beginner", "io", "redirection", "pipes", "bash"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU Bash — Redirections"
+    url: "https://www.gnu.org/software/bash/manual/bash.html#Redirections"
+  - title: "ArchWiki — Pipe and redirection"
+    url: "https://wiki.archlinux.org/title/Bash#Redirection"
+  - title: "POSIX — Pipes"
+    url: "https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html"
+---
+
+Unix falsafasining markazida — **kichik vositalar, har biri bitta vazifani bajaradi, ular pipe orqali birikadi**. I/O redirection — bu fayl, dastur va terminallarni o'zaro bog'lash. Bu darsda Linux'ning eng kuchli (va ko'pincha noto'g'ri ishlatiladigan) xususiyatini chuqur o'rganamiz.[¹](https://www.gnu.org/software/bash/manual/bash.html#Redirections)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Standart oqimlar: stdin (0), stdout (1), stderr (2).
+- Redirection operatorlari: `>`, `>>`, `<`, `2>`, `2>&1`, `&>`.
+- Pipe (`|`) va `tee`.
+- `xargs` bilan argument o'tkazish.
+- Process substitution `<()` va `>()`.
+</Callout>
+
+## 1. Standart oqimlar
+
+Har bir Unix jarayoni 3 ta standart fayl deskriptoriga ega:
+
+| Raqam | Nom | Default |
+|---|---|---|
+| `0` | stdin (standard input) | Klaviatura |
+| `1` | stdout (standard output) | Terminal |
+| `2` | stderr (standard error) | Terminal |
+
+Misol:
+
+```bash
+ls /etc /xxx
+# /etc tarkibini stdout'ga chiqaradi
+# /xxx mavjud emas xatosini stderr'ga chiqaradi
+```
+
+stdout va stderr ikkalasi terminal'da ko'rinadi, lekin ular **alohida oqimlar**.
+
+## 2. Chiqishni faylga — `>`
+
+```bash
+# Overwrite (qayta yozish)
+ls > fayllar.txt
+
+# Faylni ko'rish
+cat fayllar.txt
+```
+
+`>` mavjud faylni **butunlay qayta yozadi**.
+
+### Append (oxiriga qo'shish) — `>>`
+
+```bash
+echo "Birinchi qator" > log.txt
+echo "Ikkinchi qator" >> log.txt
+echo "Uchinchi qator" >> log.txt
+
+cat log.txt
+# Birinchi qator
+# Ikkinchi qator
+# Uchinchi qator
+```
+
+### `noclobber` — `>` xavfini kamaytirish
+
+```bash
+set -o noclobber       # mavjud faylni qayta yozishdan saqlanish
+
+ls > mavjud.txt
+# bash: mavjud.txt: cannot overwrite existing file
+
+# Majburlash
+ls >| mavjud.txt        # | bilan force
+```
+
+## 3. stderr ni boshqarish — `2>`
+
+```bash
+# Faqat xatolarni faylga
+ls /etc /xxx 2> xato.log
+# stdout terminal'da
+# stderr xato.log'da
+
+# Xatolarni o'chirib tashlash
+ls /etc /xxx 2> /dev/null
+```
+
+`/dev/null` — "qora teshik", har narsani yo'qotuvchi maxsus fayl.
+
+### stdout va stderr ni alohida faylga
+
+```bash
+make > build.log 2> error.log
+```
+
+### stderr ni stdout'ga birlashtirish — `2>&1`
+
+```bash
+# Yomon (xato — `>file` keyin `2>&1` bo'lishi kerak)
+make 2>&1 > all.log
+
+# Yaxshi
+make > all.log 2>&1
+```
+
+`2>&1` — "stderr ni stdout bordigi joyga uzat". Tartib muhim!
+
+### `&>` qisqacha (bash, zsh)
+
+```bash
+# &> = > ... 2>&1
+make &> all.log
+
+# Append uchun
+make &>> all.log
+```
+
+## 4. Kirishni fayldan — `<`
+
+```bash
+# Sort fayl ichini
+sort < unsorted.txt
+
+# Yoki
+sort unsorted.txt    # ko'p buyruqlar fayl argumentini ham qabul qiladi
+```
+
+### Heredoc — `<<`
+
+Inline multi-line input:
+
+```bash
+cat << EOF
+Birinchi qator
+Ikkinchi qator
+$USER siz
+EOF
+```
+
+`<<EOF` — `EOF` keyingi qator boshida uchraguncha qabul qiladi.
+
+Variantlar:
+
+```bash
+# `EOF` o'rniga har qanday tag
+cat <<END
+Misol
+END
+
+# Variable kengayishi yo'q (tag tirnoq ichida)
+cat <<'EOF'
+$USER chiqmaydi — adabiy yoziladi
+EOF
+
+# Bo'shliq tab'lar o'chiriladi (- bilan)
+cat <<-EOF
+    Bu qator boshidagi tab'lar yo'q
+EOF
+```
+
+### Herestring — `<<<`
+
+Bitta qator input:
+
+```bash
+grep "hello" <<< "hello world"
+# hello world
+
+# Yoki
+cat <<< "Salom dunyo"
+```
+
+## 5. Pipe — `|`
+
+Bir buyruq stdout'ini boshqasining stdin'iga uzatish:
+
+```bash
+ls /etc | wc -l
+# /etc ichidagi narsa sonini chiqaradi
+```
+
+Zanjirlash:
+
+```bash
+cat /var/log/syslog | grep "error" | head -20
+# 1. cat — faylni o'qiydi
+# 2. grep — "error" qatorlarini ajratadi
+# 3. head — birinchi 20'ni oladi
+```
+
+### Faqat stdout pipe qilinadi
+
+```bash
+ls /etc /xxx | head
+# /etc fayllar ko'rinadi
+# /xxx xatosi pipe orqali OTMAYDI — terminal'da
+
+# Hammasini pipe'ga
+ls /etc /xxx 2>&1 | head
+```
+
+### `pipefail` — pipe'ning xatosini boshqarish
+
+Default'da pipe oxirgi buyruqning exit kodini qaytaradi:
+
+```bash
+false | true
+echo $?     # 0 (true muvaffaqiyatli)
+```
+
+Bu skriptlarda noxush — birinchi buyruq xato bo'lsa ham bilinmaydi:
+
+```bash
+set -o pipefail
+
+false | true
+echo $?     # 1 — endi xato detected
+```
+
+`set -euo pipefail` — har bash skriptda boshlash uchun standart.
+
+## 6. `tee` — pipe + faylga saqlash
+
+```bash
+# `ls` natijasini terminalda ham, faylda ham
+ls /etc | tee files.txt
+
+# Append
+ls /etc | tee -a files.txt
+
+# Bir nechta fayl
+ls /etc | tee f1.txt f2.txt f3.txt
+```
+
+`tee` foydali — log saqlash + ekranda ko'rish.
+
+```bash
+# sudo bilan ko'pincha
+echo "127.0.0.1 myhost" | sudo tee -a /etc/hosts
+# `sudo` faqat tee uchun, echo'ga emas. To'g'ri ishlatish.
+```
+
+## 7. `xargs` — pipe argumentlarini buyruqqa
+
+Pipe stdin orqali ma'lumot beradi, lekin ko'p buyruqlar (`rm`, `mkdir`) ma'lumotni **argumentlarda** kutadi.
+
+```bash
+# YOMON — `rm` stdin'ni o'qimaydi
+ls *.tmp | rm     # xato
+
+# YAXSHI — xargs
+ls *.tmp | xargs rm
+
+# Aniq buyruq
+find . -name "*.log" | xargs gzip
+
+# Har bir element uchun alohida
+find . -name "*.log" | xargs -I {} mv {} /tmp/
+```
+
+### Xavfsiz `xargs` — `-0` (null delimited)
+
+Fayl nomlarida bo'sh joy bo'lsa, `xargs` muammoga uchraydi. `find -print0 | xargs -0`:
+
+```bash
+find . -name "*.log" -print0 | xargs -0 rm
+```
+
+`-print0` va `-0` — null byte (`\0`) bilan ajratish. Bo'sh joy va newline'lar nomlardagi muammolarni hal qiladi.
+
+### Parallel — `xargs -P`
+
+```bash
+# 4 ta jarayon bir vaqtda
+ls *.jpg | xargs -P 4 -I {} convert {} {}.png
+```
+
+## 8. Process substitution — `<()` va `>()`
+
+Buyruq chiqishini **fayl kabi** ishlatish:
+
+```bash
+# Ikki buyruq chiqishini solishtirish
+diff <(ls /etc) <(ls /etc.bak)
+
+# Bir nechta manbalardan birlashtirish
+cat <(ls /etc) <(ls /var) > combined.txt
+```
+
+`<()` — read uchun, `>()` — write uchun.
+
+### Misol — buyruq chiqishini grep'lash va saqlash
+
+```bash
+# `tee` bilan birga
+ls -la | tee >(grep ".log" > logs.txt) | head
+```
+
+## 9. Misol — log tahlili
+
+```bash
+# Apache loglardan eng faol IP'lar
+cat /var/log/apache2/access.log \
+  | awk '{print $1}' \
+  | sort \
+  | uniq -c \
+  | sort -rn \
+  | head -10
+```
+
+Zanjir:
+
+1. `cat` — faylni o'qish.
+2. `awk` — birinchi ustun (IP).
+3. `sort` — saralash (uniq uchun).
+4. `uniq -c` — takrorlarni sanash.
+5. `sort -rn` — eng katta birinchi.
+6. `head -10` — top 10.
+
+## 10. Misol — har log faylni siqish
+
+```bash
+# Sodda
+find /var/log -name "*.log" -mtime +30 | xargs gzip
+
+# Xavfsiz (bo'sh joy bilan)
+find /var/log -name "*.log" -mtime +30 -print0 | xargs -0 gzip
+
+# Yoki to'g'ridan-to'g'ri
+find /var/log -name "*.log" -mtime +30 -exec gzip {} \;
+```
+
+## 11. Misol — backup va log
+
+```bash
+# Backup, chiqishni log + ekranga
+tar -czf backup.tar.gz /home/ali 2>&1 | tee /var/log/backup.log
+```
+
+## 12. File descriptors — chuqurroq
+
+3 ta standartdan tashqari, qo'shimcha deskriptorlar (3, 4, 5, ...) ham bor.
+
+```bash
+# 3-deskriptorni ochish
+exec 3> /tmp/output.txt
+
+# 3 ga yozish
+echo "hello" >&3
+
+# Yopish
+exec 3>&-
+
+# Ko'rish
+cat /tmp/output.txt
+# hello
+```
+
+Bu skriptlarda ko'p log fayllar bilan ishlash uchun foydali.
+
+## 13. `/dev/null` va `/dev/stdin` va `/dev/stdout`
+
+| Maxsus fayl | Maqsad |
+|---|---|
+| `/dev/null` | Hech narsa — yozish behuda, o'qish bo'sh |
+| `/dev/zero` | Cheksiz nullar (`\0`) |
+| `/dev/random` | Tasodifiy ma'lumot (cryptographic) |
+| `/dev/urandom` | Tasodifiy ma'lumot (tezroq) |
+| `/dev/stdin` | Symlink → `/proc/self/fd/0` |
+| `/dev/stdout` | Symlink → `/proc/self/fd/1` |
+| `/dev/stderr` | Symlink → `/proc/self/fd/2` |
+
+```bash
+# 1 MB random fayl yaratish
+dd if=/dev/urandom of=random.bin bs=1M count=1
+
+# Skript chiqishni explicit stdout'ga
+echo "Salom" > /dev/stdout    # echo "Salom" bilan ekvivalent
+```
+
+## 14. Asosiy operatorlar va izoh
+
+| Operator | Vazifa |
+|---|---|
+| `>` | stdout faylga (overwrite) |
+| `>>` | stdout faylga (append) |
+| `<` | Fayldan stdin |
+| `2>` | stderr faylga |
+| `2>>` | stderr faylga (append) |
+| `2>&1` | stderr ni stdout'ga birlashtirish |
+| `&>` | Hammasi faylga (bash) |
+| `&>>` | Hammasi faylga (append, bash) |
+| `\|` | Pipe |
+| `\|&` | Pipe stdout va stderr (bash 4+) |
+| `<<` | Heredoc |
+| `<<<` | Herestring |
+| `<()` | Process substitution (read) |
+| `>()` | Process substitution (write) |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`>` va `>>` aralashtirish** — `>` qayta yozadi, `>>` qo'shadi. Backup yo'qotish xavfi.
+- **`2>&1` tartibi noto'g'ri** — `cmd 2>&1 > file` xato. `cmd > file 2>&1` to'g'ri.
+- **`sudo ... > file` xato** — `>` shell tomonidan, sudo'siz bajariladi. `... | sudo tee file` to'g'ri.
+- **`xargs` bo'sh joy bilan** — bo'sh joy nomlari muammo. `find -print0 | xargs -0`.
+- **Pipe oxirgi exit code** — `set -o pipefail` bilan to'g'rilash.
+- **`cmd | grep` bo'sh** — buyruq stdout'ni stderr'ga yuborayotgan bo'lishi mumkin. `cmd 2>&1 | grep` ishlating.
+
+## 16. Eng yaxshi amaliyot
+
+- **`set -euo pipefail`** har bash skriptda.
+- **`>>` afzal `>`** — yo'qotishdan saqlanish.
+- **`tee`** — terminal'da ko'rish + faylga saqlash.
+- **`xargs -0` + `find -print0`** — bo'sh joy uchun xavfsiz.
+- **`/dev/null`** xato yo'qotish uchun — lekin debug'da emas.
+- **`heredoc` orqali multi-line input** — `EOF` tag.
+- **Process substitution** ikki manba uchun — `diff <(a) <(b)`.
+- **Pipe zanjir uzun bo'lsa, har bosqichni alohida sinab ko'ring.**
+
+## 17. Mashqlar
+
+1. **Append:** `echo "qator 1" > /tmp/test.txt`, so'ng `echo "qator 2" >> /tmp/test.txt`. `cat /tmp/test.txt` — ikkala qator?
+2. **stderr:** `ls /etc /nonexistent 2> /tmp/err.log`. `cat /tmp/err.log` — faqat xato qator.
+3. **Pipe:** `ps aux | wc -l` — tizimingizda nechta jarayon?
+4. **Top users:** `who | awk '{print $1}' | sort -u` — kim hozir tizimda?
+5. **Tee:** `ls /etc | tee /tmp/etc-list.txt | wc -l` — terminal'da soni, faylda ro'yxat.
+6. **xargs:** `mkdir /tmp/glob-test && cd /tmp/glob-test && touch {a,b,c}.txt && ls *.txt | xargs rm`. Fayllar o'chirildimi?
+7. **Process sub:** `diff <(ls /etc/cron.daily) <(ls /etc/cron.weekly)` — qaysi fayllar farq qiladi?
+8. **Heredoc:** `cat <<EOF > /tmp/multi.txt` bilan 5 qatorli matn fayl yarating.
+
+## 18. Bilim sinovi
+
+**Savol 1.** `cmd > file 2>&1` va `cmd 2>&1 > file` farqi:
+
+- a) Bir xil
+- b) Birinchi — hamma faylga; ikkinchi — stdout faylga, stderr terminal'da
+- c) Faqat sintaksis farqi
+- d) Ikkalasi xato
+
+<Callout type="success" title="Javob">
+**(b)** Tartib muhim! `2>&1` `>file`'dan keyin bo'lishi kerak.[¹](https://www.gnu.org/software/bash/manual/bash.html#Redirections)
+</Callout>
+
+**Savol 2.** `echo "x" | sudo tee /etc/file` qachon kerak?
+
+- a) `sudo > /etc/file` ishlamaydi (shell `>` sudo'siz bajaradi)
+- b) `tee` tezroq
+- c) Bir xil
+- d) Faqat estetik
+
+<Callout type="success" title="Javob">
+**(a)** `>` shell xususiyati, root ruxsati bo'lmasa fail. `tee` esa root sifatida ishga tushiriladi.
+</Callout>
+
+**Savol 3.** `xargs -0` va `find -print0` nima uchun?
+
+- a) Tezroq
+- b) Bo'sh joy va newline'li fayl nomlari uchun xavfsiz
+- c) Faqat root uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Null byte ajratuvchi — bo'sh joyli nomlar muammosini hal qiladi.
+</Callout>
+
+**Savol 4.** `set -o pipefail` nima qiladi?
+
+- a) Pipe'ni tezlashtiradi
+- b) Pipe ichida birinchi xato bo'lsa, exit code xato bo'ladi
+- c) Pipe'ni o'chiradi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Default'da pipe oxirgi exit kod. `pipefail` bilan har qanday xato ko'rsatiladi.
+</Callout>
+
+**Savol 5.** `diff <(ls /a) <(ls /b)` — `<()` nima?
+
+- a) Pipe
+- b) Process substitution — buyruq chiqishini fayl kabi ishlatish
+- c) Subshell
+- d) Heredoc
+
+<Callout type="success" title="Javob">
+**(b)** Process substitution. `<()` read, `>()` write.
+</Callout>
+
+## Manbalar
+
+1. GNU Bash — Redirections. [https://www.gnu.org/software/bash/manual/bash.html#Redirections](https://www.gnu.org/software/bash/manual/bash.html#Redirections)
+2. ArchWiki — Bash redirection. [https://wiki.archlinux.org/title/Bash](https://wiki.archlinux.org/title/Bash)
+3. POSIX — Pipes. [https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
+
+## Keyingi qadam
+
+👉 [Signallar va jarayon boshqaruvi](/fundamentals/signals)

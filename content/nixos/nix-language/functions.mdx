@@ -1,0 +1,191 @@
+---
+title: "Nix funksiyalari"
+description: "Nix tilida funksiyalar — bitta argument, currying, attribute set argument."
+order: 3
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/nixos/nix-language/names-values"
+learning_objectives:
+  - "Funksiya sintaksisi"
+  - "Currying (zanjirlangan funksiyalar)"
+  - "Attribute set bilan argumentlar va default qiymatlar"
+tags: ["nixos", "nix-language", "functions"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Nix language basics"
+    url: "https://nix.dev/tutorials/nix-language.html"
+---
+
+Nix funksional til. Funksiyalar — birinchi darajali qiymatlar (boshqa funksiyalarga argument sifatida o'tkazish mumkin). Bitta argumentli — ko'p argumentli currying orqali.[¹](https://nix.dev/tutorials/nix-language.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Asosiy funksiya sintaksis.
+- Currying — ko'p argument.
+- Attribute set bilan argumentlar.
+- Default qiymatlar.
+</Callout>
+
+## 1. Asosiy funksiya
+
+```nix
+# Anonim funksiya — argument: tana
+x: x + 1
+```
+
+Chaqirish:
+
+```nix
+let
+  inc = x: x + 1;
+in
+inc 5      # 6
+```
+
+Diqqat: Nix da chaqirish — **bo'sh joy** (qavslarga ehtiyoj yo'q).
+
+## 2. Ko'p argument — currying
+
+```nix
+let
+  add = a: b: a + b;
+in
+add 2 3      # 5
+```
+
+Aslida bu `(a: (b: a + b))`. Birinchi argument bilan chaqirish — yangi funksiya beradi:
+
+```nix
+let
+  add = a: b: a + b;
+  add5 = add 5;        # b: 5 + b
+in
+add5 10      # 15
+```
+
+## 3. Attribute set bilan argumentlar
+
+Ko'p hollarda **named arguments** afzal:
+
+```nix
+{ name, age, city }: "Salom, ${name}!"
+```
+
+Chaqirish:
+
+```nix
+greet { name = "Ali"; age = 25; city = "Toshkent"; }
+```
+
+## 4. Default qiymatlar
+
+```nix
+{ name, age ? 18, city ? "Unknown" }:
+"${name}, ${toString age} yoshda, ${city}"
+```
+
+Chaqirish:
+
+```nix
+greet { name = "Ali"; }
+# Natija: "Ali, 18 yoshda, Unknown"
+
+greet { name = "Vali"; age = 30; }
+# Natija: "Vali, 30 yoshda, Unknown"
+```
+
+## 5. `...` — ortiqcha argumentlar
+
+```nix
+{ name, ... }: "Salom, ${name}!"
+```
+
+`...` — ortiqcha maydonlarga ruxsat beradi (xato bermaydi).
+
+```nix
+greet { name = "Ali"; age = 25; foo = "bar"; }    # OK
+```
+
+## 6. `@` patternlar
+
+Butun set'ga ham, ichki maydonlarga ham nom berish:
+
+```nix
+args@{ name, age, ... }: "${name} (${toString age}). args: ${builtins.toString args}"
+```
+
+`args` — butun set; `name`, `age` — alohida.
+
+## 7. Funksiyani argument sifatida
+
+```nix
+let
+  apply = f: x: f x;
+  square = x: x * x;
+in
+apply square 5      # 25
+```
+
+## 8. Default Nixpkgs nuqtai nazaridan
+
+Tipik paket — bu funksiya:
+
+```nix
+{ stdenv, fetchurl, openssl }:
+
+stdenv.mkDerivation {
+  name = "myapp-1.0";
+  src = fetchurl { ... };
+  buildInputs = [ openssl ];
+}
+```
+
+Bu funksiya `stdenv`, `fetchurl`, `openssl` kerakligini aytadi. Nixpkgs avtomatik chaqirib, kerakli bog'liqliklarni beradi (`callPackage` orqali).
+
+## 9. Mashq
+
+`nix repl` da:
+
+```nix
+nix-repl> let add = a: b: a + b; in add 3 4
+7
+
+nix-repl> let greet = { name }: "Hi, ${name}"; in greet { name = "Ali"; }
+"Hi, Ali"
+
+nix-repl> let f = x: x * 2; in builtins.map f [ 1 2 3 ]
+[ 2 4 6 ]
+```
+
+## 10. Bilim sinovi
+
+**Savol 1.** Nix funksiyasi bir argumentli:
+
+- a) Doim
+- b) Faqat default
+- c) Hech qachon, har doim ko'p
+- d) Faqat attribute set bilan
+
+<Callout type="success" title="Javob">
+**(a)** Har bir funksiya 1 argumentli. "Ko'p argument" — currying orqali zanjirlangan funksiyalar.[¹](https://nix.dev/tutorials/nix-language.html)
+</Callout>
+
+**Savol 2.** `{ name, age ? 18 }` — bu nima?
+
+- a) String
+- b) Attribute set
+- c) Argument pattern — `age` default qiymatga ega
+- d) Funksiya tanasi
+
+<Callout type="success" title="Javob">
+**(c)** Funksiya argument pattern'i. `age ? 18` — agar berilmasa, 18.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Nix language basics. [https://nix.dev/tutorials/nix-language.html](https://nix.dev/tutorials/nix-language.html)
+
+## Keyingi qadam
+
+👉 [Funksiya kutubxonalari](/nixos/nix-language/function-libraries)

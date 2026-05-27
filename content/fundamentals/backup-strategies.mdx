@@ -1,0 +1,403 @@
+---
+title: "Zaxiralash strategiyalari"
+description: "Linux'da backup — 3-2-1 qoidasi, rsync, btrfs snapshotlar va avtomatlashtirish."
+order: 4
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/fundamentals/cron"
+  - "/fundamentals/services"
+learning_objectives:
+  - "3-2-1 backup qoidasini izohlash"
+  - "`rsync` bilan inkremental backup yaratish"
+  - "btrfs/zfs snapshotlardan foydalanish"
+  - "Backup'ni avtomatlashtirish va tiklashni sinash"
+tags: ["advanced", "backup", "rsync", "btrfs", "3-2-1"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "rsync(1) manpage"
+    url: "https://download.samba.org/pub/rsync/rsync.1"
+  - title: "ArchWiki — Synchronization and backup programs"
+    url: "https://wiki.archlinux.org/title/Synchronization_and_backup_programs"
+  - title: "Ubuntu Community — BackupYourSystem"
+    url: "https://help.ubuntu.com/community/BackupYourSystem"
+  - title: "btrfs-subvolume(8)"
+    url: "https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html"
+---
+
+**"Backup yo'q bo'lsa, ma'lumot yo'q."** — bu ko'p kishi o'z tajribasidan o'rgangan haqiqat. Bu darsda Linux'da backup strategiyalari va asosiy vositalarini o'rganamiz.[³](https://help.ubuntu.com/community/BackupYourSystem)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- 3-2-1 backup qoidasi.
+- `rsync` bilan inkremental backup.
+- Snapshot'lar (btrfs, zfs).
+- Backup'ni avtomatlashtirish.
+- Tiklashni sinash.
+</Callout>
+
+## 1. 3-2-1 qoidasi
+
+Industriyada eng keng tarqalgan tavsiya:
+
+```
+3 nusxa     — original + 2 ta backup
+2 ta vosita — turli muhitda (disk, USB, bulut, lenta)
+1 ta tashqi — geografik jihatdan boshqa joyda
+```
+
+Misol:
+
+- Original — laptopda.
+- Backup 1 — uy serverida (NAS).
+- Backup 2 — bulutda (Backblaze B2, AWS S3, Hetzner Storage Box).
+
+## 2. Nima backup qilinishi kerak?
+
+**Doim:**
+
+- `/home/` — foydalanuvchi ma'lumotlari.
+- `/etc/` — tizim konfiguratsiyasi.
+- `/var/lib/` ichidagi ma'lumot bazalar (PostgreSQL, MySQL, dokuments).
+- `/var/www/` — veb-sayt fayllari.
+- Maxsus loyihalar.
+
+**O'tkazib yuboriladi:**
+
+- `/proc/`, `/sys/`, `/run/` — virtual fayl tizimlari.
+- `/tmp/` — vaqtinchalik fayllar.
+- Kesh kataloglar (`~/.cache/`).
+- `node_modules/`, `__pycache__/` va boshqa qayta yaratiluvchi fayllar.
+
+## 3. `rsync` — eng tez-tez ishlatiladigan vosita
+
+`rsync` faqat o'zgargan qismlarni ko'chiradi — bu uni juda tez qiladi.[¹](https://download.samba.org/pub/rsync/rsync.1)
+
+```bash
+# Asosiy nusxalash
+rsync -av /home/ali/ /backup/ali/
+
+# Trailing slash `/` muhim:
+# /home/ali/   — ichidagi fayllarni `/backup/ali/` ga
+# /home/ali    — papkani `/backup/ali/` ichiga
+```
+
+### Asosiy flag'lar
+
+| Flag | Ma'no |
+|---|---|
+| `-a` | Archive — ruxsatlar, sana, havolalar saqlanadi (-rlptgoD) |
+| `-v` | Verbose — har bir fayl |
+| `-z` | Tarmoq orqali siqib uzatish |
+| `--delete` | Manbada bo'lmagan fayllar maqsadda ham o'chirilsin |
+| `--dry-run` | Sinash (haqiqatda hech narsa qilinmaydi) |
+| `--exclude=<namuna>` | Pattern bo'yicha o'tkazib yuborish |
+| `--exclude-from=<fayl>` | Fayldan ro'yxat |
+| `--progress` | Progress ko'rsatish |
+| `--link-dest=<old-backup>` | Inkremental — o'zgarmagan fayllarga hard link |
+
+### Misollar
+
+```bash
+# Lokal backup
+rsync -av --delete /home/ali/ /mnt/backup/ali/
+
+# Tarmoq orqali — SSH ustida
+rsync -avz -e ssh /home/ali/ user@server:/backup/ali/
+
+# Exclude bilan
+rsync -av \
+    --exclude='.cache' \
+    --exclude='node_modules' \
+    --exclude='*.tmp' \
+    /home/ali/ /backup/ali/
+
+# Sinash (haqiqatan o'zgartirmasdan)
+rsync -avn --delete /home/ali/ /backup/ali/
+```
+
+## 4. Inkremental backup `--link-dest` bilan
+
+Bu uslub har kuni alohida snapshot yaratadi, lekin **disk joyini** tejaydi (o'zgarmagan fayllar hard link orqali ulanadi).
+
+```bash
+#!/bin/bash
+# inkremental-backup.sh
+
+SRC=/home/ali
+DST=/backup/home
+
+TODAY=$(date +%Y-%m-%d)
+YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+
+rsync -av \
+    --link-dest="$DST/$YESTERDAY/" \
+    --exclude='.cache' \
+    "$SRC/" "$DST/$TODAY/"
+
+# 30 kundan eski backuplarni o'chirish
+find "$DST" -maxdepth 1 -type d -mtime +30 -exec rm -rf {} +
+```
+
+Natijada:
+
+```
+/backup/home/2026-05-24/    # to'liq nusxa
+/backup/home/2026-05-25/    # faqat o'zgarganlar + hard linklar
+/backup/home/2026-05-26/    # faqat o'zgarganlar + hard linklar
+```
+
+Har bir katalog "to'liq" backup ko'rinadi, lekin disk hajmi minimal.
+
+## 5. btrfs snapshotlar
+
+Agar fayl tizimingiz btrfs bo'lsa, snapshot bir zumda yaratiladi (Copy-on-Write).[⁴](https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html)
+
+```bash
+# Snapshot yaratish
+sudo btrfs subvolume snapshot /home /home/.snapshots/2026-05-26
+
+# Snapshotlar ro'yxati
+sudo btrfs subvolume list /home
+
+# Snapshot o'chirish
+sudo btrfs subvolume delete /home/.snapshots/2026-05-26
+
+# Tiklash — snapshotdan original ga rsync
+sudo rsync -av --delete /home/.snapshots/2026-05-26/ /home/
+```
+
+### Automatik snapshot — `snapper` (openSUSE/Fedora)
+
+```bash
+sudo apt install snapper
+
+# Konfiguratsiya
+sudo snapper -c home create-config /home
+
+# Avtomatik snapshot (timeline)
+sudo snapper -c home set-config "TIMELINE_CREATE=yes"
+
+# Hozirgi snapshotlar
+sudo snapper -c home list
+```
+
+## 6. ZFS snapshotlar
+
+ZFS (Ubuntu 19.10+ rasmiy qo'llab-quvvatlash):
+
+```bash
+# Snapshot
+sudo zfs snapshot pool/dataset@2026-05-26
+
+# Ro'yxat
+zfs list -t snapshot
+
+# Tiklash
+sudo zfs rollback pool/dataset@2026-05-26
+```
+
+## 7. Bulut backup — `restic`
+
+`restic` — modern, shifrlangan, inkremental, ko'p backend (S3, B2, SFTP, lokal).
+
+```bash
+sudo apt install restic
+
+# Repository yaratish
+export RESTIC_PASSWORD="kuchli-parol"
+restic init --repo /mnt/backup
+
+# Backup
+restic -r /mnt/backup backup /home/ali
+
+# Snapshotlar ro'yxati
+restic -r /mnt/backup snapshots
+
+# Tiklash
+restic -r /mnt/backup restore latest --target /tmp/restored
+
+# Eski snapshot'larni siyosat bo'yicha o'chirish
+restic -r /mnt/backup forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
+```
+
+S3 backend:
+
+```bash
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+restic -r s3:s3.amazonaws.com/mybucket init
+restic -r s3:s3.amazonaws.com/mybucket backup /home/ali
+```
+
+## 8. Ma'lumot bazasi backup
+
+### PostgreSQL
+
+```bash
+# Bitta bazani dump qilish
+sudo -u postgres pg_dump mydb > /backup/mydb-$(date +%F).sql
+
+# Hammasi
+sudo -u postgres pg_dumpall > /backup/all-$(date +%F).sql
+
+# Tiklash
+psql mydb < /backup/mydb-2026-05-26.sql
+```
+
+### MySQL/MariaDB
+
+```bash
+mysqldump -u root -p mydb > /backup/mydb-$(date +%F).sql
+mysqldump -u root -p --all-databases > /backup/all-$(date +%F).sql
+```
+
+## 9. Avtomatlashtirish — `systemd-timer`
+
+`/etc/systemd/system/backup.service`:
+
+```ini
+[Unit]
+Description=Daily backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup.sh
+User=root
+```
+
+`/etc/systemd/system/backup.timer`:
+
+```ini
+[Unit]
+Description=Daily backup at 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now backup.timer
+systemctl list-timers
+```
+
+## 10. Tiklashni sinash — eng muhim bosqich
+
+<Callout type="warning">
+**Sinab ko'rilmagan backup — backup emas.** Har choraqda yoki yarim yilda bir marta to'liq tiklashni sinab ko'ring.
+</Callout>
+
+Tiklash testi:
+
+```bash
+# 1. Vaqtinchalik joyga tiklash (haqiqiy ma'lumotni buzmasdan)
+restic -r /mnt/backup restore latest --target /tmp/restore-test
+
+# 2. Asosiy fayllar joylashganmi?
+ls /tmp/restore-test/home/ali
+
+# 3. Tozalash
+rm -rf /tmp/restore-test
+```
+
+## 11. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `rsync -av <src> <dst>` | Asosiy backup |
+| `rsync --delete` | Manbada bo'lmagan fayllarni o'chirish |
+| `rsync --link-dest` | Inkremental (hard link asosida) |
+| `tar -czf` | To'liq arxiv |
+| `btrfs subvolume snapshot` | btrfs snapshot |
+| `zfs snapshot` | zfs snapshot |
+| `pg_dump`, `mysqldump` | Ma'lumot bazalari |
+| `restic backup`, `restic restore` | Modern shifrlangan backup |
+| `systemctl list-timers` | Avtomatik backup holatini ko'rish |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Backup'ni sinab ko'rmaslik** — eng katta xato.
+- **Bir xil joyda** — bitta disk yonib ketsa, hammasi yo'qoladi.
+- **rsync `-a` siz** — ruxsatlar va sana saqlanmaydi.
+- **Trailing slash `/` xato** — `/home/ali` va `/home/ali/` farqi katta.
+- **Bulut backup shifrlanmagan** — restic, borg, duplicity har doim shifrlaydi.
+- **Disk to'lganini bilmaslik** — backup disk ham to'lib qoladi. Monitoring kerak.
+- **Ma'lumot bazasini `tar` bilan ko'chirish** — ishlayotgan PostgreSQL fayllari tutarsiz bo'lishi mumkin. `pg_dump` ishlatilsin.
+
+## 13. Eng yaxshi amaliyot
+
+- **3-2-1 qoidasi minimal.**
+- **Avtomatlashtirish** — qo'lda backup uzoq muddatda muvaffaqiyatsiz.
+- **Notify** — backup muvaffaqiyat/xato — emailga.
+- **Shifrlash** — server'dan tashqaridagi backup uchun majburiy.
+- **Sinash jadvali** — kvartalda bir marta to'liq tiklash testi.
+- **Hujjatlash** — qaerda backup, qanday tiklash — `BACKUP.md` faylida.
+- **Ma'lumot bazasi uchun `dump`** — fayl sathidagi backup emas.
+- **Versiya saqlash** — fayl o'zgartirilsa, oldingi versiyalarni ham saqlash (snapshotlar yoki restic).
+
+## 14. Bilim sinovi
+
+**Savol 1.** 3-2-1 qoidasi nima?
+
+- a) 3 ta nusxa, 2 ta vosita, 1 ta tashqi
+- b) Har 3-2-1 soatda backup
+- c) 3 ta foydalanuvchi, 2 ta guruh, 1 ta root
+- d) 3 GB, 2 ta disk, 1 ta server
+
+<Callout type="success" title="Javob">
+**(a)** 3 nusxa, 2 ta turli vosita, 1 ta tashqi joy — industriyada standart.
+</Callout>
+
+**Savol 2.** `rsync -av --link-dest=<oldingi> <src> <dst>` nima qiladi?
+
+- a) Hamma narsani qaytadan ko'chiradi
+- b) Faqat o'zgarganlarni ko'chiradi, qolganlari `<oldingi>` ga hard link
+- c) Eski backup'ni o'chiradi
+- d) Sinov rejimida ishlaydi
+
+<Callout type="success" title="Javob">
+**(b)** Inkremental backup — disk joyini sezilarli darajada tejaydi.[¹](https://download.samba.org/pub/rsync/rsync.1)
+</Callout>
+
+**Savol 3.** Ma'lumot bazasini backup qilishning to'g'ri usuli:
+
+- a) `cp /var/lib/postgresql /backup/`
+- b) `tar -czf db.tar.gz /var/lib/postgresql`
+- c) `pg_dump mydb > db.sql`
+- d) `rsync -av /var/lib/postgresql /backup/`
+
+<Callout type="success" title="Javob">
+**(c)** Ishlayotgan baza fayllarini `cp`/`tar`/`rsync` qilish — fayl tutarsizligi xavfi. `pg_dump` baza darajasida tutarli dump yaratadi.
+</Callout>
+
+## 15. Mashq
+
+1. `~/test-backup` katalogini yarating va ichida 5 ta `.txt` fayl yarating.
+2. `rsync -av ~/test-backup/ /tmp/backup-1/` ni bajaring va natijani ko'ring.
+3. Bir faylni o'zgartiring va ikkinchi marta rsync ni bajaring. Faqat o'zgargan fayl ko'chiriladimi?
+4. `tar -czf ~/test-backup.tar.gz ~/test-backup` orqali arxiv yarating. Hajmini `du -sh` bilan o'lchang.
+5. (Murakkab) `backup.sh` skripti yozing — har kuni `/home/ali` ni `/backup/$(date +%F)/` ga `--link-dest` orqali. systemd-timer bilan avtomatlashtiring.
+
+## Manbalar
+
+1. rsync(1) manpage. [https://download.samba.org/pub/rsync/rsync.1](https://download.samba.org/pub/rsync/rsync.1)
+2. ArchWiki — Synchronization and backup programs. [https://wiki.archlinux.org/title/Synchronization_and_backup_programs](https://wiki.archlinux.org/title/Synchronization_and_backup_programs)
+3. Ubuntu Community — BackupYourSystem. [https://help.ubuntu.com/community/BackupYourSystem](https://help.ubuntu.com/community/BackupYourSystem)
+4. btrfs-subvolume(8). [https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html](https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html)
+
+## Keyingi qadam
+
+Tabriklaymiz! Siz Linux Asoslari kursini tugatdingiz. Endi maxsus distributiv darslariga o'tishingiz mumkin:
+
+- 👉 [Ubuntu](/ubuntu/introduction)
+- 👉 [Debian](/debian/introduction)
+- 👉 [NixOS](/nixos/introduction)
+- 👉 [Kali Linux](/kali/introduction)
+- 👉 [Parrot OS](/parrot/introduction)
+- 👉 [Manjaro](/manjaro/introduction)

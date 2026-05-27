@@ -1,0 +1,213 @@
+---
+title: "dpkg asoslari"
+description: "Debian paketlarining quyi darajadagi vositasi — dpkg — bilan ishlash: o'rnatish, ro'yxat, fayllarni qidirish."
+order: 2
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/debian/apt-debian"
+learning_objectives:
+  - "dpkg APT'dan qanday joyda qoldiqsiz farq qilishini bilish"
+  - "Asosiy dpkg buyruqlarini ishlatish"
+  - "`.deb` faylni qo'lda o'rnatish va bog'liqliklarni hal qilish"
+tags: ["debian", "dpkg", "package-management"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Reference — Basic package management operations"
+    url: "https://www.debian.org/doc/manuals/debian-reference/ch02.en.html#_basic_package_management_operations"
+  - title: "Debian — dpkg(1) manpage"
+    url: "https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html"
+  - title: "Debian — dpkg-deb(1) manpage"
+    url: "https://manpages.debian.org/bookworm/dpkg/dpkg-deb.1.en.html"
+---
+
+**`dpkg`** — Debian paket boshqaruv tizimining poydevoridagi vosita. `apt` undan ustida ishlaydi va kerak bo'lsa internetdan paketlarni yuklab oladi. `dpkg` esa allaqachon yuklab olingan `.deb` fayllarni va lokal paket bazasini boshqaradi.[²](https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `dpkg` va `apt` o'rtasidagi munosabat.
+- Asosiy `dpkg` buyruqlari: -i, -r, -l, -L, -S.
+- Bog'liqliklar muammosini hal qilish (`apt -f install`).
+- `.deb` fayl ichini ko'rib chiqish.
+</Callout>
+
+## 1. dpkg va apt: kim nima qiladi?
+
+```
+┌────────────────────────────────────────────┐
+│              foydalanuvchi                   │
+└──────────────────┬─────────────────────────┘
+                   │
+        ┌──────────▼──────────┐
+        │       apt           │   ← yuqori daraja: tarmoq, bog'liqliklar
+        │  apt update         │
+        │  apt install        │
+        └──────────┬──────────┘
+                   │ chaqiradi
+        ┌──────────▼──────────┐
+        │       dpkg          │   ← quyi daraja: lokal paketlar
+        │  dpkg -i, -r, -l    │
+        └──────────┬──────────┘
+                   │ ishlashi
+        ┌──────────▼──────────┐
+        │   /var/lib/dpkg/    │   ← paket bazasi
+        └─────────────────────┘
+```
+
+`apt` — boshqaruv qatlami: tarmoqdan paketni topib oladi, bog'liqliklarni hal qiladi, so'ng `dpkg` ga uzatadi.
+
+`dpkg` — ijroiya: berilgan `.deb` faylni ochadi va tizimga joylaydi.
+
+## 2. Asosiy `dpkg` buyruqlari[¹](https://www.debian.org/doc/manuals/debian-reference/ch02.en.html#_basic_package_management_operations)
+
+```bash
+# O'rnatilgan paketlar ro'yxati
+dpkg -l
+dpkg -l | grep firefox
+
+# .deb faylni o'rnatish
+sudo dpkg -i package.deb
+
+# Paketni o'chirish (sozlamalar qoladi)
+sudo dpkg -r firefox-esr
+
+# To'liq o'chirish (sozlamalar ham)
+sudo dpkg -P firefox-esr     # purge
+
+# Paket qaysi fayllarni o'rnatdi?
+dpkg -L vim
+
+# Berilgan fayl qaysi paketga tegishli?
+dpkg -S /usr/bin/vim
+
+# Paket holatini ko'rish
+dpkg -s vim
+```
+
+## 3. `.deb` fayl manuel o'rnatish
+
+Internetdan yuklangan `.deb` fayl bo'lsa (misol, Chrome'ning rasmiy `.deb`'i):
+
+```bash
+sudo dpkg -i google-chrome-stable_current_amd64.deb
+```
+
+Ko'pincha bu bog'liqliklar xatosi bilan tugaydi:
+
+```
+dpkg: dependency problems prevent configuration of google-chrome-stable:
+ google-chrome-stable depends on libxss1; however:
+  Package libxss1 is not installed.
+```
+
+Tuzatish — APT'ni chaqiramiz:
+
+```bash
+sudo apt install -f
+```
+
+`-f` (`--fix-broken`) — yetishmagan bog'liqliklarni avtomatik o'rnatadi.
+
+## 4. `.deb` fayl ichini ko'rish
+
+`dpkg-deb` orqali `.deb` faylning ichida nima borligini ko'rish mumkin:[³](https://manpages.debian.org/bookworm/dpkg/dpkg-deb.1.en.html)
+
+```bash
+# Paket meta-ma'lumotlari
+dpkg-deb -I package.deb
+
+# Paket ichidagi fayllar ro'yxati
+dpkg-deb -c package.deb
+
+# Paketni katalogga ochish (o'rnatmasdan)
+dpkg-deb -x package.deb /tmp/extracted/
+```
+
+## 5. Paket holatlari
+
+`dpkg -l` chiqishidagi birinchi 2 belgilar holatni ko'rsatadi:
+
+```
+ii  vim            8.2.2434      amd64        Vi IMproved
+rc  oldpackage     1.0           amd64        Old removed package
+un  unknownpkg     <none>        <none>       (no description)
+```
+
+- `ii` — **i**nstalled, **i**nstall-status OK.
+- `rc` — **r**emoved, **c**onfig files qoldi.
+- `un` — **un**known/not installed.
+
+To'liq holat keltirilgan paketlarni topish:
+
+```bash
+# rc holatdagi paketlar (config qoldiqlari)
+dpkg -l | grep '^rc'
+
+# Ularni butunlay tozalash
+sudo apt purge $(dpkg -l | awk '/^rc/ { print $2 }')
+```
+
+## 6. Amaliy misollar
+
+### Yangi GitHub releasedan `.deb` o'rnatish
+
+Ko'p loyihalar GitHub Releases sahifasida `.deb` fayllarni nashr etadi. Masalan, `gh` (GitHub CLI):
+
+```bash
+# .deb yuklab oling
+wget https://github.com/cli/cli/releases/download/vX.Y.Z/gh_X.Y.Z_linux_amd64.deb
+
+# O'rnating
+sudo dpkg -i gh_*.deb
+
+# Agar bog'liqlik kamchiligi bo'lsa
+sudo apt install -f
+```
+
+### Paket qaysi fayl bog'liqligini bilish
+
+```bash
+# /usr/bin/python3 qaysi paketga tegishli?
+dpkg -S /usr/bin/python3
+# python3-minimal: /usr/bin/python3
+```
+
+## 7. Mashqlar
+
+1. `dpkg -l | wc -l` — tizimda jami nechta paket o'rnatilgan?
+2. `dpkg -S /etc/passwd` — bu fayl qaysi paketga tegishli?
+3. `dpkg -L bash` chiqishini o'qing. `bash` paketi qaysi katalogga ishorat qiladi?
+
+## 8. Bilim sinovi
+
+**Savol 1.** `.deb` faylni qo'lda o'rnatishning to'g'ri buyrug'i:
+
+- a) `apt install package.deb`
+- b) `dpkg -i package.deb`
+- c) `dpkg --get package.deb`
+- d) `dpkg install package.deb`
+
+<Callout type="success" title="Javob">
+**(b)** `sudo dpkg -i package.deb`. Aslida, `apt install ./package.deb` ham ishlaydi va u avtomatik bog'liqliklarni hal qiladi.
+</Callout>
+
+**Savol 2.** Faylni qaysi paket o'rnatganligini topish uchun:
+
+- a) `dpkg -L`
+- b) `dpkg -l`
+- c) `dpkg -S`
+- d) `dpkg -i`
+
+<Callout type="success" title="Javob">
+**(c)** `dpkg -S <fayl-yo'l>` — bu fayl qaysi paketdan kelganini ko'rsatadi.
+</Callout>
+
+## Manbalar
+
+1. Debian Reference — Basic package management operations. [https://www.debian.org/doc/manuals/debian-reference/ch02.en.html#_basic_package_management_operations](https://www.debian.org/doc/manuals/debian-reference/ch02.en.html#_basic_package_management_operations)
+2. Debian — dpkg(1) manpage. [https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html](https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html)
+3. Debian — dpkg-deb(1) manpage. [https://manpages.debian.org/bookworm/dpkg/dpkg-deb.1.en.html](https://manpages.debian.org/bookworm/dpkg/dpkg-deb.1.en.html)
+
+## Keyingi qadam
+
+👉 [Backports nima?](/debian/backports)

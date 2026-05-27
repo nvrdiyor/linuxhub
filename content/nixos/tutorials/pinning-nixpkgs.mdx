@@ -1,0 +1,123 @@
+---
+title: "Nixpkgs ni mahkamlash"
+description: "Loyihaning to'liq takrorlanishini ta'minlash uchun Nixpkgs ning aniq versiyasini mahkamlash."
+order: 5
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/tutorials/declarative-shell"
+learning_objectives:
+  - "Nima uchun pin qilish kerak"
+  - "`fetchTarball` orqali commit pin"
+  - "`niv` va flake'lar muqobil yo'l sifatida"
+tags: ["nixos", "pinning", "reproducibility"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Pinning Nixpkgs"
+    url: "https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html"
+---
+
+`<nixpkgs>` — bu sizning tizimingizdagi joriy versiyaga ishora. Bu **takrorlanmaydi** — bugun va ertangi paketlar farq qilishi mumkin. **Pin** orqali aniq versiyaga bog'laymiz.[¹](https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Nega pin kerak.
+- `fetchTarball` bilan commit pin.
+- `niv` va flake — modern alternativalar.
+</Callout>
+
+## 1. Muammo
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+pkgs.mkShell { packages = [ pkgs.nodejs ]; }
+```
+
+`<nixpkgs>` — sizning tizimingizdagi nixpkgs versiyasi. Boshqa kompyuterda u boshqa bo'lishi mumkin. Natija — boshqa Node.js versiyasi.
+
+## 2. fetchTarball bilan pin
+
+```nix
+let
+  nixpkgs = fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/nixos-24.05.tar.gz";
+    sha256 = "sha256-...";
+  };
+  pkgs = import nixpkgs {};
+in
+pkgs.mkShell {
+  packages = [ pkgs.nodejs_20 ];
+}
+```
+
+`sha256` ni topish:
+
+```bash
+nix-prefetch-url --unpack https://github.com/NixOS/nixpkgs/archive/nixos-24.05.tar.gz
+```
+
+Endi bu fayl 5 yildan keyin ham bir xil natija beradi.
+
+## 3. Aniq commit pin
+
+```nix
+let
+  nixpkgs = fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/<commit-hash>.tar.gz";
+    sha256 = "sha256-...";
+  };
+  pkgs = import nixpkgs {};
+in
+...
+```
+
+Commit pin reliz nomidan ham aniqroq — har kun yangilanish bo'lishi mumkin.
+
+## 4. `niv` — pin menejer
+
+`niv` — pin'larni boshqarish vositasi:
+
+```bash
+nix-env -iA nixpkgs.niv
+
+# Loyiha katalogida
+niv init                     # nix/sources.json yaratadi
+niv update nixpkgs           # eng yangi commit ga
+
+# shell.nix da
+let
+  sources = import ./nix/sources.nix;
+  pkgs = import sources.nixpkgs {};
+in
+pkgs.mkShell { packages = [ pkgs.nodejs ]; }
+```
+
+## 5. Flake'lar
+
+Modern alternativa — flake'lar `flake.lock` ni avtomatik yaratadi. Bu darsda `[Flakes](/nixos/concepts/flakes)` darsiga qarang.
+
+## 6. Mashq
+
+1. `shell.nix` da `<nixpkgs>` o'rniga `fetchTarball` bilan `nixos-24.05` ga pin qiling.
+2. `nix-shell` ni boshlang. Versiya o'zgaradimi?
+
+## 7. Bilim sinovi
+
+**Savol 1.** Nima uchun pin?
+
+- a) Faqat ehtiyot bilan
+- b) Aynan takrorlanadigan natijalar uchun
+- c) Faqat NixOS uchun
+- d) Tezroq build uchun
+
+<Callout type="success" title="Javob">
+**(b)** Aynan takrorlanish — har kim har vaqt bir xil paketlarni oladi.[¹](https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Pinning Nixpkgs. [https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html](https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html)
+
+## Keyingi qadam
+
+👉 [Nix tili — umumiy ko'rinish](/nixos/nix-language/overview)

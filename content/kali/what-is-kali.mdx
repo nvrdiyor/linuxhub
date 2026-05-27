@@ -1,0 +1,122 @@
+---
+title: "Kali nima va kim uchun?"
+description: "Kali Linux'ning kelib chiqishi, maqsadi va kimga mos kelmasligi haqida — rasmiy Kali hujjatlariga asoslangan."
+order: 1
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/kali/introduction"
+learning_objectives:
+  - "Kali maqsadi va auditoriyasini bilish"
+  - "Kali kundalik foydalanish uchun mos kelmasligini izohlash"
+  - "Kali tarixi: BackTrack'dan bugungi kungacha"
+tags: ["kali", "beginner", "ethics"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Kali Docs — What is Kali Linux?"
+    url: "https://www.kali.org/docs/introduction/what-is-kali-linux/"
+  - title: "Kali Docs — Should I use Kali Linux?"
+    url: "https://www.kali.org/docs/introduction/should-i-use-kali-linux/"
+---
+
+Kali Linux — **xavfsizlik mutaxassislari uchun** maxsus tayyorlangan distributiv. Kali rasmiy hujjatlari to'g'ridan-to'g'ri aytadi: kundalik foydalanish uchun **mos emas**.[¹](https://www.kali.org/docs/introduction/what-is-kali-linux/)[²](https://www.kali.org/docs/introduction/should-i-use-kali-linux/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Kali nima va u qaerdan kelib chiqqan.
+- Kim uchun mos va kim uchun emas.
+- Tarixi: BackTrack → Kali Linux.
+</Callout>
+
+## 1. Kali Linux nima?
+
+Kali Linux — **Offensive Security** kompaniyasi tomonidan ishlab chiqilgan, **Debian Testing asosida** qurilgan, penetration testing va security auditi uchun mo'ljallangan tarqatma.[¹](https://www.kali.org/docs/introduction/what-is-kali-linux/) 600+ oldindan o'rnatilgan vositalarni o'z ichiga oladi.
+
+## 2. Kim uchun?
+
+Kali rasmiy hujjati aytadi:[²](https://www.kali.org/docs/introduction/should-i-use-kali-linux/)
+
+> "Kali Linux is specifically tailored to meet the requirements of professional penetration testing and security auditing."
+
+Mos auditoriya:
+
+- Penetration testerlar.
+- Security audit professionallari.
+- Bug bounty tadqiqotchilari.
+- Kiberhavfsizlik talabalari (sinov muhitida).
+
+## 3. Kim uchun MOS EMAS
+
+Kali docs ham qat'iy aytadi:
+
+- **Linux'ni endi o'rganayotganlar uchun.** Avval Ubuntu yoki Debian o'rganing.
+- **Kundalik kompyuter uchun.** Default sozlamalar xavfsizlik tahlili uchun — kundalik foydalanish uchun emas.
+- **"Hackingni o'rganmoqchiman"** deganlar uchun shunchaki Kali o'rnatish — bu sizni mutaxassisga aylantirmaydi. Tushuncha kerak.
+
+## 4. Tarixi
+
+```
+2006 ── BackTrack 1 (Auditor + WHAX birlashishi)
+2009 ── BackTrack 4 — Ubuntu asosida
+2013 ── Kali Linux 1.0 — Debian asosida (BackTrack o'rnida)
+2019 ── Kali 2019.4 — Xfce default desktop
+2020 ── Kali Purple — defensive (Blue Team) versiya
+2023+── Rolling release: yangi paketlar har 2 hafta
+```
+
+## 5. Texnik xususiyatlar
+
+- **Asos:** Debian Testing.
+- **Reliz model:** Rolling release.
+- **Default desktop:** Xfce.
+- **Default user:** `kali` (eski versiyalarda `root` edi, 2020-dan keyin oddiy user).
+- **Default parol:** `kali` (o'rnatishdan keyin DARHOL o'zgartiring!).
+
+## 6. Versiyalar
+
+Kali bir nechta variantlarda chiqadi:
+
+- **Kali Linux** — to'liq desktop tarqatma.
+- **Kali NetHunter** — Android telefonlar uchun.
+- **Kali Linux ARM** — Raspberry Pi va boshqa ARM qurilmalar.
+- **Kali Live USB** — o'rnatishsiz sinab ko'rish.
+- **Kali Cloud** — AWS, Azure'dagi tayyor image'lar.
+- **Kali in WSL** — Windows Subsystem for Linux ostida.
+
+## 7. Mashqlar
+
+1. [Kali Docs — What is Kali Linux?](https://www.kali.org/docs/introduction/what-is-kali-linux/) ni o'qing. "Should I use Kali Linux?" bo'limidan qisqa xulosani o'z so'zlaringiz bilan yozing.
+2. Kali'ning yangi 2-haftalik relizlarini qayerdan kuzatish mumkin? ([Kali release sahifasi](https://www.kali.org/releases/) qarang.)
+
+## 8. Bilim sinovi
+
+**Savol 1.** Kali Linux kim tomonidan ishlab chiqiladi?
+
+- a) Canonical
+- b) Red Hat
+- c) Offensive Security
+- d) Linux Foundation
+
+<Callout type="success" title="Javob">
+**(c)** Offensive Security — Kali Linux'ning rasmiy ishlab chiqaruvchisi.
+</Callout>
+
+**Savol 2.** Kali Linux qaysi distributiv asosida?
+
+- a) Ubuntu
+- b) Fedora
+- c) Debian Testing
+- d) Arch Linux
+
+<Callout type="success" title="Javob">
+**(c)** Debian Testing asosida quriladi.[¹](https://www.kali.org/docs/introduction/what-is-kali-linux/)
+</Callout>
+
+## Manbalar
+
+1. Kali Docs — What is Kali Linux? [https://www.kali.org/docs/introduction/what-is-kali-linux/](https://www.kali.org/docs/introduction/what-is-kali-linux/)
+2. Kali Docs — Should I use Kali Linux? [https://www.kali.org/docs/introduction/should-i-use-kali-linux/](https://www.kali.org/docs/introduction/should-i-use-kali-linux/)
+
+## Keyingi qadam
+
+👉 [Etik hacking asoslari](/kali/ethical-hacking)

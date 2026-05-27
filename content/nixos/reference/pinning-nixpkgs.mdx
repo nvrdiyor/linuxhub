@@ -1,0 +1,93 @@
+---
+title: "Nixpkgs ni mahkamlash (reference)"
+description: "Pin'lash usullarini taqqoslash — niv, flake'lar, fetchTarball."
+order: 5
+level: "intermediate"
+estimated_minutes: 3
+prerequisites:
+  - "/nixos/tutorials/pinning-nixpkgs"
+tags: ["nixos", "pinning"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Towards reproducibility"
+    url: "https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html"
+---
+
+Pin'lashning bir necha usuli — har biri o'z afzal va kamchiliklari bilan.[¹](https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html)
+
+## 1. `fetchTarball` (eng oddiy)
+
+```nix
+let
+  nixpkgs = fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/<commit>.tar.gz";
+    sha256 = "sha256-...";
+  };
+  pkgs = import nixpkgs {};
+in
+...
+```
+
+✅ Hech qanday qo'shimcha vosita kerak emas.
+❌ Yangilash qo'lda.
+
+## 2. `niv`
+
+```bash
+nix-env -iA nixpkgs.niv
+niv init
+niv update nixpkgs
+```
+
+```nix
+let
+  sources = import ./nix/sources.nix;
+  pkgs = import sources.nixpkgs {};
+in
+...
+```
+
+✅ Yangilashlar oson.
+❌ Qo'shimcha vosita.
+
+## 3. Flake'lar (modern)
+
+```nix
+# flake.nix
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+
+  outputs = { self, nixpkgs }:
+    let pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    in { ... };
+}
+```
+
+`flake.lock` avtomatik yaratiladi va commit pin'larni saqlaydi.
+
+```bash
+nix flake update
+nix flake update nixpkgs
+```
+
+✅ Modern, ko'p funksiya.
+❌ Hali eksperimental (lekin keng qo'llaniladi).
+
+## 4. Taqqoslash
+
+| Usul | Modernlik | Qo'shimcha vosita | Avtomatik update |
+|---|---|---|---|
+| `fetchTarball` | O'rta | Yo'q | Yo'q |
+| `niv` | Eski (lekin barqaror) | `niv` | Ha |
+| Flake'lar | Yangi (default kelajak) | Yo'q (Nix 2.4+) | `nix flake update` |
+
+Yangi loyihalar uchun **flake'lar tavsiya etiladi**.
+
+## Manbalar
+
+1. nix.dev — Towards reproducibility. [https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html](https://nix.dev/tutorials/first-steps/towards-reproducibility-pinning-nixpkgs.html)
+
+## Keyingi qadam
+
+👉 [Tushunchalar — Flakes](/nixos/concepts/flakes)

@@ -1,0 +1,184 @@
+---
+title: "GNOME ish stoli"
+description: "Ubuntu Desktop'ning standart grafik muhiti — GNOME — asoslari, navigatsiya va asosiy sozlamalar."
+order: 3
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "GNOME nima va Ubuntu uni qanday ishlatishini bilish"
+  - "Activities overview, Workspaces va asosiy navigatsiya"
+  - "Sozlamalar va kengaytmalar (extensions) bilan ishlash"
+tags: ["ubuntu", "gnome", "desktop"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNOME — Help"
+    url: "https://help.gnome.org/users/gnome-help/stable/"
+  - title: "Ubuntu Community Help — UbuntuGnome"
+    url: "https://help.ubuntu.com/community/UbuntuGnome"
+  - title: "GNOME — About"
+    url: "https://www.gnome.org/about/"
+---
+
+**GNOME** (GNU Network Object Model Environment) — bu Ubuntu Desktop'ning standart ish stoli muhiti. U GNOME loyihasi tomonidan ishlab chiqiladi va ko'pgina Linux distributivlarida ishlatiladi.[³](https://www.gnome.org/about/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- GNOME asosiy interfeysi: Top bar, Activities, Dash.
+- Klaviatura yorliqlari va workspaces.
+- Settings ilovasi orqali asosiy sozlash.
+- GNOME Extensions bilan ish stolini kengaytirish.
+</Callout>
+
+## 1. GNOME nima?
+
+GNOME — ochiq kodli ish stoli muhiti. U:
+
+- **Mosaic** (qulay) navigatsiya — sodda, ortiqcha tugmasiz.
+- **Asosiy ilovalar to'plami** — Fayllar (Nautilus), Terminal (GNOME Terminal), Hisobchi, Sozlamalar va h.k.
+- **Standartlar** — ko'pgina Linux distributivlari uchun mos.
+
+Ubuntu GNOME interfeysiga o'zining qo'shimcha qatlamlarini qo'shgan — masalan, chap tomondagi **Dock** (Activities Overview ochilmaganda ham ko'rinadi).
+
+## 2. Asosiy interfeys elementlari
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│   ●●●  Activities       <Soat>           Wi-Fi  ♪  Power  ▼  │   ← Top bar
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│                                                                │
+│                Faol oynalar va ish stoli                       │
+│                                                                │
+│                                                                │
+│                                                                │
+├────────────────────────────────────────────────────────────────┤
+│ ▣ Firefox  📁 Files  ▶ Terminal  ●●●     Show Apps           │   ← Dock
+└────────────────────────────────────────────────────────────────┘
+```
+
+- **Top bar** — soat, status indikatorlari (tarmoq, ovoz, batareya), Activities tugmasi.
+- **Dock (chap tomonda)** — tez-tez ishlatiladigan ilovalar.
+- **Activities Overview** — barcha ochiq oynalar va workspaces ni ko'rsatuvchi rejim.
+
+## 3. Activities Overview
+
+Bosing yoki `Super` (Windows) tugmasini bosing:
+
+- Barcha ochiq oynalar mozaika ko'rinishida.
+- O'ng tarafda **workspaces** (virtual ish stollari).
+- Yuqorida qidiruv satri — ilovani topish uchun yozib boshlang.
+
+## 4. Klaviatura yorliqlari
+
+GNOME bo'yicha juda foydali yorliqlar:[¹](https://help.gnome.org/users/gnome-help/stable/)
+
+| Yorlik | Vazifa |
+|---|---|
+| `Super` | Activities Overview |
+| `Super + A` | Hamma ilovalar |
+| `Super + 1/2/3...` | Dock'dagi 1-, 2-, 3- ilovaga o'tish |
+| `Super + Page Up/Down` | Workspaces orasida |
+| `Alt + Tab` | Ochiq ilovalar orasida |
+| `Super + L` | Ekranni qulflash |
+| `Print Screen` | Skrinshot |
+| `Super + .` | Emoji panel |
+
+## 5. Workspaces (virtual ish stollari)
+
+Workspaces — bu bir nechta "ish stoli" — har biri o'zining oyna to'plami bilan. Ish ajratish uchun foydali.
+
+- `Super + Page Down` — keyingi workspace.
+- `Super + Page Up` — oldingi.
+- Activities'da o'ng tarafdagi panel — workspaces ro'yxati. Oynani drag-and-drop qilib boshqasiga ko'chirish mumkin.
+
+## 6. Settings (Sozlamalar)
+
+`Settings` ilovasi (Activities → "Settings") asosiy sozlash markazidir:
+
+- **Network** — Wi-Fi, VPN, proxy.
+- **Bluetooth** — qurilmalar.
+- **Background** — ish stoli fonini o'zgartirish.
+- **Appearance** — quyuq/yorug' tema, accent rang.
+- **Displays** — monitor o'lchami va joylashishi.
+- **Keyboard** — yorliqlar va kiritish manbalari (boshqa tildagi klaviatura).
+- **Users** — foydalanuvchi profilini sozlash.
+- **About** — versiya ma'lumotlari.
+
+## 7. Tilni qo'shish
+
+```
+Settings → Region & Language → Manage Installed Languages
+```
+
+Yoki terminal orqali:
+
+```bash
+# Til paketlarini o'rnatish
+sudo apt install language-pack-uz language-pack-gnome-uz
+```
+
+So'ng `Region & Language` ostida o'zbek tilini tanlang va tizimni qayta yuklang. Hozircha barcha GNOME va Ubuntu yo'l-ko'rsatkichlari to'liq o'zbek tilida emas, lekin ish davom etmoqda.
+
+## 8. GNOME Extensions
+
+GNOMEning standart funksiyalari yetmasa, **extensions** orqali kengaytirish mumkin:
+
+```bash
+# Extensions yordamchi ilovasi
+sudo apt install gnome-shell-extension-manager
+```
+
+So'ng `Extension Manager` ilovasi orqali yangi extension'larni topib o'rnatish mumkin. Misol uchun, mashhur extension'lar:
+
+- **Dash to Panel** — Dock ni pastdagi to'liq panelga aylantiradi (Windows kabi).
+- **Caffeine** — uxlash rejimini vaqtincha to'xtatish.
+- **Vitals** — CPU/RAM/harorat ko'rsatkichlarini Top bar'da.
+
+<Callout type="warning">
+Extension'lar — uchinchi tomon kodi. Faqat ko'p foydalanuvchili va sharhlari yaxshi bo'lganlarini tanlang. Ba'zilari yangi GNOME versiyalarida ishlamasligi mumkin.
+</Callout>
+
+## 9. Mashqlar
+
+1. `Super` tugmasini bosing va Activities ni oching. So'ng `terminal` so'zini yozing. Nima sodir bo'ladi?
+2. `Super + .` ni bosing. Bu nima va u qaerda foydali bo'lishi mumkin?
+3. Settings → About oching. GNOME versiyangiz qaysi?
+4. (Ixtiyoriy) Extension Manager'ni o'rnating va "Caffeine" yoki "Dash to Panel" extensionini sinab ko'ring.
+
+## 10. Bilim sinovi
+
+**Savol 1.** Activities Overview'ni qaysi tugma ochadi?
+
+- a) `Ctrl`
+- b) `Alt`
+- c) `Super` (Windows tugmasi)
+- d) `F1`
+
+<Callout type="success" title="Javob">
+**(c)** `Super` tugmasi — bu Windows klaviaturasidagi Win tugmasi yoki Mac'dagi Cmd.
+</Callout>
+
+**Savol 2.** GNOMEni kim tayyorlaydi?
+
+- a) Canonical Ltd.
+- b) GNOME loyihasi (mustaqil)
+- c) Microsoft
+- d) Red Hat
+
+<Callout type="success" title="Javob">
+**(b)** GNOME mustaqil loyiha — [gnome.org](https://www.gnome.org/about/). Canonical Ubuntu uchun GNOME'ni paketlaydi va o'zining qo'shimcha qatlamlarini qo'shadi.
+</Callout>
+
+## Manbalar
+
+1. GNOME — Help. [https://help.gnome.org/users/gnome-help/stable/](https://help.gnome.org/users/gnome-help/stable/)
+2. Ubuntu Community Help — UbuntuGnome. [https://help.ubuntu.com/community/UbuntuGnome](https://help.ubuntu.com/community/UbuntuGnome)
+3. GNOME — About. [https://www.gnome.org/about/](https://www.gnome.org/about/)
+
+## Keyingi qadam
+
+Tabriklaymiz! Ubuntu bo'limini tugatdingiz. Endi Debian o'rganishni boshlashingiz mumkin — Ubuntu'ning "ota-onasi".
+
+👉 [Debian ga kirish](/debian/introduction)

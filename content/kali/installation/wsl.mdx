@@ -1,0 +1,189 @@
+---
+title: "Kali WSL ostida"
+description: "Windows Subsystem for Linux ostida Kali Linux — bir buyruq bilan o'rnatish."
+order: 4
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/kali/installation/requirements"
+learning_objectives:
+  - "WSL ostida Kali o'rnatish"
+  - "Win-KeX bilan grafik interfeysni yoqish"
+  - "WSL Kali cheklovlarini bilish"
+tags: ["kali", "wsl", "windows", "win-kex"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Kali Docs — WSL"
+    url: "https://www.kali.org/docs/wsl/"
+  - title: "Kali Docs — Win-KeX"
+    url: "https://www.kali.org/docs/wsl/win-kex/"
+---
+
+WSL ostida Kali — Windows foydalanuvchilari uchun eng tez yo'l. Lekin cheklovlar bor — apparatga to'g'ridan-to'g'ri kirish (USB Wi-Fi adapterlari, monitor mode) WSL'da chegaralangan.[¹](https://www.kali.org/docs/wsl/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- WSL2'ga Kali'ni o'rnatish.
+- Win-KeX bilan grafik interfeysni yoqish.
+- WSL Kali cheklovlari.
+</Callout>
+
+## 1. Talablar
+
+- Windows 10 22H2 yoki Windows 11.
+- WSL2 yoqilgan (bizning [Ubuntu WSL darsi](/ubuntu/installation/wsl) ga qarang).
+- 10+ GB bo'sh disk.
+
+## 2. O'rnatish
+
+PowerShell'ni administrator sifatida oching:
+
+```powershell
+wsl --install -d kali-linux
+```
+
+Bir necha daqiqada Kali yuklanadi. Birinchi marotaba ishga tushganda UNIX username/parolni so'raydi.
+
+Alternativ — Microsoft Store'dan "Kali Linux" ni qidirib o'rnatish.
+
+## 3. Birinchi qadamlar
+
+```bash
+# Kali versiyasi
+lsb_release -a
+
+# Yangilash
+sudo apt update
+sudo apt full-upgrade -y
+
+# Asosiy kali metapackage (kichik to'plam keladi default)
+sudo apt install kali-linux-default
+```
+
+## 4. Metapackage'lar
+
+Kali'da paketlar **metapackage** orqali guruhlanadi. WSL default minimal o'rnatishni beradi:[¹](https://www.kali.org/docs/wsl/)
+
+| Metapackage | Mazmuni |
+|---|---|
+| `kali-linux-headless` | Minimal CLI to'plam |
+| `kali-linux-default` | Standart desktop to'plam |
+| `kali-linux-large` | Default + qo'shimcha |
+| `kali-linux-everything` | Hamma narsa (10+ GB) |
+| `kali-tools-top10` | Eng mashhur 10 ta vosita |
+| `kali-tools-web` | Veb-app sinovi |
+| `kali-tools-wireless` | Wi-Fi sinovi |
+| `kali-tools-forensics` | Forensics |
+
+Misol:
+
+```bash
+sudo apt install kali-tools-top10
+```
+
+## 5. Win-KeX — grafik interfeys
+
+Win-KeX (Kali Desktop Experience) — WSL ostida Kali'ning to'liq grafik desktopini yoqadi.[²](https://www.kali.org/docs/wsl/win-kex/)
+
+```bash
+# O'rnatish
+sudo apt install kali-win-kex
+
+# Sessiyalar uchun parol
+kex --esm --ip -s          # ESM (Enhanced Session Mode)
+
+# To'liq ekran
+kex --win -s
+```
+
+3 ta rejim:
+
+| Rejim | Buyruq | Tavsif |
+|---|---|---|
+| **Window** | `kex --win -s` | Alohida Kali oynasi |
+| **Enhanced Session Mode** | `kex --esm --ip -s` | Mendi tom orqali (shared clipboard, audio) |
+| **Seamless** | `kex --sl -s` | Faqat Kali ilovalari Windows ish stolida |
+
+## 6. Cheklovlar
+
+WSL2 — Hyper-V asoslangan virtualizatsiya. Quyidagilar **chegaralangan**:
+
+- **USB qurilmalar** — Wi-Fi monitor mode, Bluetooth, JTAG — to'g'ridan-to'g'ri kira olmaydi (usbipd-win bilan ozgina ish qilish mumkin, lekin murakkab).
+- **Tarmoq darajasidagi hujumlar** — `arpspoof`, `bettercap` kabi vositalar Windows host'idan o'tib ishlaydi, idealdan past.
+- **Yadro modullari** — WSL2 yadrosi cheklangan; ba'zi paketlar `modprobe`'ga muhtoj.
+- **Hardware video accelerasiyasi** — ko'pchilik vositalar talab qilmaydi.
+
+Asosan **veb-app testi, OSINT, dasturchilik, CTF** uchun WSL Kali yaxshi. Wireless va apparat hujumlari uchun esa **to'liq VM** yoki **fizik mashina** kerak.
+
+## 7. Win-KeX o'rnatishdagi muammolar
+
+`kex` birinchi marotaba ishlatilganda parol so'raydi (xVNC uchun). Keyingi safar avtomatik.
+
+Agar Win-KeX ishlamasa:
+
+```bash
+# WSL'ni qayta yuklash (PowerShell'da)
+wsl --shutdown
+
+# Yana ishga tushirish
+wsl -d kali-linux
+```
+
+Tarmoq muammosi:
+
+```bash
+# IP'ni tekshirish
+ip a
+
+# Localhost ulanmasa, Windows firewall'ni tekshiring
+```
+
+## 8. Bashqa amaliyot
+
+```bash
+# WSL faylida fayllarni Windows Explorer'da ko'rish
+\\wsl$\kali-linux\home\<username>
+
+# Windows fayllarini WSL'da
+cd /mnt/c/Users/Administrator
+```
+
+## 9. Mashqlar
+
+1. WSL Kali'ni o'rnating.
+2. `sudo apt install kali-tools-top10` orqali asosiy vositalarni qo'shing.
+3. `nmap` ni sinab ko'ring: `nmap scanme.nmap.org` (bu rasmiy sinov serveri).
+4. (Ixtiyoriy) Win-KeX o'rnating va `kex --win -s` orqali grafik interfeysni oching.
+
+## 10. Bilim sinovi
+
+**Savol 1.** WSL Kali default qaysi metapackage bilan keladi?
+
+- a) kali-linux-everything (hammasi)
+- b) kali-linux-headless (minimal)
+- c) kali-linux-default (standart)
+- d) Hech qanday vosita
+
+<Callout type="success" title="Javob">
+**(b)** WSL default minimal — `kali-linux-headless`. Boshqalarini qo'shimcha o'rnatish kerak.[¹](https://www.kali.org/docs/wsl/)
+</Callout>
+
+**Savol 2.** Win-KeX nima?
+
+- a) WSL Kali grafik interfeysi
+- b) Antivirus dasturi
+- c) Tarmoq vositasi
+- d) Firewall
+
+<Callout type="success" title="Javob">
+**(a)** Win-KeX — Kali Desktop Experience, WSL ostida grafik desktopni beradi.[²](https://www.kali.org/docs/wsl/win-kex/)
+</Callout>
+
+## Manbalar
+
+1. Kali Docs — WSL. [https://www.kali.org/docs/wsl/](https://www.kali.org/docs/wsl/)
+2. Kali Docs — Win-KeX. [https://www.kali.org/docs/wsl/win-kex/](https://www.kali.org/docs/wsl/win-kex/)
+
+## Keyingi qadam
+
+👉 [Nmap asoslari](/kali/tools/nmap)

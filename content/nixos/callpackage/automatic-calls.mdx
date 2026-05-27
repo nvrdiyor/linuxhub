@@ -1,0 +1,116 @@
+---
+title: "Avtomatik funksiya chaqirish"
+description: "`callPackage`'ning ichki ishlash mexanizmi va `pkgs.lib.callPackageWith`."
+order: 2
+level: "advanced"
+estimated_minutes: 4
+prerequisites:
+  - "/nixos/callpackage/overview"
+learning_objectives:
+  - "`callPackage` ichki mexanizmi"
+  - "`callPackageWith` bilan custom skop"
+tags: ["nixos", "callpackage"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — callPackage"
+    url: "https://nix.dev/tutorials/callpackage.html"
+---
+
+`callPackage` ichida funksiyaning parametrlarini introspekt qiladi va mos qiymatlarni o'tkazadi. Bu Nix'ning **introspeksiya** xususiyatidan foydalanadi.[¹](https://nix.dev/tutorials/callpackage.html)
+
+## 1. `builtins.functionArgs`
+
+```nix
+let
+  f = { a, b, c }: a + b + c;
+in
+builtins.functionArgs f
+# { a = false; b = false; c = false; }
+```
+
+`false` — argument default'siz; `true` — default bor.
+
+## 2. `callPackage` algoritm
+
+```nix
+callPackage = path: extra:
+  let
+    f = import path;
+    args = builtins.functionArgs f;
+    matchedArgs = builtins.intersectAttrs args pkgs;
+  in
+  f (matchedArgs // extra);
+```
+
+Soddalashtirib:
+
+1. Faylni import — funksiya oling.
+2. Argumentlar ro'yxatini oling.
+3. `pkgs` dan mos nomlarni oling.
+4. Foydalanuvchining `extra` o'zgaruvchilarini override qiling.
+5. Funksiyani chaqiring.
+
+## 3. `callPackageWith`
+
+Agar siz `pkgs` o'rniga boshqa skop bilan ishlamoqchi bo'lsangiz:
+
+```nix
+let
+  myScope = {
+    inherit (pkgs) stdenv;
+    openssl = pkgs.openssl_3_2;
+    customLib = ./my-lib;
+  };
+
+  myCallPackage = pkgs.lib.callPackageWith myScope;
+in
+myCallPackage ./myapp.nix {}
+```
+
+Bu loyiha ichida ko'p paketlar bir xil "custom" `openssl` versiyasini ishlatishi mumkin.
+
+## 4. Override paketlar
+
+```nix
+let
+  pkgs = import <nixpkgs> {};
+
+  myFirefox = pkgs.firefox.override {
+    cfg = { jpegSupport = true; };
+  };
+in
+myFirefox
+```
+
+`override` — paket funksiyasiga turli argumentlarni qaytarish.
+
+## 5. Mashq
+
+`nix repl` da:
+
+```nix
+nix-repl> let pkgs = import <nixpkgs> {}; in builtins.functionArgs (import (pkgs.path + "/pkgs/applications/networking/browsers/firefox/common.nix"))
+# { ... }
+```
+
+## 6. Bilim sinovi
+
+**Savol 1.** `callPackage` ichida qaysi `builtins` funksiya ishlatiladi?
+
+- a) `builtins.length`
+- b) `builtins.functionArgs`
+- c) `builtins.toString`
+- d) `builtins.readFile`
+
+<Callout type="success" title="Javob">
+**(b)** `builtins.functionArgs` — funksiyaning argument'larini topib beradi.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — callPackage. [https://nix.dev/tutorials/callpackage.html](https://nix.dev/tutorials/callpackage.html)
+
+## Keyingi qadam
+
+👉 [Parametrlangan buildlar](/nixos/callpackage/parameterised-builds)

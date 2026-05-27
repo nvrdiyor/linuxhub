@@ -1,0 +1,235 @@
+---
+title: "Burp Suite asoslari"
+description: "Veb-ilovalar uchun proxy va sinov platformasi — Burp Suite Community va Professional farqlari."
+order: 3
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/kali/ethical-hacking"
+learning_objectives:
+  - "Burp Suite proxy arxitekturasini bilish"
+  - "Brauzer trafigini intercept qilish"
+  - "Asosiy modullar: Proxy, Repeater, Intruder, Decoder"
+tags: ["kali", "burp-suite", "web", "proxy"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "PortSwigger — Burp Suite Documentation"
+    url: "https://portswigger.net/burp/documentation"
+  - title: "PortSwigger Web Security Academy"
+    url: "https://portswigger.net/web-security"
+---
+
+<Callout type="danger" title="Faqat ruxsat etilgan veb-ilovada">
+Burp Suite — veb-ilovalar tahlili uchun. Faqat **o'z labingizda** yoki **yozma ruxsati bor** veb-ilovada ishlating.
+
+Mashq uchun: [PortSwigger Web Security Academy](https://portswigger.net/web-security) — bepul va rasmiy sinov lab'lari.
+</Callout>
+
+**Burp Suite** — PortSwigger kompaniyasi tomonidan tayyorlanadigan veb-ilova security testing platformasi. Boshqacha qilib aytganda, brauzer va serverlar o'rtasidagi HTTP trafigini ko'rish, o'zgartirish va sinash uchun proxy.[¹](https://portswigger.net/burp/documentation)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Burp Suite arxitekturasi.
+- Community va Professional farqi.
+- Asosiy modullar: Proxy, Repeater, Intruder, Decoder.
+- Brauzer sozlash.
+</Callout>
+
+## 1. Burp Suite nima?
+
+Burp Suite — **intercepting proxy**: u brauzer va server o'rtasiga turib, har bir HTTP/HTTPS so'rovini ko'rsatadi. Pentester:
+
+- So'rovni to'xtatib o'qiy oladi.
+- Parametrlarni o'zgartirib qaytadan yubora oladi.
+- Avtomatik ravishda ko'p variantlarni sinab ko'ra oladi.
+
+## 2. Versiyalar
+
+| | Community | Professional |
+|---|---|---|
+| Narx | Bepul | ~$450/yil |
+| Proxy | ✅ | ✅ |
+| Repeater | ✅ | ✅ |
+| Intruder | Sekin | Tezroq |
+| Scanner | ❌ | ✅ |
+| Extensions | Cheklangan | Hamma |
+| BApp Store | ✅ | ✅ |
+
+Kali Linux'da default — **Community**. Mashq va o'rganish uchun yetarli.
+
+## 3. Ishga tushirish
+
+```bash
+# Kali'da
+burpsuite
+```
+
+Yoki Applications → Web Application Analysis → Burp Suite.
+
+Birinchi marotaba: **Temporary project** → **Use Burp defaults** → **Start Burp**.
+
+## 4. Brauzer sozlash
+
+Brauzer trafigini Burp orqali yuborish kerak.
+
+### Variant 1: Burp ichidagi brauzer (Chromium)
+
+Burp'da **Proxy** → **Open browser** — Burp avtomatik sozlangan Chromium ochiladi.
+
+### Variant 2: Firefox + FoxyProxy
+
+1. Firefox'da [FoxyProxy](https://addons.mozilla.org/en-US/firefox/addon/foxyproxy-standard/) extension'ni o'rnating.
+2. Yangi proxy: HTTP, `127.0.0.1`, port `8080`.
+3. Yoqing.
+
+### HTTPS uchun sertifikat
+
+Burp HTTPS trafikini ko'rish uchun o'z sertifikatini brauzer'ga o'rnatish kerak:
+
+1. Burp orqali ulangan brauzer'dan `http://burpsuite` ga kiring.
+2. **CA Certificate** ni yuklab oling.
+3. Firefox: Settings → Privacy → Certificates → Import.
+4. **Trust this CA to identify websites** ni yoqing.
+
+<Callout type="warning">
+Burp sertifikatini real foydalanish uchun **emas**. Sinovdan keyin uni o'chiring.
+</Callout>
+
+## 5. Asosiy modullar
+
+### Proxy
+
+```
+Brauzer ──▶ Burp Proxy ──▶ Server
+            (har so'rovni ushlab oladi)
+```
+
+- **Intercept on/off** — so'rovni to'xtatib ushlash.
+- **HTTP history** — barcha o'tgan so'rovlar logi.
+- **WebSockets history** — WebSocket trafik.
+
+### Repeater
+
+Bir aniq so'rovni qayta-qayta yuborish va o'zgartirish.
+
+Ishlatish:
+
+1. Proxy → HTTP history → so'rovga right-click → **Send to Repeater**.
+2. Repeater tab'da so'rovni o'zgartiring.
+3. **Send** — javobni ko'ring.
+
+Bu — manual sinov uchun asosiy vosita.
+
+### Intruder
+
+Avtomatik parametrlarni o'zgartirish va ko'p variantlarni sinash.
+
+Misol: ID parametrida 1 dan 100 gacha sinash (IDOR test):
+
+1. Repeater'da so'rovni tanlang → **Send to Intruder**.
+2. **Positions** tab'da o'zgartirilishi kerak bo'lgan parametrni belgilang (`§...§`).
+3. **Payloads** tab'da raqamlar diapazoni.
+4. **Start attack**.
+
+<Callout type="info">
+Community versiyada Intruder **sekin** (rate-limited). Tezroq uchun Professional kerak.
+</Callout>
+
+### Decoder
+
+URL encode/decode, Base64, HTML entity, hex va boshqa.
+
+### Comparer
+
+Ikki javobni yonma-yon solishtirish (qaerda farq bor).
+
+### Repeater'ning kuchli holati
+
+```http
+GET /api/user/123 HTTP/1.1
+Host: example.com
+Authorization: Bearer eyJ...
+```
+
+ID'ni `124` ga o'zgartirib **Send** — agar javob 200 OK qaytsa va boshqa foydalanuvchi ma'lumotini ko'rsatsa — **IDOR** zaifligi.
+
+## 6. Mashq uchun rasmiy lab
+
+**[PortSwigger Web Security Academy](https://portswigger.net/web-security)** — Burp ishlab chiqaruvchisining bepul lab'lari. Mavzular:
+
+- SQL injection
+- XSS (Cross-site scripting)
+- Authentication
+- Access control (IDOR)
+- API testing
+- OAuth, JWT
+- WebSockets
+
+Har bir lab Burp Suite Community bilan amalga oshirilishi mumkin.
+
+## 7. Buyruqlar va izoh
+
+| Burp menyusi | Vazifa |
+|---|---|
+| Proxy → Intercept | So'rovni to'xtatish |
+| Proxy → HTTP history | So'rovlar logi |
+| Send to Repeater | Manual sinov |
+| Send to Intruder | Avtomatik sinov |
+| Decoder | Encoding o'zgartirish |
+| Burp Browser | Ichki sozlangan brauzer |
+
+## 8. Eng tez-tez uchraydigan xatolar
+
+- **Sertifikat o'rnatilmagan** — HTTPS sayt "Insecure" deydi.
+- **Proxy yoqilmagan** — brauzer trafigi Burp'ga kelmaydi.
+- **Intercept off bo'lgan** — so'rovlar avtomatik o'tib ketadi, history'da bor.
+- **Brauzer "Could not connect"** — Burp ishga tushmagan.
+- **Real saytda test** — qonun bo'yicha jinoiy.
+
+## 9. Eng yaxshi amaliyot
+
+- **Burp Browser ishlatish** — sertifikat allaqachon o'rnatilgan, sozlash kerak emas.
+- **Workspace har proyekt uchun** — alohida fayllarda saqlash.
+- **HTTP history filtri** — `In-scope only` ni yoqib, faqat sinov ostidagi saytni ko'rish.
+- **Scope sozlash** — Target → Scope → faqat ruxsat etilgan domen.
+- **Doim hisobot:** PortSwigger Academy progress'ni yuriting.
+
+## 10. Bilim sinovi
+
+**Savol 1.** Burp Suite Community va Professional o'rtasidagi asosiy farq:
+
+- a) Community faqat 10 daqiqa ishlaydi
+- b) Community'da Scanner yo'q va Intruder sekin
+- c) Community'da Proxy yo'q
+- d) Farq yo'q
+
+<Callout type="success" title="Javob">
+**(b)** Community asosiy modullarni beradi, lekin avtomatik Scanner yo'q va Intruder rate-limited.[¹](https://portswigger.net/burp/documentation)
+</Callout>
+
+**Savol 2.** HTTPS trafigini Burp'da ko'rish uchun:
+
+- a) Brauzerni administrator sifatida ishga tushirish
+- b) Burp CA sertifikatini brauzerga import qilish
+- c) HTTPS'ni o'chirish
+- d) Faqat Pro versiyada mumkin
+
+<Callout type="success" title="Javob">
+**(b)** Burp HTTPS sertifikatini o'z nomidan yaratadi; brauzer'da ishonish uchun CA import qilinishi kerak.
+</Callout>
+
+## 11. Mashq
+
+1. Burp Suite'ni Kali'da oching va **Open browser** ni bosing.
+2. Ichki brauzer'da [https://example.com](https://example.com) ga kiring. Proxy → HTTP history'da so'rov ko'rinadimi?
+3. So'rovga right-click → **Send to Repeater**. Repeater'da `User-Agent` header'ni o'zgartirib qaytadan yuboring.
+4. (Tavsiya) [PortSwigger Web Security Academy](https://portswigger.net/web-security) ga ro'yxatdan o'ting. "SQL injection" mavzusidagi birinchi lab'ni bajaring.
+
+## Manbalar
+
+1. PortSwigger — Burp Suite Documentation. [https://portswigger.net/burp/documentation](https://portswigger.net/burp/documentation)
+2. PortSwigger Web Security Academy. [https://portswigger.net/web-security](https://portswigger.net/web-security)
+
+## Keyingi qadam
+
+👉 [Wireshark](/kali/tools/wireshark)

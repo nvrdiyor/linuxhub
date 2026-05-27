@@ -1,0 +1,413 @@
+---
+title: "Compression — gzip, xz, zstd, lz4"
+description: "Linux'da fayl siqish — gzip, bzip2, xz, zstd, lz4 va siqish algoritmlarini taqqoslash."
+order: 130
+level: "intermediate"
+estimated_minutes: 10
+prerequisites:
+  - "/fundamentals/file-operations"
+learning_objectives:
+  - "Siqish algoritmlarini taqqoslash"
+  - "gzip, xz, zstd asosiy buyruqlari"
+  - "Tuning — level va threads"
+  - "Streaming va pipe bilan"
+tags: ["intermediate", "compression", "gzip", "xz", "zstd"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU gzip Manual"
+    url: "https://www.gnu.org/software/gzip/manual/gzip.html"
+  - title: "XZ Utils"
+    url: "https://tukaani.org/xz/"
+  - title: "Zstandard — Facebook"
+    url: "https://github.com/facebook/zstd"
+---
+
+Fayl siqish — disk joyi va tarmoq tezligi uchun muhim. Linux'da turli algoritmlar mavjud — har biri o'z balansiga ega (tezlik vs siqish koeffitsienti). Bu darsda hammasi solishtiramiz.[¹](https://www.gnu.org/software/gzip/manual/gzip.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Siqish algoritmlarining ishlash printsipi.
+- gzip, bzip2, xz, zstd, lz4 — qaysi qachon.
+- Compression level tuning.
+- Multi-threaded siqish.
+- Pipe va streaming.
+</Callout>
+
+## 1. Siqish algoritmlari taqqoslash
+
+| Algoritm | Yili | Tezlik | Siqish | Foydalanish |
+|---|---|---|---|---|
+| **gzip** (DEFLATE) | 1992 | Tez | ~70% | Eng keng tarqalgan, default |
+| **bzip2** | 1996 | Sekin | ~75% | Eskirgan |
+| **xz** (LZMA2) | 2009 | Eng sekin | ~80% | Eng kichik (sayt yuklab olish) |
+| **zstd** (Zstandard) | 2015 | Tez | ~78% | Modern, eng yaxshi muvozanat |
+| **lz4** | 2011 | Eng tez | ~60% | Real-time (filesystem, network) |
+
+### Benchmark misol (Linux kernel source ~1.4 GB)
+
+| Format | Hajm | Siqish vaqti | Ochish vaqti |
+|---|---|---|---|
+| `.tar` | 1.4 GB | — | — |
+| `.tar.lz4` | 280 MB | 5s | 2s |
+| `.tar.gz` | 220 MB | 30s | 6s |
+| `.tar.bz2` | 169 MB | 90s | 30s |
+| `.tar.xz` | 140 MB | 300s | 15s |
+| `.tar.zst` | 155 MB | 15s | 4s |
+
+## 2. gzip — eng tarqalgan
+
+```bash
+# Faylni siqish (asl o'chiriladi)
+gzip myfile.txt
+# myfile.txt.gz yaratiladi, myfile.txt o'chiriladi
+
+# Asl saqlash
+gzip -k myfile.txt
+# yoki
+gzip -c myfile.txt > myfile.txt.gz
+
+# Compression level (1-9, default 6)
+gzip -1 myfile.txt        # eng tez, kam siqish
+gzip -9 myfile.txt        # eng yaxshi siqish, sekin
+
+# Ochish
+gunzip myfile.txt.gz
+# Yoki
+gzip -d myfile.txt.gz
+
+# Asl saqlab ochish
+gunzip -k myfile.txt.gz
+gzip -dk myfile.txt.gz
+
+# Stream
+cat bigfile.log | gzip > bigfile.log.gz
+
+# Ko'rish — siqilmagan kabi
+zcat myfile.txt.gz | head
+zless myfile.txt.gz
+zgrep "error" myfile.txt.gz
+```
+
+## 3. bzip2 — eskirgan
+
+```bash
+bzip2 myfile.txt           # myfile.txt.bz2
+bunzip2 myfile.txt.bz2     # ochish
+bzcat myfile.txt.bz2       # ko'rish
+
+# Level
+bzip2 -9 myfile.txt
+```
+
+Modern Linux'da `xz` yoki `zstd` afzal.
+
+## 4. xz — eng yuqori siqish
+
+```bash
+# Siqish
+xz myfile.txt
+# myfile.txt.xz yaratiladi
+
+# Asl saqlash
+xz -k myfile.txt
+
+# Level (1-9)
+xz -1 myfile.txt          # tez
+xz -9 myfile.txt          # eng yuqori siqish
+xz -9e myfile.txt         # extreme (yana sekinroq, biroz yaxshiroq)
+
+# Ochish
+unxz myfile.txt.xz
+xz -d myfile.txt.xz
+
+# Multi-thread
+xz -T 0 -9 bigfile        # 0 = hamma CPU'lar
+
+# Stream
+cat bigfile | xz > bigfile.xz
+```
+
+`xz` siqish vaqti ko'p, lekin ochish — gzip kabi tez. Sayt yuklab olishlar uchun ideal (Wikipedia dumps, kernel sources).
+
+## 5. zstd — modern eng yaxshi muvozanat
+
+```bash
+# O'rnatish
+sudo apt install zstd
+
+# Siqish
+zstd myfile.txt           # myfile.txt.zst
+
+# Asl o'chirish bilan (--rm)
+zstd --rm myfile.txt
+
+# Level (1-22, default 3)
+zstd -1 myfile            # eng tez
+zstd -3 myfile            # default
+zstd -19 myfile           # eng yaxshi
+zstd --ultra -22 myfile   # eng kuchli (juda sekin)
+
+# Multi-thread
+zstd -T 0 myfile          # hamma CPU
+zstd -T 4 myfile          # 4 thread
+
+# Ochish
+unzstd myfile.zst
+zstd -d myfile.zst
+
+# Stream
+cat bigfile | zstd > bigfile.zst
+```
+
+zstd — Facebook tomonidan (2015), Linux 4.14+ yadrosida (btrfs, squashfs).
+
+## 6. lz4 — real-time
+
+```bash
+sudo apt install lz4
+
+lz4 myfile.txt            # myfile.txt.lz4
+lz4 -d myfile.txt.lz4
+```
+
+lz4 — eng tez (GB/s). Siqish koeffitsienti past, lekin real-time ish uchun ideal (filesystem, ZRAM, network protocol'lar).
+
+## 7. tar bilan birga
+
+```bash
+# .tar.gz — gzip
+tar -czf archive.tar.gz dir/
+
+# .tar.bz2 — bzip2
+tar -cjf archive.tar.bz2 dir/
+
+# .tar.xz — xz
+tar -cJf archive.tar.xz dir/
+
+# .tar.zst — zstd
+tar --zstd -cf archive.tar.zst dir/
+
+# Multi-thread xz
+XZ_OPT='-T 0 -9' tar -cJf archive.tar.xz dir/
+
+# Multi-thread zstd
+tar -I 'zstd -T 0 -19' -cf archive.tar.zst dir/
+```
+
+## 8. Compression level — qachon nima
+
+**`-1` (eng tez):**
+
+- Stream, real-time backup.
+- CPU cheklangan.
+
+**`-3` to `-6` (default):**
+
+- Kundalik ish.
+- Ko'p situatsiyalar uchun yetarli.
+
+**`-9` (eng yaxshi):**
+
+- Bir martalik siqish, ko'p marta yuklab olish.
+- Sayt yuklab olish, paket distribusiyasi.
+
+**`-22` (zstd `--ultra`):**
+
+- Maksimal siqish kerak bo'lganda.
+- Ko'p RAM (har thread uchun 100+ MB).
+
+## 9. Multi-thread siqish — `pigz`, `pbzip2`, `pixz`
+
+Klassik `gzip`, `bzip2`, `xz` — single-thread. Multi-thread alternativalar:
+
+```bash
+# pigz — parallel gzip
+sudo apt install pigz
+pigz -9 bigfile           # 100x+ tezroq katta fayllarda
+
+# pbzip2 — parallel bzip2
+sudo apt install pbzip2
+pbzip2 bigfile
+
+# pixz — parallel xz
+sudo apt install pixz
+pixz bigfile
+```
+
+Modern `xz` (5.4+) va `zstd` — built-in multi-thread (`-T 0`).
+
+## 10. Stream va pipe
+
+```bash
+# Database dump siqib
+mysqldump mydb | gzip > mydb.sql.gz
+
+# Bir kerakli — to'g'ridan-to'g'ri SSH'ga
+mysqldump mydb | gzip | ssh user@backup-server "cat > /backup/mydb.sql.gz"
+
+# Log analiz (siqilgan)
+zcat /var/log/syslog.*.gz | grep "error"
+
+# Bir necha fayl bir oqimda
+cat *.log | gzip > all-logs.gz
+```
+
+## 11. Disk imaging
+
+```bash
+# Disk → siqilgan image
+sudo dd if=/dev/sdb bs=4M status=progress | zstd -T 0 -19 > /backup/disk.img.zst
+
+# Tiklash
+zstd -d < /backup/disk.img.zst | sudo dd of=/dev/sdb bs=4M status=progress
+```
+
+## 12. Filesystem darajasida siqish
+
+Ba'zi fayl tizimlari built-in siqish'ni qo'llab-quvvatlaydi:
+
+### Btrfs
+
+```bash
+# Mount option
+sudo mount -o compress=zstd:3 /dev/sda1 /mnt
+
+# Yoki fstab
+UUID=...  /  btrfs  defaults,compress=zstd:3  0 0
+
+# Per-fayl
+chattr +c file.txt
+```
+
+### ZFS
+
+```bash
+zfs set compression=zstd mypool/mydataset
+```
+
+Filesystem darajasidagi siqish — shaffof. Foydalanuvchi siqilganligini bilmaydi.
+
+## 13. Misol — log siqish skripti
+
+```bash
+#!/bin/bash
+# 7 kundan eski logllarni siqish
+
+find /var/log -name "*.log" -mtime +7 ! -name "*.gz" -exec gzip {} \;
+
+# Yoki zstd bilan
+find /var/log -name "*.log" -mtime +7 ! -name "*.zst" -exec zstd --rm {} \;
+```
+
+Yoki `logrotate` orqali avtomatik ([logs darsida tasvirlangan](/fundamentals/logs)).
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `gzip <file>` | Siqish (asl o'chadi) |
+| `gzip -k <file>` | Asl saqlash |
+| `gunzip <file.gz>` | Ochish |
+| `zcat`, `zless`, `zgrep` | Siqilgan ko'rish/qidirish |
+| `xz <file>` | XZ siqish |
+| `xz -T 0 <file>` | Multi-thread |
+| `unxz <file.xz>` | Ochish |
+| `zstd <file>` | Zstd siqish |
+| `unzstd <file.zst>` | Ochish |
+| `pigz` | Multi-thread gzip |
+| `tar --zstd -cf` | tar.zst |
+| `tar -cJf` | tar.xz |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **Already-siqilgan fayllarni qayta siqish** — `.jpg`, `.mp4` — siqilmaydi (yoki yomonroq bo'ladi).
+- **`gzip -9` har vaqt** — kichik tezlik farq, lekin katta CPU.
+- **xz -9 single-thread juda sekin** — `-T 0` flag.
+- **Stream'da `-d` unutish** — `cat file.gz | grep` — binary garbage. `zgrep` yoki `zcat | grep`.
+- **Asl fayl yo'qoldi** — `gzip` default'da asl'ni o'chiradi. `-k` flag bilan saqlash.
+
+## 16. Eng yaxshi amaliyot
+
+- **Modern: `zstd`** — yangi loyihalar uchun.
+- **Compatibility: `gzip`** — eski tizimlar.
+- **Eng kichik: `xz -9e`** — sayt yuklab olishlar.
+- **Eng tez: `lz4` yoki `zstd -1`** — real-time.
+- **Multi-thread** — katta fayllar uchun majburiy.
+- **JPEG/MP4/MP3 ni siqish urunmang** — allaqachon siqilgan.
+- **Tar bilan birga** — bitta fayldan ko'p siqish samaraliroq.
+- **Backup'lar uchun `zstd`** — backup/restore tezligi va siqish balansiga.
+
+## 17. Mashqlar
+
+1. **Solishtirish:** Bitta katta fayl yarating: `dd if=/dev/urandom of=/tmp/big bs=1M count=100`. Uni gzip, xz, zstd bilan siqing va hajm/vaqt taqqoslang.
+2. **Level test:** `time gzip -1 -c file > /dev/null` va `time gzip -9 -c file > /dev/null` — vaqt farqi qancha?
+3. **Multi-thread:** `time xz -1 -c big > /dev/null` va `time xz -1 -T 0 -c big > /dev/null` — qancha tezroq?
+4. **`zcat`:** Eski log faylni `zcat /var/log/syslog.1.gz | head` orqali o'qing.
+5. **Pipe:** `tar -cf - /etc | zstd > etc.tar.zst` — siqish + tar bir oqimda.
+
+## 18. Bilim sinovi
+
+**Savol 1.** Eng modern va balanslangan algoritm:
+
+- a) gzip
+- b) bzip2
+- c) xz
+- d) zstd
+
+<Callout type="success" title="Javob">
+**(d)** Zstandard — Facebook 2015, tez va kichik.[³](https://github.com/facebook/zstd)
+</Callout>
+
+**Savol 2.** Eng yuqori siqish koeffitsienti:
+
+- a) gzip -9
+- b) xz -9e
+- c) lz4
+- d) zstd -3
+
+<Callout type="success" title="Javob">
+**(b)** xz extreme mode.
+</Callout>
+
+**Savol 3.** Eng tez siqish va ochish:
+
+- a) gzip
+- b) xz
+- c) lz4
+- d) bzip2
+
+<Callout type="success" title="Javob">
+**(c)** lz4 — GB/s, real-time uchun.
+</Callout>
+
+**Savol 4.** Multi-thread xz uchun flag:
+
+- a) `-m`
+- b) `-T 0` (hamma CPU)
+- c) `-j 4`
+- d) Standart'da
+
+<Callout type="success" title="Javob">
+**(b)** `-T 0` — auto-detect; `-T N` — aniq son.
+</Callout>
+
+**Savol 5.** Siqilgan log faylni `grep` qilish:
+
+- a) `gunzip first && grep ...`
+- b) `zgrep "pattern" file.log.gz`
+- c) Imkonsiz
+- d) `cat | grep`
+
+<Callout type="success" title="Javob">
+**(b)** `zgrep` (yoki `zcat | grep`) — siqishni ochmasdan.
+</Callout>
+
+## Manbalar
+
+1. GNU gzip Manual. [https://www.gnu.org/software/gzip/manual/gzip.html](https://www.gnu.org/software/gzip/manual/gzip.html)
+2. XZ Utils. [https://tukaani.org/xz/](https://tukaani.org/xz/)
+3. Zstandard. [https://github.com/facebook/zstd](https://github.com/facebook/zstd)
+
+## Keyingi qadam
+
+👉 [Kron va systemd timer chuqurroq](/fundamentals/cron-vs-systemd-timers)

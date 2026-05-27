@@ -1,0 +1,449 @@
+---
+title: "Tar va arxivlash chuqurroq"
+description: "tar — Unix arxivlash standarti — gzip, bzip2, xz, zstd, incremental backup va GNU tar xususiyatlari."
+order: 129
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/file-operations"
+learning_objectives:
+  - "tar arxiv yaratish va ochish"
+  - "Siqish formatlari — gzip, bzip2, xz, zstd"
+  - "Inkremental tar backup"
+  - "Tar bilan SSH orqali stream"
+tags: ["intermediate", "tar", "archive", "backup", "compression"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU tar Manual"
+    url: "https://www.gnu.org/software/tar/manual/tar.html"
+  - title: "tar(1) manpage"
+    url: "https://manpages.debian.org/bookworm/tar/tar.1.en.html"
+---
+
+**tar** (Tape ARchive) — 1979-yildan keyingi Unix arxivlash standarti. Bir nechta fayl/katalog'ni bitta faylga to'plash, ixtiyoriy ravishda siqish. Bu darsda tar'ni chuqurroq o'rganamiz.[¹](https://www.gnu.org/software/tar/manual/tar.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- tar formatining tarixi va ishlash printsipi.
+- Asosiy va ilg'or flag'lar.
+- Siqish formatlari va ularning xususiyatlari.
+- Inkremental backup.
+- Pipe va SSH bilan stream.
+</Callout>
+
+## 1. tar nima qiladi
+
+```
+[file1] [file2] [dir/]  ──▶  [archive.tar]  ──▶  optional compression  ──▶  [archive.tar.gz]
+                              (to'plash)              (siqish)
+```
+
+`tar` o'zi **siqishni amalga oshirmaydi** — `gzip`, `bzip2`, `xz`, `zstd` bilan birga ishlatiladi.
+
+## 2. Asosiy operatsion flag'lar
+
+| Flag | Operatsiya |
+|---|---|
+| `-c` | **C**reate (yaratish) |
+| `-x` | E**x**tract (ochish) |
+| `-t` | Lis**t** (ko'rish) |
+| `-r` | Append (qo'shish) |
+| `-u` | Update (yangilash) |
+| `-d` | **D**iff (taqqoslash) |
+
+## 3. Modifier flag'lar
+
+| Flag | Ma'no |
+|---|---|
+| `-f <file>` | Arxiv fayli (majburiy) |
+| `-v` | **V**erbose |
+| `-z` | g**z**ip |
+| `-j` | b**z**ip2 |
+| `-J` | xz |
+| `--zstd` | zstd |
+| `-C <dir>` | **C**hange directory |
+| `-p` | **P**reserve permissions |
+| `--xform` | Path transform |
+| `--exclude=<pattern>` | Pattern bo'yicha chiqarib tashlash |
+
+## 4. Asosiy arxiv yaratish
+
+```bash
+# Faqat to'plash (siqishsiz)
+tar -cf archive.tar file1 file2 dir/
+
+# Verbose (ko'rsatish bilan)
+tar -cvf archive.tar dir/
+
+# Gzip bilan siqish (eng keng tarqalgan)
+tar -czf archive.tar.gz dir/
+
+# Bzip2 (sekinroq, kichikroq)
+tar -cjf archive.tar.bz2 dir/
+
+# Xz (eng sekin, eng kichik)
+tar -cJf archive.tar.xz dir/
+
+# Zstd (modern, tez va kichik)
+tar --zstd -cf archive.tar.zst dir/
+```
+
+## 5. Ochish
+
+```bash
+# Avtomatik tan oladi (modern tar)
+tar -xf archive.tar
+tar -xf archive.tar.gz
+tar -xf archive.tar.bz2
+
+# Explicit flag bilan ham
+tar -xzf archive.tar.gz
+tar -xjf archive.tar.bz2
+
+# Verbose
+tar -xvf archive.tar.gz
+
+# Boshqa joyga (-C)
+tar -xzf archive.tar.gz -C /tmp/
+
+# Faqat aniq fayl
+tar -xzf archive.tar.gz file1.txt
+
+# Wildcard bilan
+tar -xzf archive.tar.gz --wildcards '*.txt'
+```
+
+## 6. Ichini ko'rish
+
+```bash
+# Ro'yxat
+tar -tf archive.tar.gz
+
+# Batafsil (ls -la kabi)
+tar -tvf archive.tar.gz
+
+# Aniq fayl bormi
+tar -tf archive.tar.gz | grep "file1.txt"
+```
+
+## 7. Siqish formatlari taqqoslash
+
+| Format | Siqish | Tezlik | Foydalanish |
+|---|---|---|---|
+| `.tar` (siqishsiz) | 0% | Eng tez | Tezkor to'plash |
+| `.tar.gz` (`.tgz`) | ~70% | Tez | Eng keng tarqalgan |
+| `.tar.bz2` | ~75% | Sekin | Kichikroq |
+| `.tar.xz` | ~80% | Eng sekin | Eng kichik (sayt yuklab olishlar) |
+| `.tar.zst` | ~78% | Tez | Modern, balanslangan |
+
+```bash
+# Test misol — Linux kernel source
+ls -lh linux-6.8.tar*
+# 1.4G linux-6.8.tar
+# 220M linux-6.8.tar.gz       (15.7%)
+# 169M linux-6.8.tar.bz2      (12.1%)
+# 140M linux-6.8.tar.xz       (10.0%)
+# 155M linux-6.8.tar.zst      (11.1%)
+```
+
+## 8. Exclude pattern'lar
+
+```bash
+# Bitta
+tar -czf backup.tar.gz --exclude='*.log' /home/ali
+
+# Bir nechta
+tar -czf backup.tar.gz \
+    --exclude='*.log' \
+    --exclude='.cache' \
+    --exclude='node_modules' \
+    /home/ali
+
+# Fayldan
+tar -czf backup.tar.gz --exclude-from=/etc/backup-exclude.txt /home/ali
+```
+
+`/etc/backup-exclude.txt`:
+
+```
+*.log
+*.tmp
+.cache/
+.local/share/Trash/
+node_modules/
+__pycache__/
+```
+
+## 9. `-C` flag — directory change
+
+```bash
+# YOMON — to'liq yo'l arxivda
+cd /
+tar -czf backup.tar.gz /home/ali/Documents
+# Ochilganda /home/ali/Documents/ structure
+
+# YAXSHI — relative path
+cd /home/ali
+tar -czf backup.tar.gz Documents
+# Ochilganda Documents/ structure
+
+# Yoki -C bilan
+tar -czf backup.tar.gz -C /home/ali Documents
+```
+
+`-C` flag o'zgartirishlar tartibi muhim. Bir nechta `-C` bo'lsa, har biridan keyingi argumentlar yangi katalogga nisbatan.
+
+## 10. Inkremental backup — GNU tar
+
+```bash
+# To'liq backup (level 0)
+tar -g /var/backup/snapshot.snar \
+    -czf /backup/full.tar.gz \
+    /home/ali
+
+# Keyingi safar — inkremental (faqat o'zgarganlar)
+tar -g /var/backup/snapshot.snar \
+    -czf /backup/incr-$(date +%F).tar.gz \
+    /home/ali
+```
+
+`-g <snar_file>` — snapshot file, holatni saqlaydi. Birinchi marotaba — level 0 (full). Keyingilarda — inkremental.
+
+### Tiklash
+
+```bash
+# Avval full
+tar -xzf /backup/full.tar.gz -C /restore/
+
+# Keyin inkremental'larni tartib bo'yicha
+tar -xzf /backup/incr-2026-05-26.tar.gz -C /restore/
+tar -xzf /backup/incr-2026-05-27.tar.gz -C /restore/
+```
+
+`-g /dev/null` — incremental restore (faqat tarkib).
+
+## 11. Tar va pipe — stream
+
+```bash
+# Boshqa katalogga to'g'ridan-to'g'ri ko'chirish (siqishsiz, tezroq cp)
+tar -cf - source/ | tar -xf - -C /dest/
+
+# SSH orqali remote ga
+tar -czf - /home/ali | ssh user@server "cat > /backup/ali.tar.gz"
+
+# Yoki ochib darrov
+tar -czf - /home/ali | ssh user@server "tar -xzf - -C /backup/"
+
+# Boshqa tomondan — server'dan olish
+ssh user@server "tar -czf - /home/ali" | tar -xzf - -C /local/
+```
+
+## 12. Tar va progress bar
+
+```bash
+# pv (pipe viewer) bilan
+sudo apt install pv
+
+# Yaratish
+tar -czf - /home/ali | pv > backup.tar.gz
+
+# Ochish
+pv backup.tar.gz | tar -xzf - -C /restore/
+```
+
+## 13. Permissions va owner
+
+```bash
+# Default — saqlash
+tar -czpf backup.tar.gz /home/ali
+
+# Owner ham saqlash (root sifatida tar qilganda)
+tar -czpf backup.tar.gz --acls --xattrs /home/ali
+
+# Restore — owner'ni saqlash
+sudo tar -xzpf backup.tar.gz -C /restore/
+
+# Numeric UID/GID (boshqa tizimga restore)
+tar --numeric-owner -czf backup.tar.gz /home/ali
+```
+
+## 14. Hard link va symlink
+
+```bash
+# Hard link'larni saqlash (default)
+tar -czf backup.tar.gz /path
+
+# Symlink'ni target'ni nusxalash (dereferencing)
+tar -czhf backup.tar.gz /path
+# -h yoki --dereference
+
+# Sparse fayllar (efficient)
+tar -czSf backup.tar.gz /path
+```
+
+## 15. Misol — sayt deploy
+
+```bash
+# Sayt fayllarini tar qilish va server'ga yuborish
+tar -czf - --exclude='node_modules' --exclude='.git' . | \
+    ssh user@server "cd /var/www/site && tar -xzf -"
+```
+
+## 16. Misol — daily backup
+
+```bash
+#!/bin/bash
+# /usr/local/bin/daily-backup.sh
+
+set -euo pipefail
+
+SOURCE="/home/ali"
+DEST="/backup"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP="${DEST}/home-${TIMESTAMP}.tar.zst"
+
+# Backup
+tar --zstd -cf "${BACKUP}" \
+    --exclude='.cache' \
+    --exclude='node_modules' \
+    --exclude='__pycache__' \
+    "${SOURCE}"
+
+# Hajm va xulosa
+SIZE=$(du -h "${BACKUP}" | cut -f1)
+echo "Backup tugadi: ${BACKUP} (${SIZE})"
+
+# 30 kundan eskilarni o'chirish
+find "${DEST}" -name "home-*.tar.zst" -mtime +30 -delete
+```
+
+## 17. ZIP va boshqa formatlar
+
+Linux'da `zip`/`unzip` ham keng ishlatiladi (Windows mosligi):
+
+```bash
+sudo apt install zip unzip
+
+# Yaratish
+zip -r archive.zip dir/
+
+# Ochish
+unzip archive.zip
+
+# Ichini ko'rish
+unzip -l archive.zip
+```
+
+Boshqa formatlar:
+
+- `.7z` (7-zip) — eng yuqori siqish, `p7zip` paketda.
+- `.rar` — proprietary, `unrar` ochish uchun.
+
+## 18. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `tar -czf out.tar.gz dir/` | Yaratish (gzip) |
+| `tar -cJf out.tar.xz dir/` | Yaratish (xz) |
+| `tar --zstd -cf out.tar.zst dir/` | Yaratish (zstd) |
+| `tar -xf in.tar.gz` | Ochish (auto-detect) |
+| `tar -xf in.tar.gz -C /dest/` | Ochish boshqa joyga |
+| `tar -tf in.tar.gz` | Ichini ko'rish |
+| `tar -tvf in.tar.gz` | Batafsil |
+| `tar -czf - dir/ \| ssh ...` | Stream remote'ga |
+| `tar -g snar -czf ...` | Inkremental |
+
+## 19. Eng tez-tez uchraydigan xatolar
+
+- **Absolyut yo'l** — `tar -czf backup.tar.gz /home/ali` — ochilganda `/home/ali` strukturada. Relative path afzal.
+- **`-x` o'rniga `-c`** — accidently mavjud backup'ni qayta yaratish — yo'qotish.
+- **Permissions yo'qoldi** — `-p` flag (lekin default'da root'ga olinadi). Oddiy foydalanuvchi sifatida tar — owner yo'qoladi.
+- **xz juda sekin** — katta fayllarda. Modern: zstd.
+- **Inkremental snapshot yo'q** — `-g` flag kerak.
+- **Big tar — pv'siz progress yo'q** — `pv` orqali ko'rinadi.
+
+## 20. Eng yaxshi amaliyot
+
+- **`-zf`** (yoki modern `-cJf`/`--zstd -cf`) — har vaqt siqish bilan.
+- **`-C`** orqali working directory tozaroq arxiv.
+- **`--exclude`** keraksiz fayllar uchun (logs, cache).
+- **Inkremental backup** uzoq muddatli backup uchun.
+- **`-p` va `--xattrs`** to'liq saqlash uchun.
+- **`-` (stdout)** stream uchun — SSH, pipe.
+- **Modern: `zstd`** — gzip o'rniga.
+- **Test restore** — backup tirikligini tasdiqlash.
+
+## 21. Mashqlar
+
+1. **Asosiy:** `mkdir /tmp/test && touch /tmp/test/{a,b,c}.txt && tar -czf /tmp/test.tar.gz -C /tmp test`. Tekshirish: `tar -tf /tmp/test.tar.gz`.
+2. **Ochish:** `tar -xzf /tmp/test.tar.gz -C /tmp/extracted/`. Fayllar bormi?
+3. **Exclude:** `tar -czf /tmp/backup.tar.gz --exclude='*.tmp' /tmp/test`.
+4. **Format farqi:** Bir xil katalogni `.gz`, `.xz`, `.zst` formatlarda yarating. Hajmlarni `ls -lh` bilan solishtiring.
+5. **Stream:** `tar -czf - /tmp/test | ssh user@server "cat > /tmp/remote.tar.gz"` (server bo'lsa).
+6. **Inkremental:** `tar -g /tmp/snap.snar -czf /tmp/full.tar.gz /tmp/test`. Fayl qo'shing va keyingi inkremental.
+
+## 22. Bilim sinovi
+
+**Savol 1.** `tar -czf` — bu nima qiladi?
+
+- a) Ochish
+- b) Gzip bilan siqilgan tar yaratish (`-c` create, `-z` gzip, `-f` file)
+- c) Faqat ko'rish
+- d) O'chirish
+
+<Callout type="success" title="Javob">
+**(b)** Asosiy create + gzip + fayl.[¹](https://www.gnu.org/software/tar/manual/tar.html)
+</Callout>
+
+**Savol 2.** Eng kichik siqish formati:
+
+- a) gzip
+- b) bzip2
+- c) xz
+- d) zstd
+
+<Callout type="success" title="Javob">
+**(c)** xz — eng yuqori siqish, lekin eng sekin. zstd — yaxshi muvozanat.
+</Callout>
+
+**Savol 3.** Inkremental tar backup:
+
+- a) `tar -i`
+- b) `tar -g <snar-file> ...`
+- c) `tar --incremental`
+- d) Mumkin emas
+
+<Callout type="success" title="Javob">
+**(b)** `-g` snapshot file bilan.
+</Callout>
+
+**Savol 4.** SSH orqali stream:
+
+- a) `tar -czf backup.tar.gz dir && scp backup.tar.gz server:`
+- b) `tar -czf - dir | ssh server "cat > backup.tar.gz"` (oraliq fayl yo'q)
+- c) `rsync` faqat
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** Pipe orqali to'g'ridan-to'g'ri — disk joyi tejaladi.
+</Callout>
+
+**Savol 5.** Owner va permissions saqlash:
+
+- a) `-p` flag va root sifatida ish
+- b) Default'da
+- c) Faqat `-x` bilan
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(a)** `-p` preserve. Root sifatida tar — owner saqlanadi.
+</Callout>
+
+## Manbalar
+
+1. GNU tar Manual. [https://www.gnu.org/software/tar/manual/tar.html](https://www.gnu.org/software/tar/manual/tar.html)
+2. tar(1). [https://manpages.debian.org/bookworm/tar/tar.1.en.html](https://manpages.debian.org/bookworm/tar/tar.1.en.html)
+
+## Keyingi qadam
+
+👉 [Compression — gzip, xz, zstd](/fundamentals/compression)

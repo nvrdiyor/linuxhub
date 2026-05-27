@@ -1,0 +1,173 @@
+---
+title: "Manjaro o'rnatish"
+description: "Manjaro ISO yuklab olish, bootable USB tayyorlash va Calamares orqali o'rnatish."
+order: 2
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/manjaro/installation/requirements"
+learning_objectives:
+  - "ISO yuklab olish va tekshirish"
+  - "Bootable USB tayyorlash"
+  - "Calamares o'rnatuvchi qadamlari"
+tags: ["manjaro", "installation", "calamares"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Wiki — Installation with the Graphical Installer"
+    url: "https://wiki.manjaro.org/index.php/Installation_with_the_Graphical_Installer"
+  - title: "Manjaro Download"
+    url: "https://manjaro.org/download/"
+---
+
+Manjaro Calamares o'rnatuvchisi bilan keladi — grafik, oson, 20-30 daqiqa. Bu darsda bosqichma-bosqich ko'rib chiqamiz.[¹](https://wiki.manjaro.org/index.php/Installation_with_the_Graphical_Installer)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- ISO yuklab olish va SHA tekshiruvi.
+- Bootable USB.
+- Calamares qadamlar.
+</Callout>
+
+## 1. ISO yuklab olish
+
+[manjaro.org/download](https://manjaro.org/download/) dan tanlang:
+
+- **XFCE** — yengil, default.
+- **GNOME** — modern.
+- **KDE Plasma** — to'liq.
+
+SHA tekshiruvi:
+
+```bash
+# Linux/macOS
+sha256sum manjaro-xfce-XX.X-stable-x86_64.iso
+
+# Windows PowerShell
+Get-FileHash manjaro-xfce-XX.X-stable-x86_64.iso -Algorithm SHA256
+```
+
+## 2. Bootable USB
+
+### Windows — Rufus
+
+1. Rufus oching.
+2. USB tanlang (8 GB+).
+3. ISO tanlang.
+4. **DD Image mode** ni tavsiya — Manjaro ko'pincha ISO Hybrid mode'da yaxshi ishlaydi.
+5. START.
+
+### Linux — `dd`
+
+```bash
+lsblk    # USB qaysi qurilma
+
+sudo dd if=manjaro-xfce-XX.X-stable-x86_64.iso of=/dev/sdb bs=4M status=progress conv=fdatasync
+```
+
+## 3. USB'dan yuklash
+
+1. Kompyuterni o'chiring, USB ulang, yoqing.
+2. Boot menyu (`F12`, `F10`, `Esc`).
+3. USB tanlang.
+4. GRUB:
+   - **Boot with open source drivers** — default.
+   - **Boot with proprietary drivers** — NVIDIA va boshqa.
+5. Live session ochiladi. Ish stoli'da **Install Manjaro** iconini bosing.
+
+## 4. Calamares qadamlar
+
+<Steps>
+  <Step title="Til">
+    English yoki Russian.
+  </Step>
+  <Step title="Joylashuv">
+    Vaqt mintaqasi — Asia/Tashkent.
+  </Step>
+  <Step title="Klaviatura">
+    English (US) yoki o'zbek/rus.
+  </Step>
+  <Step title="Disk bo'limi">
+    - **Erase disk** — diskni butunlay tozalash.
+    - **Replace a partition** — mavjudini almashtirish.
+    - **Manual partitioning** — qo'lda nazorat.
+    - **Encrypt system** — LUKS shifrlash (tavsiya laptop uchun).
+
+    Manjaro **btrfs** ham qo'llab-quvvatlaydi (snapshot uchun) va **swap with hibernation** opsiyasi.
+  </Step>
+  <Step title="Foydalanuvchi">
+    Foydalanuvchi nomi, hostname, parol. "Use the same password for the administrator account" — Ubuntu uslubi.
+  </Step>
+  <Step title="Office suite">
+    LibreOffice, FreeOffice yoki yo'q — tanlang.
+  </Step>
+  <Step title="Yakuniy ko'rinish">
+    Hammasini tasdiqlash.
+  </Step>
+  <Step title="O'rnatish">
+    20-30 daqiqa. So'ng **Restart Now**.
+  </Step>
+</Steps>
+
+## 5. Birinchi yuklanishdan keyin
+
+```bash
+# Versiya
+cat /etc/lsb-release
+
+# Yangilash (Manjaro Stable branchda — sinovdan o'tgan paketlar)
+sudo pacman -Syu
+
+# Hardware autodetect — kerakli drayverlarni avtomatik
+sudo mhwd -a pci free 0300       # bepul drayverlar
+sudo mhwd -a pci nonfree 0300    # nonfree (NVIDIA proprietary)
+```
+
+## 6. Manjaro Hello — birinchi yordamchi
+
+Birinchi yuklanishda **Manjaro Hello** dasturi ochiladi. U taklif qiladi:
+
+- Tilni o'zgartirish.
+- Drayverlarni o'rnatish.
+- Asosiy ilovalarni tanlash.
+- Hujjatlar va forum havolasi.
+
+Yangi foydalanuvchilarga **juda foydali**.
+
+## 7. Mashqlar
+
+1. (Virtual mashinada) Manjaro XFCE'ni o'rnating. Calamares qadamlarni eslang.
+2. O'rnatishdan keyin `mhwd -li` — qaysi drayverlar avtomatik o'rnatilgan?
+3. `pacman -Syu` ni bajaring — yangilanishlar bormi?
+
+## 8. Bilim sinovi
+
+**Savol 1.** Manjaro o'rnatuvchisi nomi:
+
+- a) Anaconda
+- b) Ubiquity
+- c) Calamares
+- d) Subiquity
+
+<Callout type="success" title="Javob">
+**(c)** Calamares — universal Linux installer.
+</Callout>
+
+**Savol 2.** Manjaro'da yangilanish buyrug'i:
+
+- a) `apt upgrade`
+- b) `pacman -Syu`
+- c) `dnf upgrade`
+- d) `zypper update`
+
+<Callout type="success" title="Javob">
+**(b)** `pacman -Syu` — Arch va Manjaro'da standart.
+</Callout>
+
+## Manbalar
+
+1. Manjaro Wiki — Installation with the Graphical Installer. [https://wiki.manjaro.org/index.php/Installation_with_the_Graphical_Installer](https://wiki.manjaro.org/index.php/Installation_with_the_Graphical_Installer)
+2. Manjaro Download. [https://manjaro.org/download/](https://manjaro.org/download/)
+
+## Keyingi qadam
+
+👉 [Desktop muhitlari](/manjaro/installation/desktop-environments)

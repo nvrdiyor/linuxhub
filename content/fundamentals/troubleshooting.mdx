@@ -1,0 +1,411 @@
+---
+title: "Muammolarni hal qilish"
+description: "Linux'da muammolarni tashxis qilish algoritmi — loglar, jarayonlar, tarmoq, disk va boot muammolari."
+order: 3
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/fundamentals/logs"
+  - "/fundamentals/monitoring"
+learning_objectives:
+  - "Tizimli tashxis algoritmiga ega bo'lish"
+  - "Asosiy muammo kategoriyalarini ajratish (boot, disk, tarmoq, xizmat)"
+  - "Diagnostika vositalarini birlashtirib ishlatish"
+tags: ["advanced", "troubleshooting", "diagnostics"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — General troubleshooting"
+    url: "https://wiki.archlinux.org/title/General_troubleshooting"
+  - title: "Ubuntu — Recovery mode"
+    url: "https://help.ubuntu.com/community/RecoveryMode"
+  - title: "Debian Reference — System troubles"
+    url: "https://www.debian.org/doc/manuals/debian-reference/ch09.en.html"
+---
+
+Muammoni hal qilishda asosiy qoida: **avval o'lchang, keyin tuzating**. Tushuncha asosida emas, ma'lumot asosida ishlash. Bu darsda umumiy tashxis algoritmi va asosiy muammo turlari uchun yondashuvni ko'rib chiqamiz.[¹](https://wiki.archlinux.org/title/General_troubleshooting)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Tashxis algoritmi: muammo → ma'lumot yig'ish → gipoteza → sinov.
+- Asosiy kategoriyalar: boot, disk, tarmoq, xizmat, ruxsat.
+- Diagnostika "to'plami": har bir vaziyat uchun birinchi qadam.
+</Callout>
+
+## 1. Asosiy algoritm
+
+```
+┌────────────────────────────────────────────────────────┐
+│  1. Muammoni aniq ifodalash                            │
+│     "X bajarmoqchiman, lekin Y xatosi chiqyapti"      │
+├────────────────────────────────────────────────────────┤
+│  2. Ma'lumot yig'ish                                   │
+│     loglar, jarayonlar, holat                          │
+├────────────────────────────────────────────────────────┤
+│  3. Gipoteza qurish                                    │
+│     "Sabab bo'lishi mumkin: ..."                       │
+├────────────────────────────────────────────────────────┤
+│  4. Sinov                                              │
+│     Eng kichik o'zgartirish bilan tekshirish           │
+├────────────────────────────────────────────────────────┤
+│  5. Tuzatish va hujjatlashtirish                       │
+└────────────────────────────────────────────────────────┘
+```
+
+**Qoida:** bir vaqtning o'zida faqat **bitta narsani** o'zgartiring. Aks holda nima yordam berganini bilolmaysiz.
+
+## 2. Birinchi qadam: vaziyatni o'rganish
+
+Har qanday muammo uchun bu uchta buyruq foydali:
+
+```bash
+# 1. Tizim umumiy holati
+systemctl status
+uptime
+
+# 2. So'nggi xatolar
+sudo journalctl -p err --since "1 hour ago"
+
+# 3. Disk va xotira
+df -h
+free -h
+```
+
+## 3. Xizmat ishlamayapti
+
+```bash
+# Holatni ko'rish
+systemctl status nginx
+
+# Misol chiqish:
+# ● nginx.service - A high performance web server
+#    Loaded: loaded (/lib/systemd/system/nginx.service; enabled)
+#    Active: failed (Result: exit-code) since ...
+
+# Batafsil loglar
+sudo journalctl -u nginx -n 50
+
+# Xato sintaksis emasligini tekshirish
+sudo nginx -t
+
+# Port band emasligini
+sudo ss -tunlp | grep :80
+```
+
+**Tipik sabablar:**
+
+- Konfiguratsiya fayli sintaksis xatosi.
+- Boshqa jarayon portni band qilgan.
+- Ruxsat muammosi (fayllarga `nginx` foydalanuvchisi kira olmaydi).
+- Yetishmagan dependensiyalar.
+
+## 4. Yuklanish (boot) muammosi
+
+### Tizim umuman yuklanmaydi
+
+1. **GRUB menyusiga kiring** — yuklanishda `Shift` (BIOS) yoki `Esc` (UEFI).
+2. **Recovery mode** ni tanlang (Ubuntu/Debian).
+3. **Read-only fayl tizimini read-write qiling:**
+   ```bash
+   mount -o remount,rw /
+   ```
+4. **Eski yadroga o'ting** — GRUB → Advanced options → Eski versiyani tanlang.
+
+### Tizim yuklandi, lekin xizmatlar ishlamayapti
+
+```bash
+# Yuklanish vaqti tahlili
+systemd-analyze
+
+# Sekin xizmatlar
+systemd-analyze blame | head -10
+
+# Boot kritik yo'l
+systemd-analyze critical-chain
+
+# Xato bilan to'xtaganlar
+systemctl --failed
+```
+
+## 5. Disk muammosi
+
+### Disk to'lgan
+
+```bash
+df -h
+# Misol — `/` 100%
+
+# Qaerda joy yo'qolgan?
+sudo du -h --max-depth=1 / 2>/dev/null | sort -rh | head -10
+
+# Katta loglar
+sudo du -sh /var/log/*
+sudo journalctl --vacuum-size=200M
+
+# Eski paketlar
+sudo apt clean
+sudo apt autoremove
+
+# Docker (agar ishlatsangiz)
+docker system prune -a
+```
+
+### Inode'lar to'lgan (kichik fayllar ko'p)
+
+```bash
+df -i
+# Inodes ham 100% bo'lsa, ko'p kichik fayllar bor
+
+# Qaerda?
+sudo find /var -type f | cut -d/ -f1-4 | sort | uniq -c | sort -rn | head
+```
+
+### Disk xatolari
+
+```bash
+# Disk SMART holati (smartmontools)
+sudo apt install smartmontools
+sudo smartctl -a /dev/sda
+
+# Disk kontrol summa xatolarini tekshirish
+sudo fsck /dev/sda1   # MUHIM: faqat unmount'da
+```
+
+## 6. Tarmoq muammosi
+
+Tarmoq darslar darsidagi algoritm:
+
+```bash
+# 1. Interfeys va IP
+ip -brief addr
+
+# 2. Gateway
+ip route | grep default
+
+# 3. Lokal tarmoq
+ping -c 4 <gateway>
+
+# 4. Internet (DNS chetlab o'tish)
+ping -c 4 8.8.8.8
+
+# 5. DNS
+dig google.com
+
+# 6. To'liq URL
+curl -I https://google.com
+```
+
+Har bir bosqichdagi xato muammoning manbai.
+
+## 7. Sekinlik
+
+```bash
+# CPU
+top   # M (RAM bo'yicha saralash), P (CPU bo'yicha)
+htop  # ranglik
+
+# Disk I/O
+sudo iotop
+iostat -dx 2
+
+# Tarmoq
+sudo iftop -i eth0
+
+# Tarmoq ulanishlari soni
+ss -t | wc -l
+```
+
+**Tipik sabablar:**
+
+- Yuqori `load average` (CPU yetishmayapti).
+- Disk to'lgan / I/O wait yuqori.
+- Swap aktiv (RAM yetishmayapti).
+- DNS sekin (har bir so'rovga timeout).
+
+## 8. Ruxsat muammosi
+
+```
+Permission denied
+```
+
+```bash
+# Fayl egasi va ruxsat
+ls -la fayl
+
+# Joriy foydalanuvchi va guruhlar
+id
+
+# Katalog ruxsatlari (yuqoriga)
+namei -l /var/www/html/index.html
+
+# SELinux (Fedora, RHEL)
+ls -Z fayl
+sealert -a /var/log/audit/audit.log
+
+# AppArmor (Ubuntu)
+sudo aa-status
+sudo dmesg | grep DENIED
+```
+
+## 9. Paket muammosi
+
+```bash
+# Yarim o'rnatilgan paketlar
+sudo dpkg --configure -a
+
+# Bog'liqlik nizolari
+sudo apt install -f
+
+# Toza yangilanish
+sudo apt update --fix-missing
+sudo apt upgrade
+
+# `held` paketlar
+apt-mark showhold
+
+# Paketni qayta o'rnatish (purge + install)
+sudo apt purge <paket>
+sudo apt install <paket>
+```
+
+## 10. Maxsus diagnostika vositalari
+
+| Vosita | Maqsad |
+|---|---|
+| `strace -p <PID>` | Jarayonning sistem chaqiruvlarini kuzatish |
+| `ltrace -p <PID>` | Kutubxona chaqiruvlarini kuzatish |
+| `lsof` | Ochiq fayllar va portlar |
+| `dmesg -T` | Yadro xabarlari (vaqt bilan) |
+| `tcpdump -i eth0` | Tarmoq paketlari |
+| `perf top` | Performance profiling |
+
+Misollar:
+
+```bash
+# Jarayon qaysi fayllarni ochgan?
+sudo lsof -p <PID>
+
+# Bir aniq port qaysi jarayon?
+sudo lsof -i :80
+
+# Yadro xabarlari (oxirgi 10)
+sudo dmesg -T | tail -10
+```
+
+## 11. Amaliy misol — "veb-sayt ishlamayapti"
+
+```bash
+# 1. Xizmat ishlayaptimi?
+systemctl status nginx
+# Active: active (running) — OK
+
+# 2. Port tinglanyaptimi?
+sudo ss -tlnp | grep :80
+# LISTEN 80 nginx — OK
+
+# 3. Firewall'ga ruxsat bormi?
+sudo ufw status
+# Status: active
+# 80/tcp ALLOW — OK
+
+# 4. Lokal'dan ulanishni sinash
+curl -I http://localhost
+# HTTP/1.1 200 OK — OK
+
+# 5. Tashqi IP'dan?
+curl -I http://1.2.3.4
+# Connection refused — MUAMMO
+
+# 6. Public IP'ga firewall ochiqmi?
+sudo iptables -L -n
+# Yoki cloud provider firewall (AWS Security Group, ...)
+```
+
+Diagnostika ortga emas, **mantiqiy zanjir** bilan yuradi.
+
+## 12. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `systemctl status` | Tizim yoki xizmat holati |
+| `journalctl -p err` | Xatolar |
+| `df -h`, `du -sh` | Disk |
+| `free -h` | RAM |
+| `top`, `htop` | CPU va RAM |
+| `ip a`, `ss -tunlp` | Tarmoq |
+| `dmesg -T` | Yadro xabarlari |
+| `strace -p <PID>` | Sistem chaqiruvlari |
+| `lsof -p <PID>` | Ochiq fayllar |
+| `nginx -t`, `apachectl configtest` | Konfiguratsiya tekshiruvi |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **"Tizimni qayta yuklash" oldidan log o'qimaslik** — restart ko'pincha muammoni yashiradi, lekin sabab qoladi.
+- **Bir vaqtda bir nechta narsani o'zgartirish** — natija haqida hech narsa bilolmaysiz.
+- **`sudo` umumiy javob deb hisoblash** — ko'p hollarda kerak emas; xato vaziyatda ishlatish boshqa muammolar yaratadi.
+- **Loglarni hech qachon o'qimaslik** — `journalctl -p err` ko'p javoblar bo'ladi.
+- **"Mening kompyuterimda ishlaydi"** — versiyalar, konfiguratsiya, muhit farqi.
+
+## 14. Eng yaxshi amaliyot
+
+- **Hujjatlash:** Har bir muammo va yechim bilan blokirovkalangan `~/.troubleshooting-notes.md` fayli yuriting.
+- **Eng kichik tuzatish:** Ko'plab parametrlarni bir vaqtda o'zgartirmang.
+- **Backup avval:** Konfiguratsiya faylini o'zgartirishdan oldin `cp nginx.conf nginx.conf.bak`.
+- **Yozma harakatlash rejasi:** Murakkab muammo uchun avval yozing — bu mantiqni aniqlashtiradi.
+- **StackOverflow ko'r-ko'rona emas:** Echim manbasini tushuning. Sizning vaziyatingiz bilan mos kelmasligi mumkin.
+- **`man <buyruq>` o'qing** — javoblar ko'pincha rasmiy hujjatda.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Birinchi qaysi buyruq xizmatning holatini ko'rsatadi?
+
+- a) `service status <xizmat>`
+- b) `systemctl status <xizmat>`
+- c) `ps aux | grep <xizmat>`
+- d) Hammasi to'g'ri, lekin `b` zamonaviyroq
+
+<Callout type="success" title="Javob">
+**(d)** Hammasi ma'lumot beradi, lekin `systemctl status` eng to'liq va modern Linux'da standart.
+</Callout>
+
+**Savol 2.** Disk to'lganda nimani birinchi tekshirish kerak?
+
+- a) `top`
+- b) `df -h` va keyin katta katalog uchun `du -sh`
+- c) `free -h`
+- d) Tizimni qayta yuklash
+
+<Callout type="success" title="Javob">
+**(b)** `df -h` — qaysi disk to'lganini ko'rsatadi; `du` — qaerda joy yo'qolganini.
+</Callout>
+
+**Savol 3.** Jarayon nima qilayotganini ko'rish (sistem chaqiruvlari) uchun:
+
+- a) `strace`
+- b) `gdb`
+- c) `top`
+- d) `ps`
+
+<Callout type="success" title="Javob">
+**(a)** `strace -p <PID>` jarayonning yadroga qilgan barcha so'rovlarini ko'rsatadi.
+</Callout>
+
+## 16. Mashq
+
+Quyidagi sun'iy muammo uchun diagnostika algoritmingizni yozing:
+
+> "Saytim `https://example.com` ochilmaydi. `curl` 503 qaytaradi."
+
+Kamida 6 ta bosqich yozing, har birida:
+- Qaysi buyruqni ishlataman.
+- Nima ko'rmoqchiman.
+- Agar muammo aniqlansa, qanday yechaman.
+
+## Manbalar
+
+1. ArchWiki — General troubleshooting. [https://wiki.archlinux.org/title/General_troubleshooting](https://wiki.archlinux.org/title/General_troubleshooting)
+2. Ubuntu — Recovery mode. [https://help.ubuntu.com/community/RecoveryMode](https://help.ubuntu.com/community/RecoveryMode)
+3. Debian Reference — System troubles. [https://www.debian.org/doc/manuals/debian-reference/ch09.en.html](https://www.debian.org/doc/manuals/debian-reference/ch09.en.html)
+
+## Keyingi qadam
+
+👉 [Zaxiralash strategiyalari](/fundamentals/backup-strategies)

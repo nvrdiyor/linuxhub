@@ -1,0 +1,500 @@
+---
+title: "Samba (SMB/CIFS) — Windows bilan fayl sharing"
+description: "Linux'da Samba server o'rnatish — Windows klientlar uchun fayl ulashish, foydalanuvchi boshqaruv va xavfsizlik."
+order: 118
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/users-groups"
+  - "/fundamentals/networking"
+learning_objectives:
+  - "Samba arxitekturasi"
+  - "smb.conf konfiguratsiyasi"
+  - "Foydalanuvchilar va share'lar"
+  - "Klient ulanish (Linux, Windows)"
+tags: ["advanced", "samba", "smb", "cifs", "windows"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Samba — Official"
+    url: "https://www.samba.org/"
+  - title: "ArchWiki — Samba"
+    url: "https://wiki.archlinux.org/title/Samba"
+  - title: "Ubuntu — Samba"
+    url: "https://ubuntu.com/server/docs/samba-introduction"
+---
+
+**Samba** — Linux'da Windows fayl protokoli (SMB/CIFS)ni amalga oshirish. Linux server'dan Windows klient'lar fayllarga kira oladi, va aksincha. Bu darsda Samba server'ni o'rnatish va xavfsiz sozlashni o'rganamiz.[¹](https://www.samba.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Samba arxitekturasi (smbd, nmbd).
+- `smb.conf` strukturasi.
+- Share'lar va foydalanuvchilar.
+- Linux va Windows'dan ulanish.
+- Xavfsizlik amaliyoti.
+</Callout>
+
+## 1. Samba nima?
+
+Samba — Server Message Block (SMB) protokolining Unix realizatsiyasi. SMB — Windows'ning native fayl sharing protokoli. CIFS — eski nomi.
+
+Komponentlar:
+
+- **smbd** — fayl va printer sharing.
+- **nmbd** — NetBIOS naming.
+- **winbindd** — Windows domain integratsiya.
+
+## 2. O'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install samba
+
+# Fedora/RHEL
+sudo dnf install samba samba-client
+
+# Arch
+sudo pacman -S samba
+
+# Yoqish
+sudo systemctl enable --now smbd nmbd
+```
+
+## 3. `/etc/samba/smb.conf` asoslari
+
+```ini
+[global]
+   workgroup = WORKGROUP
+   server string = Samba Server %v
+   server role = standalone server
+   security = user
+   map to guest = bad user
+   dns proxy = no
+   log file = /var/log/samba/log.%m
+   max log size = 1000
+   client min protocol = SMB2
+   client max protocol = SMB3
+
+# Default home share
+[homes]
+   comment = Home Directories
+   browseable = no
+   read only = no
+   create mask = 0700
+   directory mask = 0700
+   valid users = %S
+
+# Public share (read-only)
+[public]
+   comment = Public Files
+   path = /srv/samba/public
+   browseable = yes
+   read only = yes
+   guest ok = yes
+
+# Private share
+[private]
+   comment = Private Files
+   path = /srv/samba/private
+   browseable = yes
+   read only = no
+   valid users = ali, bob, @developers
+   write list = ali
+   create mask = 0660
+   directory mask = 0770
+```
+
+## 4. Konfiguratsiya parametrlari
+
+| Parametr | Ma'no |
+|---|---|
+| `workgroup` | Windows workgroup nomi |
+| `server role` | standalone server, member server, ad dc |
+| `security` | user (default), share (legacy), domain (AD) |
+| `path` | Server'da share katalogi |
+| `valid users` | Kim kira oladi |
+| `write list` | Kim yoza oladi (read-only override) |
+| `read only` | Default rejim |
+| `browseable` | Network'da ko'rinadimi |
+| `guest ok` | Mehmon (anonim) ulanish |
+| `create mask` | Yangi fayl ruxsati |
+| `directory mask` | Yangi katalog ruxsati |
+| `force user` | Hamma fayllarni shu user'dan |
+| `force group` | Hamma fayllarni shu group'dan |
+
+## 5. Foydalanuvchilar — `smbpasswd`
+
+Samba o'zining alohida foydalanuvchilar bazasiga ega. Linux user mavjud bo'lishi kerak, lekin Samba uchun parol alohida.
+
+```bash
+# 1. Linux user yaratish
+sudo useradd -M -s /sbin/nologin sambauser
+# yoki mavjud user — alice
+
+# 2. Samba parolini o'rnatish
+sudo smbpasswd -a alice
+
+# 3. Yoqish (default'da yoqilgan)
+sudo smbpasswd -e alice
+
+# Ko'rish
+sudo pdbedit -L
+```
+
+## 6. Share katalog tayyorlash
+
+```bash
+# Katalog yaratish
+sudo mkdir -p /srv/samba/public
+sudo mkdir -p /srv/samba/private
+
+# Ruxsatlar (faqat Linux darajasidagi)
+sudo chown -R nobody:nogroup /srv/samba/public
+sudo chmod -R 0775 /srv/samba/public
+
+sudo chown -R alice:developers /srv/samba/private
+sudo chmod -R 0770 /srv/samba/private
+```
+
+## 7. Konfiguratsiyani tekshirish
+
+```bash
+# Sintaksis tekshirish
+sudo testparm
+
+# Joriy holat
+sudo smbstatus
+```
+
+## 8. Restart va firewall
+
+```bash
+sudo systemctl restart smbd nmbd
+
+# Firewall (UFW)
+sudo ufw allow Samba
+
+# Yoki manual
+sudo ufw allow 445/tcp     # SMB
+sudo ufw allow 139/tcp     # NetBIOS Session
+sudo ufw allow 137/udp     # NetBIOS Name
+sudo ufw allow 138/udp     # NetBIOS Datagram
+```
+
+## 9. Linux klient'dan ulanish
+
+### CLI — `smbclient`
+
+```bash
+sudo apt install smbclient
+
+# Server share'larini ko'rish
+smbclient -L //server -U alice
+
+# Aniq share'ga ulanish (FTP kabi)
+smbclient //server/private -U alice
+# smb: \> ls
+# smb: \> get file.txt
+# smb: \> put localfile.txt
+# smb: \> exit
+```
+
+### Mount
+
+```bash
+sudo apt install cifs-utils
+
+# Vaqtinchalik
+sudo mount -t cifs //server/private /mnt/share \
+    -o username=alice,password=secret,uid=1000,gid=1000
+
+# fstab — credentials fayli
+sudo nano /etc/samba/.credentials
+```
+
+```
+username=alice
+password=secret
+domain=WORKGROUP
+```
+
+```bash
+sudo chmod 600 /etc/samba/.credentials
+```
+
+`/etc/fstab`:
+
+```
+//server/private  /mnt/share  cifs  credentials=/etc/samba/.credentials,uid=1000,gid=1000,_netdev,nofail  0 0
+```
+
+### GNOME Files
+
+`Other Locations` → `smb://server/private` → parol kiritish.
+
+## 10. Windows klient'dan ulanish
+
+File Explorer → manzil satriga:
+
+```
+\\server-ip\private
+```
+
+yoki
+
+```
+\\server-name\private
+```
+
+Username/parol so'raydi (Samba credential'lar).
+
+### Tarmoq diskiga ulash
+
+`Map Network Drive` → letter tanlang → `\\server\share`.
+
+## 11. Misol — uy server (NAS)
+
+Uy server'i Linux, fayllarni hammasi (Windows, macOS, Linux) o'qiy oladigan share:
+
+```ini
+[global]
+   workgroup = WORKGROUP
+   server string = Uy NAS
+   security = user
+   map to guest = bad user
+
+[Documents]
+   path = /srv/nas/documents
+   valid users = @family
+   read only = no
+   create mask = 0660
+   directory mask = 0770
+
+[Public]
+   path = /srv/nas/public
+   guest ok = yes
+   read only = yes
+```
+
+```bash
+# Linux side
+sudo groupadd family
+sudo usermod -aG family alice
+sudo usermod -aG family bob
+
+sudo smbpasswd -a alice
+sudo smbpasswd -a bob
+
+sudo mkdir -p /srv/nas/{documents,public}
+sudo chown :family /srv/nas/documents
+sudo chmod 0770 /srv/nas/documents
+
+sudo testparm
+sudo systemctl restart smbd nmbd
+```
+
+## 12. Active Directory integratsiya
+
+Enterprise muhitida Samba AD member server bo'lishi mumkin:
+
+```bash
+sudo apt install samba sssd realmd
+
+# AD ga qo'shish
+sudo realm join example.com -U Administrator
+```
+
+`smb.conf`:
+
+```
+[global]
+   workgroup = EXAMPLE
+   realm = EXAMPLE.COM
+   security = ads
+```
+
+So'ng AD foydalanuvchilari Samba share'larga ulanish mumkin.
+
+## 13. Misol — printer sharing
+
+```ini
+[printers]
+   comment = All Printers
+   path = /var/spool/samba
+   browseable = no
+   guest ok = no
+   writable = no
+   printable = yes
+   create mask = 0700
+```
+
+Windows klient'lar Linux CUPS printer'iga ulana oladi.
+
+## 14. Xavfsizlik
+
+### SMB protokolini cheklash
+
+SMB1 — juda zaif (WannaCry hujumi). Modern Samba SMB2/SMB3 default:
+
+```ini
+[global]
+   server min protocol = SMB2
+   client min protocol = SMB2
+```
+
+### Shifrlash
+
+```ini
+[global]
+   smb encrypt = required
+```
+
+Yoki per-share:
+
+```ini
+[private]
+   smb encrypt = required
+```
+
+### IP cheklash
+
+```ini
+[global]
+   hosts allow = 192.168.1.0/24
+   hosts deny = 0.0.0.0/0
+```
+
+### Faqat ma'lum interfeyslar
+
+```ini
+[global]
+   interfaces = eth0 lo
+   bind interfaces only = yes
+```
+
+## 15. Monitoring va debug
+
+```bash
+# Faol ulanishlar
+sudo smbstatus
+
+# Faqat session'lar
+sudo smbstatus -p
+
+# Ochiq fayllar
+sudo smbstatus -L
+
+# Loglar
+sudo tail -f /var/log/samba/log.smbd
+```
+
+## 16. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `testparm` | smb.conf sintaksis tekshirish |
+| `smbpasswd -a <user>` | Samba user qo'shish |
+| `smbpasswd -e <user>` | Faollashtirish |
+| `smbpasswd -d <user>` | O'chirish |
+| `pdbedit -L` | Samba user'lar ro'yxati |
+| `smbstatus` | Faol ulanishlar |
+| `smbclient -L //server` | Server share'lari |
+| `smbclient //server/share -U user` | Interaktiv mount |
+| `sudo mount -t cifs //server/share /mnt -o user=...` | Mount |
+
+## 17. Eng tez-tez uchraydigan xatolar
+
+- **Linux ruxsati vs Samba ruxsati** — ikkalasi ham mos kelishi kerak. Samba `valid users` ruxsat berishi mumkin, lekin Linux'da `chmod 700` bo'lsa, hech narsa ko'rinmaydi.
+- **`smb.conf` sintaksis xato** — `testparm` bilan tekshiring.
+- **Firewall bloklanmagan portlar** — 445 majburiy, NetBIOS qo'shimcha.
+- **`smbpasswd` Linux parolidan farqli** — Samba alohida.
+- **Yangi user `pdbedit -L` da yo'q** — `smbpasswd -a` qilmaslik.
+- **SMB1 yoqilgan** — eski Windows kompyuterlar uchun lekin xavfli.
+
+## 18. Eng yaxshi amaliyot
+
+- **SMB2/SMB3 majburiy** — SMB1 o'chirish.
+- **`testparm`** har o'zgartirishdan keyin.
+- **Credentials fayli `chmod 600`** — parol himoyasi.
+- **Per-share `valid users`** — granular boshqaruv.
+- **`hosts allow` / firewall** — IP cheklash.
+- **`smb encrypt = required`** — sensitive ma'lumotlar uchun.
+- **Linux user va group bilan birga** — `force group = developers` umumiy ish uchun.
+- **Logging yoqilgan** — debug uchun.
+- **Backup `/etc/samba/smb.conf`.**
+
+## 19. Mashqlar
+
+1. **Server o'rnatish:** Samba'ni o'rnating va minimal `smb.conf` yarating.
+2. **User qo'shish:** `sudo smbpasswd -a $USER` qiling.
+3. **Test share:** `[test]` share qo'shing — `/tmp/samba-test` yo'l bilan.
+4. **Tekshirish:** `testparm` — xato bormi? `smbclient -L //localhost -U $USER`.
+5. **Linux mount:** Boshqa mashinadan `sudo mount -t cifs //server/test /mnt/test -o user=...` qiling.
+6. **Windows test:** Windows kompyuterdan File Explorer'da `\\server-ip\test` oching.
+
+## 20. Bilim sinovi
+
+**Savol 1.** Samba qaysi protokolni amalga oshiradi?
+
+- a) NFS
+- b) SMB/CIFS (Windows fayl sharing)
+- c) FTP
+- d) HTTP
+
+<Callout type="success" title="Javob">
+**(b)** SMB — Windows native protokoli.[¹](https://www.samba.org/)
+</Callout>
+
+**Savol 2.** Samba foydalanuvchi qo'shish:
+
+- a) `useradd`
+- b) `smbpasswd -a <user>` (Linux user mavjud bo'lganidan keyin)
+- c) `samba-add-user`
+- d) `passwd`
+
+<Callout type="success" title="Javob">
+**(b)** Linux user + alohida Samba parol.
+</Callout>
+
+**Savol 3.** SMB default port:
+
+- a) 21
+- b) 80
+- c) 445
+- d) 22
+
+<Callout type="success" title="Javob">
+**(c)** 445 (SMB), 139 (NetBIOS).
+</Callout>
+
+**Savol 4.** `smb.conf` sintaksis tekshirish:
+
+- a) `samba-check`
+- b) `testparm`
+- c) `smbcheck`
+- d) `validate`
+
+<Callout type="success" title="Javob">
+**(b)** `testparm`.
+</Callout>
+
+**Savol 5.** Linux klient'dan Samba share'ga mount:
+
+- a) `mount -t nfs ...`
+- b) `mount -t cifs //server/share /mnt -o user=...`
+- c) `mount.samba ...`
+- d) `smb-mount`
+
+<Callout type="success" title="Javob">
+**(b)** `cifs` filesystem type, `cifs-utils` paket bilan.
+</Callout>
+
+## Manbalar
+
+1. Samba. [https://www.samba.org/](https://www.samba.org/)
+2. ArchWiki — Samba. [https://wiki.archlinux.org/title/Samba](https://wiki.archlinux.org/title/Samba)
+3. Ubuntu — Samba. [https://ubuntu.com/server/docs/samba-introduction](https://ubuntu.com/server/docs/samba-introduction)
+
+## Keyingi qadam
+
+👉 [Apache HTTP Server asoslari](/fundamentals/apache-basics)

@@ -1,0 +1,155 @@
+---
+title: "Parrot OS o'rnatish"
+description: "Bootable USB tayyorlash va Parrot OS'ni Calamares orqali fizik kompyuterga o'rnatish."
+order: 2
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/parrot/installation/requirements"
+learning_objectives:
+  - "ISO yuklab olish va SHA tekshiruvi"
+  - "Bootable USB tayyorlash"
+  - "Calamares o'rnatuvchi qadamlari"
+tags: ["parrot", "installation", "calamares", "usb"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Parrot Documentation — Install"
+    url: "https://docs.parrotsec.org/install/"
+  - title: "Calamares Installer"
+    url: "https://calamares.io/"
+---
+
+Parrot OS **Calamares** universal Linux o'rnatuvchisini ishlatadi — bu Ubuntu yoki Kali installer'idan farqli, lekin qadamlar deyarli bir xil.[¹](https://docs.parrotsec.org/install/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- ISO yuklab olish va tekshirish.
+- USB tayyorlash (Windows va Linux'da).
+- Calamares o'rnatuvchi qadamlari.
+- Birinchi yuklanishdan keyin.
+</Callout>
+
+## 1. ISO yuklab olish
+
+[parrotsec.org/download](https://parrotsec.org/download/) dan kerakli edition'ni tanlang. SHA256 hash bilan tekshiring:
+
+```bash
+# Linux/macOS
+sha256sum Parrot-security-X.X_amd64.iso
+
+# Windows PowerShell
+Get-FileHash Parrot-security-X.X_amd64.iso -Algorithm SHA256
+```
+
+Rasmiy sayt'dagi hash bilan solishtiring.
+
+## 2. Bootable USB tayyorlash
+
+### Windows — Rufus
+
+1. [rufus.ie](https://rufus.ie) — Rufus yuklab oling.
+2. USB ni ulang (8 GB+).
+3. Rufus'da: ISO tanlang → Partition: GPT (UEFI) yoki MBR (Legacy) → START.
+
+### Linux — `dd`
+
+```bash
+lsblk    # USB qaysi qurilma ekanligini bilish
+
+sudo dd if=Parrot-security-X.X_amd64.iso of=/dev/sdb bs=4M status=progress conv=fdatasync
+```
+
+<Callout type="danger">
+`dd` da xato qurilma — diskdagi hamma ma'lumot yo'qoladi.
+</Callout>
+
+## 3. USB'dan yuklash
+
+1. Kompyuterni o'chiring, USB ulang, qayta yoqing.
+2. Boot menyusiga kirish (`F12`, `F10`, `Esc`).
+3. USB ni tanlang.
+4. GRUB menyusi:
+   - **Live mode** — sinab ko'rish.
+   - **Install** — to'g'ridan-to'g'ri o'rnatish.
+
+## 4. Calamares o'rnatuvchi
+
+<Steps>
+  <Step title="Til">
+    English yoki Russian (o'zbek tili hozircha to'liq mavjud emas).
+  </Step>
+  <Step title="Joylashuv">
+    Vaqt mintaqasi — Asia/Tashkent.
+  </Step>
+  <Step title="Klaviatura">
+    English (US) yoki Russian.
+  </Step>
+  <Step title="Disk bo'limi">
+    - **Erase disk** — diskni butunlay tozalash.
+    - **Replace a partition** — mavjud bo'limni almashtirish.
+    - **Manual partitioning** — qo'l bilan.
+    - **Encrypt system** — LUKS bilan shifrlash (xavfsizlik uchun tavsiya).
+  </Step>
+  <Step title="Foydalanuvchi">
+    Foydalanuvchi nomi, hostname, parol. **Root parol uchun ham alohida maydon.**
+  </Step>
+  <Step title="Yakuniy ko'rinish">
+    Tasdiqlash — hamma sozlamalar.
+  </Step>
+  <Step title="O'rnatish">
+    15-30 daqiqa kuting. So'ng restart.
+  </Step>
+</Steps>
+
+## 5. Birinchi yuklanishdan keyin
+
+```bash
+# Versiya
+lsb_release -a
+
+# Yangilash
+sudo parrot-upgrade
+# yoki an'anaviy
+sudo apt update
+sudo apt full-upgrade -y
+```
+
+`parrot-upgrade` — Parrot'ga xos wrapper, `apt full-upgrade` ning sinonimi.[¹](https://docs.parrotsec.org/install/)
+
+## 6. Mashqlar
+
+1. (Virtual mashinada xavfsiz) Parrot ISO'ni yuklab oling va virtual mashinada o'rnating.
+2. O'rnatish vaqtida **Encrypt system** ni yoqsangiz, har yuklanishda parol so'raydi. Bu nima va kim uchun foydali?
+
+## 7. Bilim sinovi
+
+**Savol 1.** Parrot OS qaysi o'rnatuvchini ishlatadi?
+
+- a) Ubiquity
+- b) Subiquity
+- c) Calamares
+- d) Anaconda
+
+<Callout type="success" title="Javob">
+**(c)** Calamares — universal Linux installer.[²](https://calamares.io/)
+</Callout>
+
+**Savol 2.** Disk shifrlash texnologiyasi:
+
+- a) LUKS
+- b) TrueCrypt
+- c) BitLocker
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(a)** LUKS — Linux Unified Key Setup. Parrot va boshqa ko'p distributivlarda standart.
+</Callout>
+
+## Manbalar
+
+1. Parrot Documentation — Install. [https://docs.parrotsec.org/install/](https://docs.parrotsec.org/install/)
+2. Calamares Installer. [https://calamares.io/](https://calamares.io/)
+
+## Keyingi qadam
+
+👉 [Virtual muhitda Parrot](/parrot/installation/virtual)

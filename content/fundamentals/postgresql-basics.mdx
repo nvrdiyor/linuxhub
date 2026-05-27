@@ -1,0 +1,503 @@
+---
+title: "PostgreSQL asoslari"
+description: "Linux'da PostgreSQL — o'rnatish, foydalanuvchilar, asosiy SQL, backup va replication."
+order: 121
+level: "intermediate"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/services"
+learning_objectives:
+  - "PostgreSQL o'rnatish va xizmat boshqaruvi"
+  - "Foydalanuvchilar va ma'lumotlar bazasi"
+  - "Asosiy SQL operatsiyalar"
+  - "Backup (pg_dump) va PITR"
+tags: ["intermediate", "postgresql", "database", "sql"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "PostgreSQL Documentation"
+    url: "https://www.postgresql.org/docs/"
+  - title: "Ubuntu — PostgreSQL"
+    url: "https://ubuntu.com/server/docs/databases-postgresql"
+  - title: "ArchWiki — PostgreSQL"
+    url: "https://wiki.archlinux.org/title/PostgreSQL"
+---
+
+**PostgreSQL** — modern, ochiq kodli ma'lumotlar bazasi. ACID muvofiqligi, JSON, full-text search, geospatial — keng imkoniyatlar. Bu darsda Linux'da PostgreSQL'ni boshlashni o'rganamiz.[¹](https://www.postgresql.org/docs/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- PostgreSQL o'rnatish.
+- `psql` bilan ishlash.
+- Foydalanuvchilar va bazalar.
+- Authentication — `pg_hba.conf`.
+- Backup (`pg_dump`) va tiklash.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install postgresql postgresql-contrib
+
+# Fedora/RHEL
+sudo dnf install postgresql-server postgresql-contrib
+sudo postgresql-setup --initdb
+
+# Arch
+sudo pacman -S postgresql
+sudo -iu postgres initdb -D /var/lib/postgres/data
+
+# Yoqish
+sudo systemctl enable --now postgresql
+```
+
+Default port: **5432**.
+
+## 2. `postgres` user va birinchi ulanish
+
+O'rnatishdan keyin `postgres` Linux user yaratiladi (database superuser).
+
+```bash
+# postgres user sifatida psql
+sudo -iu postgres psql
+
+# `psql` — interaktiv SQL shell
+```
+
+Yoki to'g'ridan-to'g'ri:
+
+```bash
+sudo -u postgres psql
+```
+
+`psql` ichida:
+
+```
+postgres=# \conninfo
+postgres=# \l            # bazalar ro'yxati
+postgres=# \du           # foydalanuvchilar
+postgres=# \q            # chiqish
+```
+
+## 3. Foydalanuvchi (role) yaratish
+
+PostgreSQL'da "user" va "role" — bir narsa.
+
+```sql
+-- Yangi user
+CREATE USER alice WITH PASSWORD 'secret';
+
+-- Superuser huquqlari
+CREATE USER admin WITH SUPERUSER PASSWORD 'admin_pass';
+
+-- Bir nechta huquq
+CREATE ROLE bob WITH LOGIN PASSWORD 'bob_pass' CREATEDB;
+
+-- Ro'yxat
+\du
+```
+
+Yoki shell'dan:
+
+```bash
+sudo -u postgres createuser --interactive alice
+```
+
+## 4. Database yaratish
+
+```sql
+-- Database
+CREATE DATABASE myapp OWNER alice;
+
+-- Encoding va locale bilan
+CREATE DATABASE myapp
+    WITH OWNER alice
+    ENCODING 'UTF8'
+    LC_COLLATE 'en_US.UTF-8'
+    LC_CTYPE 'en_US.UTF-8'
+    TEMPLATE template0;
+
+-- Ro'yxat
+\l
+```
+
+Yoki shell:
+
+```bash
+sudo -u postgres createdb -O alice myapp
+```
+
+## 5. Database'ga ulanish
+
+```bash
+# Lokal — peer authentication
+sudo -u alice psql myapp
+
+# Yoki agar Linux user 'alice' yo'q bo'lsa
+psql -U alice -d myapp -h localhost
+
+# Boshqa server
+psql -h server.example.com -U alice -d myapp
+```
+
+## 6. Asosiy SQL
+
+```sql
+-- Jadval yaratish
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Insert
+INSERT INTO users (name, email) VALUES ('Ali', 'ali@example.com');
+INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com');
+
+-- Select
+SELECT * FROM users;
+SELECT name FROM users WHERE id = 1;
+
+-- Update
+UPDATE users SET email = 'newali@example.com' WHERE id = 1;
+
+-- Delete
+DELETE FROM users WHERE id = 2;
+
+-- Drop
+DROP TABLE users;
+```
+
+## 7. Authentication — `pg_hba.conf`
+
+`pg_hba.conf` (Host-Based Authentication) — kim qaerdan, qanday ulanishi mumkinligini boshqaradi.
+
+```bash
+# Joylashuv
+sudo -u postgres psql -c "SHOW hba_file;"
+# Debian: /etc/postgresql/15/main/pg_hba.conf
+# Fedora: /var/lib/pgsql/data/pg_hba.conf
+```
+
+Tipik tarkib:
+
+```
+# TYPE  DATABASE     USER          ADDRESS         METHOD
+
+# Unix socket (lokal, peer authentication)
+local   all          postgres                      peer
+local   all          all                           peer
+
+# IPv4 lokal
+host    all          all           127.0.0.1/32    scram-sha-256
+
+# IPv6 lokal
+host    all          all           ::1/128         scram-sha-256
+
+# Tashqi (ehtiyot bilan)
+host    myapp        alice         192.168.1.0/24  scram-sha-256
+```
+
+| Method | Tavsif |
+|---|---|
+| `peer` | Linux user nomidan (lokal socket faqat) |
+| `trust` | Hech qanday tekshiruv (xavfli!) |
+| `password` | Plain text parol (eskirgan) |
+| `md5` | MD5 parol (eski) |
+| `scram-sha-256` | Modern xavfsiz (default modern) |
+| `cert` | TLS sertifikat |
+
+## 8. Tashqi ulanish uchun sozlash
+
+Default'da PostgreSQL faqat localhost'da tinglaydi.
+
+```bash
+sudo nano /etc/postgresql/15/main/postgresql.conf
+```
+
+```
+listen_addresses = 'localhost'           # default
+# Hammaga
+listen_addresses = '*'
+```
+
+So'ng `pg_hba.conf` ga ham qoidalar qo'shing:
+
+```
+host    all          alice         192.168.1.0/24  scram-sha-256
+```
+
+Restart:
+
+```bash
+sudo systemctl restart postgresql
+```
+
+Firewall:
+
+```bash
+sudo ufw allow from 192.168.1.0/24 to any port 5432
+```
+
+## 9. Tipik psql buyruqlari
+
+```
+\l                # databases
+\du               # users (roles)
+\dt               # tables
+\d <table>        # table strukturasi
+\dn               # schemas
+\df               # functions
+
+\c <database>     # ulanishni o'zgartirish
+\conninfo         # joriy ulanish
+
+\timing on        # buyruq vaqti
+
+\i /path/to/file.sql    # SQL fayl bajarish
+\o /tmp/result.txt      # chiqishni faylga
+\o                # to'xtatish
+
+\h SELECT         # SQL yordami
+\?                # psql buyruqlari yordami
+
+\q                # chiqish
+```
+
+## 10. Backup — `pg_dump`
+
+```bash
+# Bitta database (SQL format)
+sudo -u postgres pg_dump myapp > /backup/myapp.sql
+
+# Custom format (siqilgan, parallel restore)
+sudo -u postgres pg_dump -Fc myapp -f /backup/myapp.dump
+
+# Hamma database (cluster)
+sudo -u postgres pg_dumpall > /backup/all.sql
+
+# Faqat schema (struktura)
+sudo -u postgres pg_dump --schema-only myapp > /backup/schema.sql
+
+# Faqat ma'lumot
+sudo -u postgres pg_dump --data-only myapp > /backup/data.sql
+
+# Aniq jadval
+sudo -u postgres pg_dump -t users myapp > /backup/users.sql
+```
+
+## 11. Tiklash
+
+```bash
+# SQL fayl
+sudo -u postgres psql myapp < /backup/myapp.sql
+
+# Custom format
+sudo -u postgres pg_restore -d myapp /backup/myapp.dump
+
+# Bo'sh database yaratib, so'ng tiklash
+sudo -u postgres createdb myapp_restored
+sudo -u postgres pg_restore -d myapp_restored /backup/myapp.dump
+
+# Parallel restore (custom format faqat)
+sudo -u postgres pg_restore -d myapp -j 4 /backup/myapp.dump
+```
+
+## 12. PITR — Point-in-Time Recovery
+
+Continuous archiving + base backup orqali har vaqtga tiklash mumkin. Murakkab, lekin enterprise uchun standart.
+
+Asosiy qadamlar:
+
+```
+# postgresql.conf
+wal_level = replica
+archive_mode = on
+archive_command = 'cp %p /backup/wal/%f'
+```
+
+Base backup:
+
+```bash
+sudo -u postgres pg_basebackup -D /backup/base -Fp -Xs -P
+```
+
+Tiklash — `recovery.conf` (modern: `recovery.signal`) bilan target time ko'rsatish.
+
+## 13. Replication
+
+Streaming replication — master → replica.
+
+Master `postgresql.conf`:
+
+```
+wal_level = replica
+max_wal_senders = 10
+hot_standby = on
+```
+
+`pg_hba.conf`:
+
+```
+host replication replicator 10.0.0.2/32 scram-sha-256
+```
+
+Replica'da:
+
+```bash
+sudo -u postgres pg_basebackup -h master.example.com -D /var/lib/postgresql/data -U replicator -P -R
+```
+
+`-R` — `standby.signal` va `postgresql.auto.conf` ga primary_conninfo yozadi.
+
+## 14. Monitoring va performance
+
+```sql
+-- Faol ulanishlar
+SELECT * FROM pg_stat_activity;
+
+-- Eng katta jadvallar
+SELECT
+    schemaname || '.' || relname AS table,
+    pg_size_pretty(pg_total_relation_size(relid)) AS size
+FROM pg_catalog.pg_statio_user_tables
+ORDER BY pg_total_relation_size(relid) DESC
+LIMIT 10;
+
+-- Long-running queries
+SELECT pid, now() - query_start AS duration, query
+FROM pg_stat_activity
+WHERE state = 'active' AND now() - query_start > interval '1 minute';
+
+-- Database hajmlari
+SELECT datname, pg_size_pretty(pg_database_size(datname))
+FROM pg_database
+ORDER BY pg_database_size(datname) DESC;
+```
+
+### `pg_stat_statements`
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+-- Eng sekin query'lar
+SELECT query, calls, mean_exec_time
+FROM pg_stat_statements
+ORDER BY mean_exec_time DESC
+LIMIT 10;
+```
+
+## 15. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo -u postgres psql` | psql shell (admin) |
+| `createuser <name>` | Yangi user |
+| `createdb -O <user> <db>` | Yangi database |
+| `dropdb <db>` | O'chirish |
+| `pg_dump <db>` | Backup |
+| `pg_restore -d <db>` | Tiklash |
+| `pg_dumpall` | Hamma database'lar |
+| `psql -U <user> -d <db> -h <host>` | Ulanish |
+| `\l` | Databases (psql ichida) |
+| `\du` | Users |
+| `\dt` | Tables |
+| `\q` | Chiqish |
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **`psql: FATAL: Peer authentication failed`** — `pg_hba.conf`'da `peer` o'rniga `scram-sha-256` va parol bilan.
+- **Tashqi ulanish ishlamaydi** — `listen_addresses = '*'` va `pg_hba.conf`'da host qoida.
+- **`role "alice" does not exist`** — `CREATE USER alice WITH PASSWORD '...';`.
+- **Database o'chirib bo'lmaydi** — ulanishlar bor. `pg_terminate_backend(pid)` yoki database'ga ulangan jarayonlarni yopish.
+- **`pg_dump` parol so'raydi** — `~/.pgpass` fayli yoki `PGPASSWORD` env.
+- **`pg_dump` vs `pg_dumpall`** — bittasi bitta database, ikkinchisi clusterni butunlay (rollar bilan).
+
+## 17. Eng yaxshi amaliyot
+
+- **`scram-sha-256`** — modern parol hashing.
+- **`peer`** lokal sysadmin uchun (parol yo'q).
+- **Production'da SSL** — `ssl = on` `postgresql.conf`'da.
+- **Backup avtomatik** — daily `pg_dump` + WAL archiving.
+- **`pg_stat_statements`** yoqing — performance tahlil.
+- **Connection pooling** (`pgbouncer`) — ko'p ulanishlar uchun.
+- **Encrypted backups**.
+- **`pg_dump -Fc`** (custom format) — parallel restore va siqish.
+- **Major version upgrade `pg_upgrade`** yoki dump/restore.
+
+## 18. Mashqlar
+
+1. **O'rnatish:** PostgreSQL'ni o'rnating va xizmat ishlayotganini tasdiqlang.
+2. **User:** `CREATE USER` orqali yangi user yarating.
+3. **Database:** Ushbu user'ga database yarating.
+4. **Test:** Foydalanuvchi sifatida `psql` orqali ulaning, jadval yarating, INSERT, SELECT.
+5. **Backup:** `pg_dump` orqali backup oling.
+6. **Tiklash:** Bo'sh database yarating va backup'dan tiklang.
+
+## 19. Bilim sinovi
+
+**Savol 1.** PostgreSQL default port:
+
+- a) 3306
+- b) 5432
+- c) 5984
+- d) 27017
+
+<Callout type="success" title="Javob">
+**(b)** 5432.[¹](https://www.postgresql.org/docs/)
+</Callout>
+
+**Savol 2.** `pg_dump` vs `pg_dumpall`:
+
+- a) Bir xil
+- b) `pg_dump` bitta database, `pg_dumpall` hamma database'lar + rollar
+- c) `pg_dumpall` faqat schema
+- d) `pg_dump` faqat ma'lumot
+
+<Callout type="success" title="Javob">
+**(b)** `pg_dumpall` — cluster darajasidagi backup.
+</Callout>
+
+**Savol 3.** Authentication method modern xavfsiz:
+
+- a) `trust`
+- b) `password`
+- c) `md5`
+- d) `scram-sha-256`
+
+<Callout type="success" title="Javob">
+**(d)** `scram-sha-256` — PostgreSQL 10+ default.
+</Callout>
+
+**Savol 4.** Foydalanuvchi (role) yaratish:
+
+- a) `useradd`
+- b) `CREATE USER ... WITH PASSWORD ...;` SQL
+- c) `pg_createuser`
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** SQL buyrug'i yoki `createuser` shell.
+</Callout>
+
+**Savol 5.** Tashqi mashinadan ulanish uchun nima kerak:
+
+- a) Hech narsa
+- b) `listen_addresses` va `pg_hba.conf` ikkalasini sozlash
+- c) Faqat firewall
+- d) `pg_dump`
+
+<Callout type="success" title="Javob">
+**(b)** Ikkala konfiguratsiya majburiy.
+</Callout>
+
+## Manbalar
+
+1. PostgreSQL Documentation. [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/)
+2. Ubuntu — PostgreSQL. [https://ubuntu.com/server/docs/databases-postgresql](https://ubuntu.com/server/docs/databases-postgresql)
+3. ArchWiki — PostgreSQL. [https://wiki.archlinux.org/title/PostgreSQL](https://wiki.archlinux.org/title/PostgreSQL)
+
+## Keyingi qadam
+
+👉 [Docker asoslari](/fundamentals/docker-basics)

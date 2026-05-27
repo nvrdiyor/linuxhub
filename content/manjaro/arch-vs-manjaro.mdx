@@ -1,0 +1,211 @@
+---
+title: "Arch vs Manjaro"
+description: "Ikki distributiv o'rtasidagi farqlar — qaysi vaziyatda qaysi biri to'g'ri."
+order: 2
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/manjaro/introduction"
+learning_objectives:
+  - "Arch va Manjaro farqlarini chuqurroq tushunish"
+  - "Branch tizimi va paket kechikishi"
+  - "Qaysi distributiv qaysi vaziyatga mos"
+tags: ["manjaro", "arch", "comparison"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Wiki — Switching Branches"
+    url: "https://wiki.manjaro.org/index.php/Switching_Branches"
+  - title: "ArchWiki — main page"
+    url: "https://wiki.archlinux.org/title/Main_page"
+---
+
+Arch va Manjaro bir paket bazasini yaratadi, lekin foydalanuvchi tajribasida sezilarli farqlar bor. Bu darsda har birining nyuanslari va qaysi vaziyatda qaysisi to'g'ri kelishini ko'rib chiqamiz.[¹](https://wiki.manjaro.org/index.php/Switching_Branches)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- O'rnatish jarayoni farqi.
+- Paket kechikishi va Branch tizimi.
+- AUR'ga munosabat.
+- Falsafa farqi.
+</Callout>
+
+## 1. O'rnatish
+
+| | Arch | Manjaro |
+|---|---|---|
+| Vositasi | Faqat CLI (`pacstrap`, `arch-install` skript) | Calamares GUI |
+| Vaqt | 1-3 soat | 15-30 daqiqa |
+| Talab | Linux tushuncha kerak | Boshlovchilar uchun ham mos |
+| Tanlash darajasi | Hammasi siz | Standart konfiguratsiya |
+| Hujjat | [ArchWiki](https://wiki.archlinux.org/title/Installation_guide) | Calamares qadamlar |
+
+Arch o'rnatish — bu **o'rganish jarayoni**: bo'limlash, locale, kernel, bootloader — har bir narsa qo'lda. Manjaro esa shu narsalar standart ravishda sozlangan.
+
+## 2. Paketlar va Branch
+
+Arch paketlarni **darhol** chiqaradi. Manjaro 3 ta branch:
+
+```
+Stable    ← foydalanuvchi (1-2 hafta kechikadi)
+Testing   ← qisqa sinov
+Unstable  ← Arch'ga teng
+```
+
+### Branch'ni o'zgartirish
+
+```bash
+# Joriy branch
+cat /etc/pacman-mirrors.conf | grep Branch
+
+# Branch'ni o'zgartirish
+sudo pacman-mirrors --api --set-branch stable
+sudo pacman-mirrors --api --set-branch testing
+sudo pacman-mirrors --api --set-branch unstable
+
+# Mirrorlarni yangilash
+sudo pacman-mirrors --fasttrack
+sudo pacman -Syyu
+```
+
+[¹](https://wiki.manjaro.org/index.php/Switching_Branches)
+
+## 3. Paket boshqaruv
+
+Bir xil `pacman`, lekin Manjaro qo'shimcha vositalarni qo'shadi:
+
+| Vosita | Tavsif |
+|---|---|
+| `pacman` | Asosiy paket menejer (ikkalasida) |
+| `yay` | AUR helper (ikkalasiga o'rnatiladi) |
+| `pamac` | GUI paket menejer (Manjaro default) |
+| `mhwd` | Hardware drayverlar (faqat Manjaro) |
+| `mhwd-kernel` | Yadro boshqaruvi (faqat Manjaro) |
+
+## 4. AUR
+
+Ikki distributiv ham AUR'ni qo'llab-quvvatlaydi. Lekin:
+
+- **Arch:** AUR — to'liq sizning mas'uliyatingiz. PKGBUILD'ni o'qing.
+- **Manjaro:** AUR rasmiy emas; rasmiy paketlar kichikroq, AUR'ga tayanish ko'p (Manjaro forumda muammolar haqida AUR aybdor bo'ladi).
+
+Pamac orqali AUR'ni yoqish:
+
+```
+Pamac → Preferences → Third Party → Enable AUR support
+```
+
+## 5. Hardware
+
+Arch'da NVIDIA drayveri o'rnatish:
+
+```bash
+# Manual jarayon — bir necha qadam
+sudo pacman -S nvidia nvidia-utils
+# So'ng X11 konfiguratsiya
+```
+
+Manjaro'da:
+
+```bash
+sudo mhwd -a pci nonfree 0300
+```
+
+Bitta buyruq. MHWD eng yangi nonfree drayverlarni avtomatik o'rnatadi.
+
+## 6. Kernel
+
+Arch'da:
+
+```bash
+sudo pacman -S linux-lts        # LTS
+sudo pacman -S linux-zen        # optimallashtirilgan
+# So'ng /boot/grub/grub.cfg ni yangilash
+```
+
+Manjaro'da:
+
+```bash
+sudo mhwd-kernel -i linux515-rt  # real-time
+# GRUB avtomatik yangilanadi
+```
+
+## 7. Falsafa farqi
+
+**Arch:** "KISS" (Keep It Simple, Stupid). Default minimal — siz qurasiz.
+
+**Manjaro:** "User-friendly Arch". Default kerakli vositalar bilan keladi, siz darhol ishni boshlaysiz.
+
+## 8. Hamjamiyat
+
+| | Arch | Manjaro |
+|---|---|---|
+| Wiki | [ArchWiki](https://wiki.archlinux.org/) — eng yaxshi | [Manjaro Wiki](https://wiki.manjaro.org/) — yaxshi, ArchWiki'dan ham foydalanish mumkin |
+| Forum | [bbs.archlinux.org](https://bbs.archlinux.org/) | [forum.manjaro.org](https://forum.manjaro.org/) |
+| Yordamlash | Ekspertiza talab qiladi | Boshlovchilarga ham mos |
+| Yondashuv | "ArchWiki o'qing" | Bosqichma-bosqich yo'l-yo'riq |
+
+**ArchWiki** Linux ekotizimidagi eng yaxshi texnik resurs. Manjaro foydalanuvchilar ham undan foydalanishi mumkin (paketlar bir xil).
+
+## 9. Qaysi vaziyatda qaysi?
+
+✅ **Arch'ni tanlang:**
+
+- Linuxni chuqur o'rganmoqchi.
+- Tizimning har komponenti ustida nazoratga ehtiyoj.
+- Eng yangi paketlar darhol kerak.
+- Server (LTS yadro bilan).
+- Minimal install (faqat kerakli paketlar).
+
+✅ **Manjaro'ni tanlang:**
+
+- Arch ekotizimidan foydalanmoqchi, lekin tez ishni boshlashni xohlaysiz.
+- GUI o'rnatuvchi va MHWD qulay.
+- Stabilrоq Arch tajriba kerak (1-2 hafta kechikish bilan).
+- Yangi apparatga drayverlar oson.
+
+## 10. "Manjaro Arch emas" — nima?
+
+Manjaro **Arch-based**, lekin **Arch emas**. Ba'zi nyuanslar:
+
+- Manjaro repozitoriyasi alohida — Arch'ning rasmiy paketlari bilan to'g'ridan-to'g'ri mos kelmaydi.
+- AUR Manjaroda rasmiy qo'llab-quvvatlanmaydi (lekin ishlatish mumkin).
+- "Arch o'rganmoqchiman" desangiz — Manjaro'da qolish bilan Arch'ni o'rgana olmaysiz.
+
+## 11. Bilim sinovi
+
+**Savol 1.** Manjaro Stable branch Arch'dan qancha kechikadi?
+
+- a) 1 kun
+- b) 1-2 hafta
+- c) 1 oy
+- d) 1 yil
+
+<Callout type="success" title="Javob">
+**(b)** 1-2 hafta sinov uchun.[¹](https://wiki.manjaro.org/index.php/Switching_Branches)
+</Callout>
+
+**Savol 2.** MHWD qaysi distributivda mavjud?
+
+- a) Arch
+- b) Manjaro
+- c) Ubuntu
+- d) Hammasida
+
+<Callout type="success" title="Javob">
+**(b)** MHWD faqat Manjaro va uning hosilalarida.
+</Callout>
+
+## 12. Mashq
+
+1. Manjaro o'rnatilgan tizimda `cat /etc/pacman-mirrors.conf | grep Branch` — qaysi branch'dasiz?
+2. `mhwd-kernel -li` — qaysi yadrolar o'rnatilgan?
+3. ArchWiki sahifasi `pacman` ([wiki.archlinux.org/title/pacman](https://wiki.archlinux.org/title/pacman)) ni o'qing — Manjaroda ham hammasi ishlaydimi?
+
+## Manbalar
+
+1. Manjaro Wiki — Switching Branches. [https://wiki.manjaro.org/index.php/Switching_Branches](https://wiki.manjaro.org/index.php/Switching_Branches)
+2. ArchWiki — main page. [https://wiki.archlinux.org/title/Main_page](https://wiki.archlinux.org/title/Main_page)
+
+## Keyingi qadam
+
+👉 [Tizim talablari](/manjaro/installation/requirements)

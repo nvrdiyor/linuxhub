@@ -1,0 +1,530 @@
+---
+title: "Linux yuklanish jarayoni"
+description: "BIOS/UEFI'dan ish stoligacha bo'lgan to'liq yuklanish ketma-ketligi — GRUB, initramfs, systemd, target'lar."
+order: 101
+level: "intermediate"
+estimated_minutes: 16
+prerequisites:
+  - "/fundamentals/services"
+learning_objectives:
+  - "Yuklanish bosqichlarini tartib bilan izohlash"
+  - "BIOS va UEFI farqini bilish"
+  - "GRUB va systemd-boot bilan ishlash"
+  - "initramfs nima va u nima qiladi"
+  - "systemd target'lar va xizmatlarning yuklanish tartibi"
+tags: ["intermediate", "boot", "grub", "uefi", "initramfs", "systemd"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — Arch boot process"
+    url: "https://wiki.archlinux.org/title/Arch_boot_process"
+  - title: "GNU GRUB Manual"
+    url: "https://www.gnu.org/software/grub/manual/grub/grub.html"
+  - title: "systemd-boot"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html"
+  - title: "Linux Kernel — Boot parameters"
+    url: "https://docs.kernel.org/admin-guide/kernel-parameters.html"
+---
+
+Kompyuter tugmasini bosgan zahotidan to ish stoli ko'rinishigacha — bu murakkab, ko'p bosqichli jarayon. Har bosqich oldingisining muvaffaqiyatiga bog'liq. Bu darsda har bir bosqichni chuqur tahlil qilamiz va muammo bo'lganda qaerda izlash kerakligini bilib olamiz.[¹](https://wiki.archlinux.org/title/Arch_boot_process)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Yuklanish bosqichlari: firmware → bootloader → kernel → init → user space.
+- BIOS va UEFI farqlari.
+- GRUB va systemd-boot bootloader'lari.
+- initramfs roli va tarkibi.
+- systemd target'lari va boot sequence.
+- Diagnostika va tuzatish.
+</Callout>
+
+## 1. Yuklanishning umumiy ko'rinishi
+
+```
+1. Power on
+       ↓
+2. Firmware (BIOS yoki UEFI)
+       ↓
+3. POST (Power-On Self Test)
+       ↓
+4. Bootloader (GRUB, systemd-boot, syslinux)
+       ↓
+5. Kernel yuklanishi (vmlinuz)
+       ↓
+6. initramfs (initial RAM filesystem)
+       ↓
+7. Root filesystem mount
+       ↓
+8. Init tizim (systemd PID 1)
+       ↓
+9. Target'lar va xizmatlar
+       ↓
+10. Display Manager (GUI bo'lsa) yoki Login (TTY)
+       ↓
+11. User session
+```
+
+Har bir bosqich qisman keyingisini tayyorlaydi. Yuklanish 5-30 soniyada tugaydi (apparat va konfiguratsiyaga qarab).
+
+## 2. Firmware: BIOS vs UEFI
+
+### BIOS (Basic Input/Output System)
+
+Eski standart (1981). 16-bit, 1 MB xotira chegarasi, MBR (Master Boot Record) bilan ishlaydi.
+
+Bootloader **MBR**'ning birinchi 512 baytida turadi:
+- 446 bayt — bootloader kodi
+- 64 bayt — partition jadvali (4 ta partition'gacha)
+- 2 bayt — magic number (`0x55AA`)
+
+### UEFI (Unified Extensible Firmware Interface)
+
+Zamonaviy standart. Asosiy farqlar:
+
+- 32/64-bit, ko'p xotira.
+- GPT (GUID Partition Table) — 128 ta partition.
+- **ESP** (EFI System Partition) — FAT32, odatda 100-500 MB.
+- Bootloader fayllari `.efi` formatda.
+- Secure Boot qo'llab-quvvatlash.
+- Network boot (PXE) built-in.
+
+### Qaysidan kelganligini bilish
+
+```bash
+# UEFI bo'lsa, /sys/firmware/efi mavjud
+[ -d /sys/firmware/efi ] && echo "UEFI" || echo "BIOS"
+
+# UEFI sozlamalari
+efibootmgr -v
+
+# Partition jadvali turi
+sudo parted /dev/sda print | grep "Partition Table"
+# "gpt" — GPT (UEFI)
+# "msdos" — MBR (BIOS)
+```
+
+## 3. POST va firmware boot menu
+
+POST (Power-On Self Test) — firmware apparatni tekshiradi:
+
+- CPU, RAM
+- Klaviatura, sichqoncha
+- Disk va USB qurilmalar
+- Tarmoq adapteri (agar PXE yoqilgan bo'lsa)
+
+So'ng firmware **boot order**ga muvofiq bootloader'ni qidiradi:
+
+- BIOS: HDD birinchi sektoridagi MBR.
+- UEFI: ESP'dagi `.efi` fayl (`/EFI/<vendor>/grubx64.efi` yoki shunga o'xshash).
+
+Boot menyusiga kirish tugmasi (kompyuter ishlab chiqaruvchiga qarab):
+
+- Dell, HP: `F12`
+- Lenovo: `F12` yoki `Enter`
+- ASUS: `F8`
+- Acer: `F12`
+- MacBook: `Option`/`Alt`
+
+## 4. Bootloader: GRUB
+
+**GRUB 2** (GRand Unified Bootloader) — eng keng tarqalgan Linux bootloader.[²](https://www.gnu.org/software/grub/manual/grub/grub.html)
+
+### Vazifalar
+
+1. Yadro va initramfs faylarini topish.
+2. Kernel parametrlarini berish.
+3. Bir nechta OS'dan tanlash (dual boot).
+4. Recovery mode yoki eski yadrolar.
+
+### GRUB fayllar
+
+| Yo'l | Mazmuni |
+|---|---|
+| `/boot/grub/grub.cfg` | GRUB konfiguratsiyasi (avtomatik generatsiya) |
+| `/etc/default/grub` | Foydalanuvchi sozlamalari |
+| `/etc/grub.d/` | Skriptlar (grub.cfg yaratish uchun) |
+
+### `/etc/default/grub` tipik tarkibi
+
+```bash
+GRUB_DEFAULT=0                          # Birinchi entry
+GRUB_TIMEOUT=5                          # 5 soniya kutish
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"  # Yadro parametrlari
+GRUB_CMDLINE_LINUX=""
+GRUB_DISTRIBUTOR=$(lsb_release -i -s 2> /dev/null || echo Debian)
+```
+
+### GRUB konfiguratsiyasini yangilash
+
+```bash
+# Debian/Ubuntu
+sudo update-grub
+
+# Fedora/RHEL
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+
+# Arch
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+```
+
+### Yadro parametrlarini qo'shish
+
+Vaqtinchalik: GRUB menyusida `e` bosing, `linux` qatorini tahrir qiling, `Ctrl+X` bilan bootlang.
+
+Doimiy: `/etc/default/grub`'da `GRUB_CMDLINE_LINUX_DEFAULT` ga qo'shing, so'ng `update-grub`.
+
+### Eng foydali yadro parametrlari[⁴](https://docs.kernel.org/admin-guide/kernel-parameters.html)
+
+| Parametr | Maqsad |
+|---|---|
+| `quiet` | Boot xabarlarini yashirish |
+| `splash` | Grafik splash screen |
+| `nomodeset` | Grafik drayverlar muammosi uchun |
+| `single` | Single user mode (root shell) |
+| `init=/bin/bash` | Init o'rniga to'g'ridan-to'g'ri bash |
+| `mem=4G` | RAM cheklash |
+| `acpi=off` | ACPI o'chirish (eski apparat) |
+
+## 5. Bootloader: systemd-boot
+
+Yengilroq alternative, faqat UEFI uchun.[³](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html)
+
+```bash
+# O'rnatish
+sudo bootctl install
+
+# Status
+bootctl status
+
+# Boot entries
+ls /boot/loader/entries/
+```
+
+Tipik entry fayli `/boot/loader/entries/arch.conf`:
+
+```
+title   Arch Linux
+linux   /vmlinuz-linux
+initrd  /initramfs-linux.img
+options root=UUID=... rw quiet
+```
+
+systemd-boot — GRUB'dan ancha sodda, lekin dual boot va BIOS uchun cheklangan.
+
+## 6. Kernel yuklanishi
+
+Bootloader yadroni RAM ga yuklaydi va boshqaruvni unga uzatadi. Yadro:
+
+1. Apparatni tekshiradi va initsializatsiya qiladi.
+2. Drayverlar yuklaydi (built-in).
+3. Asosiy fayl tizimini tayyorlaydi.
+4. **initramfs**'ni mount qiladi.
+
+Yadro fayllari `/boot/`:
+
+- `vmlinuz-<version>` — siqilgan yadro
+- `initramfs-<version>.img` (yoki `initrd.img`) — initramfs
+- `config-<version>` — yadro build konfiguratsiyasi
+- `System.map-<version>` — yadro simvollar jadvali
+
+```bash
+ls /boot/
+# config-6.8.0-49-generic
+# initrd.img-6.8.0-49-generic
+# vmlinuz-6.8.0-49-generic
+```
+
+## 7. initramfs — vaqtinchalik fayl tizim
+
+**initramfs** (initial RAM filesystem) — yadroga real root filesystem'ni mount qilishdan oldin kerakli minimal muhit beradi.
+
+### Nima uchun kerak?
+
+- **Real root LVM/RAID/LUKS'da bo'lsa** — yadro to'g'ridan-to'g'ri mount qila olmaydi, drayverlar kerak.
+- **Tarmoq orqali root** (NFS, iSCSI) — tarmoq drayveri kerak.
+- **Encrypted disk** — parol so'rash va decrypt qilish kerak.
+- **Hardware ne'matlari** — yadro core minimal, ko'p drayverlar modul sifatida.
+
+### initramfs tarkibi
+
+```bash
+# Tarkibni ko'rish
+lsinitramfs /boot/initrd.img-$(uname -r) | head -30
+
+# Yoki Fedora/Arch'da
+lsinitcpio /boot/initramfs-linux.img
+```
+
+Ichida:
+
+- Minimal `/bin`, `/sbin` (BusyBox)
+- `init` skript yoki binary
+- Yadro modullari (drayverlar)
+- Lokalizatsiya, klaviatura mapping
+- Cryptsetup (LUKS uchun)
+- LVM, mdadm (RAID uchun)
+
+### initramfs qayta tuzish
+
+```bash
+# Debian/Ubuntu
+sudo update-initramfs -u            # joriy yadro
+sudo update-initramfs -u -k all     # barcha yadrolar
+
+# Fedora/RHEL
+sudo dracut --force
+
+# Arch
+sudo mkinitcpio -P                  # barcha preset'lar
+```
+
+## 8. Init tizim ishga tushadi
+
+initramfs vazifasini bajarib bo'lgandan keyin, **real root filesystem** mount qilinadi va init jarayon (PID 1) ishga tushadi.
+
+```bash
+ps -p 1
+# PID TTY          TIME CMD
+#   1 ?        00:00:01 systemd
+```
+
+systemd quyidagi `target`'ni boshlaydi:
+
+```
+default.target  (symlink → graphical.target yoki multi-user.target)
+        │
+        ↓
+graphical.target
+        │
+        ├── multi-user.target
+        │       ├── basic.target
+        │       │       ├── sockets.target
+        │       │       ├── timers.target
+        │       │       ├── paths.target
+        │       │       ├── sysinit.target
+        │       │       │       ├── local-fs.target
+        │       │       │       ├── swap.target
+        │       │       │       └── cryptsetup.target
+        │       │       └── slices.target
+        │       └── <foydalanuvchi xizmatlari>
+        └── display-manager.service (gdm/sddm/lightdm)
+```
+
+## 9. systemd target'lari
+
+Target — bu xizmatlar guruhi (init runlevel'larining zamonaviy ekvivalenti).
+
+| Target | Eski runlevel | Maqsad |
+|---|---|---|
+| `poweroff.target` | 0 | O'chirish |
+| `rescue.target` | 1 | Single user (yamoq) |
+| `multi-user.target` | 3 | CLI, network |
+| `graphical.target` | 5 | GUI bilan |
+| `reboot.target` | 6 | Qayta yuklash |
+| `emergency.target` | — | Faqat root, minimal |
+
+### Default target
+
+```bash
+# Joriy
+systemctl get-default
+# graphical.target
+
+# O'zgartirish
+sudo systemctl set-default multi-user.target    # GUI siz boot
+sudo systemctl set-default graphical.target      # GUI bilan
+
+# Vaqtinchalik o'tish
+sudo systemctl isolate multi-user.target
+```
+
+## 10. Yuklanish vaqti tahlili
+
+```bash
+# Umumiy
+systemd-analyze
+# Startup finished in 2.1s (firmware) + 3.5s (loader) + 4.2s (kernel) + 12.3s (userspace) = 22.1s
+
+# Eng sekin xizmatlar
+systemd-analyze blame | head -10
+# 8.123s NetworkManager-wait-online.service
+# 3.456s snapd.service
+# 2.198s plymouth-quit-wait.service
+# ...
+
+# Critical path (xizmatlar zanjiri)
+systemd-analyze critical-chain
+
+# Grafik (SVG) chizish
+systemd-analyze plot > boot.svg
+```
+
+## 11. Boot muammolarini tashxis
+
+### Tizim umuman yuklanmaydi (BIOS/UEFI bosqichida)
+
+- POST signali yo'q → apparat muammosi (RAM, GPU).
+- "No bootable device" → bootloader topilmadi → BIOS boot order'ni tekshiring.
+
+### GRUB menyusi keladi, lekin bootlash xato
+
+- GRUB menyusida `e` bosing.
+- `linux` qatoriga `single` qo'shing → emergency shell.
+- Yoki `init=/bin/bash` → minimal shell.
+
+### Kernel panic
+
+```
+Kernel panic - not syncing: VFS: Unable to mount root fs
+```
+
+Sabablar:
+
+- initramfs noto'g'ri yoki kerakli drayverlar yo'q.
+- Root partition UUID o'zgargan.
+- Filesystem buzilgan (`fsck` kerak).
+
+Yechim: Live USB orqali boot va `fsck`.
+
+### systemd to'xtagan xizmat
+
+```bash
+# Hozir
+systemctl --failed
+
+# Boot vaqtidagi xato
+journalctl -b -p err
+
+# Aniq xizmat
+journalctl -u <xizmat> -b
+```
+
+## 12. Boot tezligini optimizatsiya qilish
+
+```bash
+# Sekin xizmatlar
+systemd-analyze blame
+
+# Keraksiz xizmatni o'chirish
+sudo systemctl disable bluetooth.service       # server'da
+sudo systemctl disable cups.service            # printer yo'q bo'lsa
+
+# `NetworkManager-wait-online` ko'pincha eng sekin
+sudo systemctl disable NetworkManager-wait-online.service
+
+# initramfs hajmini kamaytirish (faqat tegishli drayverlar)
+# Debian/Ubuntu: /etc/initramfs-tools/initramfs.conf
+MODULES=dep    # auto → dep (faqat ehtiyoj bor)
+sudo update-initramfs -u
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `[ -d /sys/firmware/efi ]` | UEFI yoki BIOS aniqlash |
+| `efibootmgr -v` | UEFI boot entries |
+| `cat /proc/cmdline` | Joriy yadro parametrlari |
+| `sudo update-grub` | GRUB konfiguratsiyasini yangilash |
+| `sudo update-initramfs -u` | initramfs qayta tuzish |
+| `bootctl status` | systemd-boot holati |
+| `systemctl get-default` | Default target |
+| `systemctl isolate <target>` | Vaqtinchalik target o'tish |
+| `systemd-analyze` | Boot vaqti |
+| `systemd-analyze blame` | Sekin xizmatlar |
+| `journalctl -b -p err` | Boot xatolari |
+| `dmesg | head` | Yadro xabarlari (eng erta) |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **GRUB ni update qilmaslik** — yadro yangilanganidan keyin `update-grub` kerak. Aks holda eski yadro bilan bootlanadi.
+- **initramfs ni qayta yaratmaslik** — yangi drayver yoki LVM o'zgarishidan keyin majburiy.
+- **`/boot` to'lib qolish** — eski yadrolarni o'chirish unutiladi. `sudo apt autoremove` bilan.
+- **Yadro parametrini noto'g'ri qo'shish** — `quiet`, `splash` o'rniga `quiet splash` (bir qator).
+- **Secure Boot bilan custom yadro** — agar yadro imzolanmagan bo'lsa, bootlanmaydi.
+
+## 15. Eng yaxshi amaliyot
+
+- **Eski yadroni saqlang.** Yangi yadro bilan muammo bo'lsa, GRUB menyusidan eski yadroga o'tish.
+- **`/boot` uchun alohida partition** — 500 MB-1 GB, root partition'ga ta'sir qilmaslik.
+- **UEFI ishlatsangiz, ESP backup oling** — `dd` orqali.
+- **Boot muammosi paytida `dmesg | grep -i error`** — yadro xatolari odatda u yerda.
+- **systemd-analyze plot** SVG'ni vaqti-vaqti bilan tekshirib turing — qaysi xizmatlar sekin?
+- **`rescue.target`'ga kirishni o'rganib qoling** — emergency repair uchun.
+
+## 16. Mashqlar
+
+1. **Inventarizatsiya:** Sizdagi tizim BIOS yoki UEFI? `/boot/` da nechta yadro versiyasi bor?
+2. **Boot tahlili:** `systemd-analyze blame | head -5` — eng sekin 5 ta xizmatni yozing.
+3. **Plot:** `systemd-analyze plot > /tmp/boot.svg` — SVG'ni brauzer'da oching va sekin xizmatni vizual ko'ring.
+4. **Critical path:** `systemd-analyze critical-chain` — bootlash uchun majburiy zanjir nimadan iborat?
+5. **Yadro parametrlari:** `cat /proc/cmdline` — siz qaysi parametrlar bilan bootlangansiz?
+6. **Eski yadrolarni tozalash:** `sudo apt autoremove` (Debian/Ubuntu) yoki `sudo dnf autoremove` — necha MB bo'shadi?
+7. **Test boot:** GRUB menyusiga kirib (`Shift` ushlab), eski yadroni tanlab boot qiling. Ishladimi?
+
+## 17. Bilim sinovi
+
+**Savol 1.** UEFI'da bootloader fayllari qayerda saqlanadi?
+
+- a) `/boot/grub/`
+- b) ESP (EFI System Partition)
+- c) `/var/boot/`
+- d) Yadro ichida
+
+<Callout type="success" title="Javob">
+**(b)** ESP — FAT32 formatdagi maxsus partition, odatda `/boot/efi/` ga mount qilinadi.
+</Callout>
+
+**Savol 2.** initramfs nima uchun kerak?
+
+- a) Tezroq bootlash
+- b) Real root filesystem mount qilishdan oldin minimal muhit (drayverlar, LUKS decrypt)
+- c) Faqat dual boot uchun
+- d) GUI uchun
+
+<Callout type="success" title="Javob">
+**(b)** LVM, RAID, LUKS, tarmoq root va boshqalar uchun zarur.
+</Callout>
+
+**Savol 3.** Yadro parametrlarini doimiy o'zgartirish uchun:
+
+- a) GRUB menyusida `e` bosib qo'shish
+- b) `/etc/default/grub` ni tahrirlab, `update-grub` ishga tushirish
+- c) `/etc/kernel.conf` ni tahrirlash
+- d) Yadroni qayta kompilyatsiya qilish
+
+<Callout type="success" title="Javob">
+**(b)** Doimiy o'zgarish faqat `/etc/default/grub` + `update-grub`.
+</Callout>
+
+**Savol 4.** `systemd-analyze blame` nima ko'rsatadi?
+
+- a) Eng ko'p xato bergan xizmatlar
+- b) Eng ko'p vaqt olgan xizmatlar boot vaqtida
+- c) Eng ko'p RAM ishlatadigan xizmatlar
+- d) O'chirilgan xizmatlar
+
+<Callout type="success" title="Javob">
+**(b)** Boot vaqtida sekin xizmatlar — optimizatsiya uchun foydali.
+</Callout>
+
+**Savol 5.** Default target'ni multi-user (GUI siz) ga o'zgartirish:
+
+- a) `systemctl disable graphical.target`
+- b) `systemctl set-default multi-user.target`
+- c) `runlevel 3`
+- d) `init 3`
+
+<Callout type="success" title="Javob">
+**(b)** systemd'ning zamonaviy yo'li.
+</Callout>
+
+## Manbalar
+
+1. ArchWiki — Arch boot process. [https://wiki.archlinux.org/title/Arch_boot_process](https://wiki.archlinux.org/title/Arch_boot_process)
+2. GNU GRUB Manual. [https://www.gnu.org/software/grub/manual/grub/grub.html](https://www.gnu.org/software/grub/manual/grub/grub.html)
+3. systemd-boot. [https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html)
+4. Linux Kernel — Boot parameters. [https://docs.kernel.org/admin-guide/kernel-parameters.html](https://docs.kernel.org/admin-guide/kernel-parameters.html)
+
+## Keyingi qadam
+
+👉 [Yadro modullari (kernel modules)](/fundamentals/kernel-modules)

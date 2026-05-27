@@ -1,0 +1,171 @@
+---
+title: "Manjaro nima?"
+description: "Manjaro Linux — Arch Linux asosida qurilgan, foydalanuvchilarga qulay rolling release distributiv."
+order: 1
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/manjaro/introduction"
+learning_objectives:
+  - "Manjaro tarixi va asosiy printsiplari"
+  - "Asosiy texnik xususiyatlar"
+  - "Manjaroni boshqa distributivlardan ajratuvchi xususiyatlar"
+tags: ["manjaro", "beginner", "arch"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro — About"
+    url: "https://manjaro.org/about/"
+  - title: "Manjaro Wiki — A Different Kind of Beast"
+    url: "https://wiki.manjaro.org/index.php/Manjaro:A_Different_Kind_of_Beast"
+---
+
+**Manjaro Linux** — Arch Linux asosida qurilgan, lekin foydalanuvchilarga qulay bo'lishga qaratilgan distributiv. 2011-yilda boshlangan va shu paytdan beri Arch ekotizimini keng auditoriyaga ochishga hissa qo'shmoqda.[¹](https://manjaro.org/about/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Manjaro tarixi va asoschisi.
+- Arch asosida qurilgan, lekin nima bilan farq qiladi.
+- Asosiy texnik tafsilotlar.
+</Callout>
+
+## 1. Manjaro asoslari
+
+- **Asosi:** Arch Linux.
+- **Reliz model:** Rolling release (ammo Arch'dan farqli — sekinroq).
+- **Default desktop:** XFCE (Plasma va GNOME ham rasmiy versiyalarda).
+- **Paket menejer:** `pacman` (Arch'dan).
+- **AUR qo'llab-quvvatlash:** Ha, `pamac` GUI orqali ham.
+- **O'rnatuvchi:** Calamares (grafik).
+
+## 2. Asosiy farqlovchi xususiyatlar
+
+| | Arch Linux | Manjaro |
+|---|---|---|
+| O'rnatish | Qo'lda terminal orqali | Calamares GUI |
+| Repozitoriy yangiligi | Eng yangi | 2 hafta kechikkan (sinovdan o'tgan) |
+| Hardware support | Qo'lda sozlash kerak | Avtomatik MHWD (Manjaro Hardware Detection) |
+| GPU drayverlar | Qo'lda | Avtomatik |
+| Kernel boshqaruv | Qo'lda | `mhwd-kernel` GUI |
+| Target | Tajribali foydalanuvchilar | Hamma daraja |
+
+## 3. Stability Branch tizimi
+
+Manjaro paketlari 3 ta branch'dan birida:
+
+```
+Unstable ──▶ Testing ──▶ Stable
+(Arch'ga teng)  (sinov)   (foydalanuvchilar)
+```
+
+Yangi paketlar avval **Unstable**'da (Arch'dan to'g'ridan-to'g'ri keladi). 1-2 hafta sinovdan keyin **Testing**'ga, so'ng yana sinovdan keyin **Stable**'ga.
+
+Bu Arch'dan farq — Manjaro foydalanuvchilari yangi paketlarni biroz kechikib oladi, lekin **sinovdan o'tgan** holatda.
+
+## 4. Hardware Detection — MHWD
+
+```bash
+# Qaysi grafik drayverlar mavjud
+mhwd -l
+
+# Joriy o'rnatilganlar
+mhwd -li
+
+# NVIDIA drayverni o'rnatish
+sudo mhwd -i pci video-nvidia
+```
+
+Bu Arch'da `pacman -S nvidia` + manual sozlash o'rniga bir buyruq.
+
+## 5. Kernel boshqaruv
+
+Manjaro bir nechta yadro versiyasini paralel saqlay oladi:
+
+```bash
+# Joriy yadro
+uname -r
+
+# Mavjud yadrolar
+mhwd-kernel -l
+
+# Qaysilar o'rnatilgan
+mhwd-kernel -li
+
+# Yangi yadro o'rnatish
+sudo mhwd-kernel -i linux66
+
+# Eski yadroni o'chirish
+sudo mhwd-kernel -r linux515
+```
+
+LTS yadrolar (linux515, linux61) yoki eng yangilari (linux66) — siz tanlaysiz.
+
+## 6. Tarixi
+
+```
+2011 — Manjaro 0.1 (Roland Singer, Guillaume Benoit, Philip Müller)
+2015 — Manjaro 15.09 — Calamares installer
+2019 — Manjaro 18.x — KDE Plasma rasmiy
+2020 — Manjaro 20.x — Manjaro GmbH & Co. KG tashkil etildi
+2024+— Manjaro 24.x — modern infratuzilma
+```
+
+## 7. Rasmiy versiyalar
+
+- **Manjaro XFCE** — yengil, default.
+- **Manjaro GNOME** — modern desktop.
+- **Manjaro KDE Plasma** — to'liq, moslashtirish imkoniyatlari ko'p.
+- **Manjaro Sway** — Wayland WM.
+- **Community editions** — i3, Cinnamon, Budgie va boshqalar (rasmiy emas, lekin qo'llab-quvvatlanadi).
+
+## 8. Manjaro qaysi foydalanuvchi uchun?
+
+✅ **Mos:**
+
+- Arch'ni xohlaydi, lekin to'liq qo'lda o'rnatishni emas.
+- AUR'dan foydalanmoqchi.
+- Rolling release, lekin ozgina barqarorroq.
+- Yangi apparat — eng yangi drayverlar kerak.
+
+❌ **Mos emas:**
+
+- "Stabil mahkam" tizim kerak (Debian Stable, Ubuntu LTS yaxshi).
+- Server (Rolling release server uchun ko'pincha mos emas).
+- Boshlovchilar uchun Linux dunyosida birinchi qadam (Ubuntu/Fedora oson).
+
+## 9. Mashqlar
+
+1. [manjaro.org/about](https://manjaro.org/about/) ni o'qing. Manjaro slogani nima?
+2. Manjaro va Ubuntu solishtirib uchta katta farqni yozing.
+
+## 10. Bilim sinovi
+
+**Savol 1.** Manjaro qaysi distributiv asosida?
+
+- a) Debian
+- b) Fedora
+- c) Arch Linux
+- d) Slackware
+
+<Callout type="success" title="Javob">
+**(c)** Arch Linux asosida.[¹](https://manjaro.org/about/)
+</Callout>
+
+**Savol 2.** MHWD nima qiladi?
+
+- a) Paket menejer
+- b) Manjaro Hardware Detection — drayverlarni avtomatik boshqaradi
+- c) Tarmoq vositasi
+- d) Antivirus
+
+<Callout type="success" title="Javob">
+**(b)** Hardware detection va drayverlar boshqaruvi.[²](https://wiki.manjaro.org/index.php/Manjaro:A_Different_Kind_of_Beast)
+</Callout>
+
+## Manbalar
+
+1. Manjaro — About. [https://manjaro.org/about/](https://manjaro.org/about/)
+2. Manjaro Wiki — A Different Kind of Beast. [https://wiki.manjaro.org/index.php/Manjaro:A_Different_Kind_of_Beast](https://wiki.manjaro.org/index.php/Manjaro:A_Different_Kind_of_Beast)
+
+## Keyingi qadam
+
+👉 [Arch vs Manjaro](/manjaro/arch-vs-manjaro)

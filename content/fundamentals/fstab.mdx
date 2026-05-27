@@ -1,0 +1,441 @@
+---
+title: "fstab va mount sozlamalari"
+description: "/etc/fstab fayli, mount/umount, options, systemd-mount va NFS/Samba mount."
+order: 112
+level: "intermediate"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/disk-management"
+learning_objectives:
+  - "fstab format va maydonlari"
+  - "Mount options chuqurroq"
+  - "Network shares mount qilish"
+  - "Bind mount va overlay"
+tags: ["intermediate", "fstab", "mount", "nfs", "samba"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "fstab(5) manpage"
+    url: "https://manpages.debian.org/bookworm/manpages/fstab.5.en.html"
+  - title: "mount(8) manpage"
+    url: "https://manpages.debian.org/bookworm/manpages/mount.8.en.html"
+  - title: "ArchWiki — fstab"
+    url: "https://wiki.archlinux.org/title/Fstab"
+---
+
+`/etc/fstab` — Linux'ning **file system table**. Tizim yuklanganda qaysi disk, partition yoki network share qaerga mount qilinishini tasvirlaydi. Bu darsda fstab'ni ustozdek tushunamiz.[¹](https://manpages.debian.org/bookworm/manpages/fstab.5.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- fstab format va 6 ta maydoni.
+- Mount options batafsil.
+- UUID, LABEL, PARTUUID — qaysi qachon.
+- Network mount: NFS, Samba.
+- Bind mount va systemd-mount.
+</Callout>
+
+## 1. fstab format
+
+```
+<device>  <mountpoint>  <fstype>  <options>  <dump>  <pass>
+```
+
+Misol:
+
+```
+UUID=abc-123          /            ext4    errors=remount-ro 0 1
+UUID=xyz-789          /boot/efi    vfat    umask=0077         0 1
+UUID=def-456          /home        ext4    defaults           0 2
+UUID=ghi-789          none         swap    sw                 0 0
+//server/share        /mnt/share   cifs    credentials=...    0 0
+192.168.1.5:/data     /mnt/nfs     nfs     defaults           0 0
+tmpfs                 /tmp         tmpfs   defaults,size=2G   0 0
+```
+
+| Maydon | Maqsad |
+|---|---|
+| `<device>` | UUID, LABEL, yoki `/dev/...` |
+| `<mountpoint>` | Mount katalog yoki `none` (swap) |
+| `<fstype>` | ext4, vfat, ntfs, swap, nfs, cifs |
+| `<options>` | Vergul bilan ajratilgan |
+| `<dump>` | 0 yoki 1 (dump backup uchun, ko'pincha 0) |
+| `<pass>` | fsck tartibi: 0 (yo'q), 1 (root), 2 (boshqa) |
+
+## 2. Device identifikatori — UUID, LABEL, PARTUUID
+
+```bash
+sudo blkid
+# /dev/sda1: UUID="abc-123" TYPE="ext4" PARTUUID="..."
+# /dev/sdb1: LABEL="DATA" UUID="xyz-789" TYPE="ext4"
+```
+
+| Format | Qachon |
+|---|---|
+| `/dev/sdaX` | YOMON — qurilma tartibi o'zgaradi |
+| `UUID=...` | YAXSHI — filesystem darajasidagi UUID |
+| `LABEL=...` | YAXSHI — agar label berilgan bo'lsa |
+| `PARTUUID=...` | YAXSHI — GPT partition UUID (filesystem o'zgartirilsa ham) |
+
+Tavsiya: **UUID** default uchun.
+
+## 3. Mount options — keng ishlatiladigan
+
+| Option | Ma'no |
+|---|---|
+| `defaults` | rw,suid,dev,exec,auto,nouser,async |
+| `ro` | Read-only |
+| `rw` | Read-write |
+| `noexec` | Bajariladigan fayllarni rad qilish |
+| `nosuid` | SUID bit'larni e'tibor bermaslik |
+| `nodev` | Device fayllarni rad qilish |
+| `noauto` | Boot vaqtida avtomatik mount qilmaslik |
+| `user` | Oddiy user mount qila oladi |
+| `users` | Bir nechta user mount/umount |
+| `nofail` | Disk mavjud bo'lmasa ham, boot to'xtatmaslik |
+| `errors=remount-ro` | Filesystem xatosi → read-only |
+| `discard` | TRIM (SSD uchun) |
+| `noatime` | Access time yangilamaslik (performance) |
+| `nodiratime` | Katalog access time |
+
+### Tipik kombinatsiyalar
+
+```
+# Root partition
+UUID=...  /  ext4  errors=remount-ro,noatime,discard  0 1
+
+# SSD performance
+UUID=...  /home  ext4  defaults,noatime,discard  0 2
+
+# Tashqi disk (user mount)
+LABEL=BACKUP  /mnt/backup  ext4  user,noauto  0 0
+```
+
+## 4. Mount va umount
+
+```bash
+# Qo'lda mount
+sudo mount /dev/sdb1 /mnt/data
+
+# Options bilan
+sudo mount -o ro,noexec /dev/sdb1 /mnt/data
+
+# Filesystem turini ko'rsatish
+sudo mount -t ext4 /dev/sdb1 /mnt/data
+
+# fstab'dan mount (faqat /mnt/data ni topadi)
+sudo mount /mnt/data
+
+# Hamma fstab entry'lar
+sudo mount -a
+
+# Umount
+sudo umount /mnt/data
+sudo umount /dev/sdb1
+
+# Majburiy umount (band bo'lsa)
+sudo umount -l /mnt/data    # lazy umount
+
+# Joriy mount'lar
+mount
+findmnt
+```
+
+## 5. swap fstab'da
+
+```
+UUID=...  none  swap  sw  0 0
+```
+
+Faollashtirish:
+
+```bash
+sudo swapon -a            # fstab'dan hammasi
+sudo swapon /dev/sda3     # aniq
+
+# Status
+swapon --show
+free -h
+
+# O'chirish
+sudo swapoff /dev/sda3
+```
+
+## 6. tmpfs — RAM'da fayl tizim
+
+```
+tmpfs  /tmp     tmpfs  defaults,size=2G,mode=1777  0 0
+tmpfs  /run     tmpfs  defaults,size=512M           0 0
+```
+
+Tezroq, lekin reboot keyin yo'qoladi.
+
+## 7. NFS mount
+
+```bash
+sudo apt install nfs-common
+
+# Qo'lda
+sudo mount -t nfs 192.168.1.5:/data /mnt/nfs
+
+# fstab
+echo "192.168.1.5:/data  /mnt/nfs  nfs  defaults,_netdev  0 0" | sudo tee -a /etc/fstab
+```
+
+`_netdev` — tarmoq tayyor bo'lmaguncha mount qilmaslik.
+
+NFS options:
+
+| Option | Maqsad |
+|---|---|
+| `vers=4` | NFS versiyasi |
+| `soft` | Server javob bermasa, xato (default `hard` — cheksiz kutish) |
+| `timeo=30` | Timeout 3 soniya (30 = 3s) |
+| `rsize=65536`, `wsize=65536` | Buffer hajmlari |
+| `nolock` | Locking o'chirish |
+
+## 8. Samba (SMB/CIFS) mount
+
+```bash
+sudo apt install cifs-utils
+
+# Qo'lda (parol bilan)
+sudo mount -t cifs //server/share /mnt/share \
+    -o username=user,password=secret
+
+# fstab — credentials fayli
+sudo nano /etc/samba/credentials
+# username=user
+# password=secret
+# domain=WORKGROUP
+
+sudo chmod 600 /etc/samba/credentials
+```
+
+fstab:
+
+```
+//server/share  /mnt/share  cifs  credentials=/etc/samba/credentials,uid=1000,gid=1000,_netdev  0 0
+```
+
+## 9. Bind mount — bir joydan ikkinchisiga
+
+```
+# fstab
+/source/path  /destination/path  none  bind  0 0
+```
+
+Yoki qo'lda:
+
+```bash
+sudo mount --bind /source /destination
+```
+
+Foydali — chroot muhitlarida, container'larda fayllarni umumiy qilish uchun.
+
+## 10. systemd .mount unitlar
+
+`/etc/fstab` alternativ — systemd mount unitlar.
+
+`/etc/systemd/system/mnt-data.mount`:
+
+```ini
+[Unit]
+Description=Mount /mnt/data
+
+[Mount]
+What=/dev/disk/by-uuid/abc-123
+Where=/mnt/data
+Type=ext4
+Options=defaults,noatime
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now mnt-data.mount
+```
+
+**Nom qoidasi:** unit nomi mountpoint bo'lishi kerak (`-` o'rniga `/`). `/mnt/data` → `mnt-data.mount`.
+
+### `automount` — talab bo'yicha mount
+
+`/etc/systemd/system/mnt-data.automount`:
+
+```ini
+[Unit]
+Description=Auto-mount /mnt/data
+
+[Automount]
+Where=/mnt/data
+TimeoutIdleSec=10min
+
+[Install]
+WantedBy=multi-user.target
+```
+
+10 daqiqa foydalanilmasa avtomatik umount.
+
+## 11. fstab xatosi — boot'ni buzish
+
+`/etc/fstab` xatosi tizim bootlanmasligiga olib keladi:
+
+```bash
+# Sintaksis tekshirish
+sudo mount -a    # boot oldidan har doim
+
+# Xato bo'lsa "Cannot mount" yoki "fsck failed"
+```
+
+### Tiklash
+
+GRUB menyusida `e` → kernel qatoriga `single` qo'shing → emergency shell. fstab tahrirlang, reboot.
+
+Yoki Live USB → root mount → fstab tahrirlash.
+
+`nofail` opsiyasi xatolik bo'lganda boot'ni davom ettirishga ruxsat beradi:
+
+```
+UUID=...  /mnt/optional  ext4  defaults,nofail  0 2
+```
+
+## 12. Misol — to'liq fstab
+
+```
+# /etc/fstab
+
+# Root
+UUID=11111111-aaaa-bbbb-cccc-222222222222  /          ext4  errors=remount-ro,noatime,discard  0 1
+
+# EFI
+UUID=A1B2-C3D4                              /boot/efi  vfat  umask=0077                          0 1
+
+# Home (LVM)
+/dev/mapper/myvg-home                       /home      ext4  defaults,noatime                    0 2
+
+# Swap
+UUID=33333333-dddd-eeee-ffff-444444444444  none       swap  sw                                  0 0
+
+# Backup disk (USB)
+LABEL=BACKUP                                /mnt/backup  ext4  user,noauto                       0 0
+
+# NFS share
+192.168.1.10:/srv/nfs                       /mnt/nfs   nfs   defaults,_netdev,soft               0 0
+
+# Tmpfs
+tmpfs                                       /tmp       tmpfs defaults,size=2G,mode=1777          0 0
+
+# Bind mount
+/home/ali/projects                          /var/www   none  bind                                0 0
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `mount` | Joriy mount'lar |
+| `findmnt` | Daraxt ko'rinishida |
+| `sudo mount -a` | fstab'dan hammasi |
+| `sudo mount /mountpoint` | fstab entry'dan aniq biri |
+| `sudo mount -t TYPE DEV DIR` | Qo'lda |
+| `sudo umount /mountpoint` | Umount |
+| `sudo umount -l /mountpoint` | Lazy umount (band bo'lsa) |
+| `sudo blkid` | UUID, LABEL, FS type |
+| `swapon --show` | Faol swap |
+| `sudo systemctl daemon-reload` | systemd .mount unit qo'shgandan keyin |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **Device path (`/dev/sdb1`) fstab'da** — qurilma tartibi o'zgaradi. UUID ishlating.
+- **Boot xatosi fstab'dan** — `nofail` qo'shing optional disklar uchun.
+- **`mount -a` qilmasdan reboot** — xato bo'lsa boot to'xtaydi. Doim avval `mount -a` test.
+- **Mount band — umount xato** — `lsof` orqali kim ishlatayotganini ko'ring.
+- **NFS hang** — `soft` opsiyasi xato bo'lganda timeout berishini ta'minlaydi.
+- **`_netdev`'siz network mount** — boot vaqtida tarmoq tayyor bo'lmasligi mumkin.
+
+## 15. Eng yaxshi amaliyot
+
+- **UUID har doim** — qurilma tartibi muammosini hal qiladi.
+- **`mount -a` testi** — har fstab tahriridan keyin.
+- **`nofail` optional disklar uchun.**
+- **Network mount uchun `_netdev`.**
+- **SSD uchun `noatime,discard` (yoki `fstrim.timer` orqali periodik).**
+- **`/tmp` tmpfs** — RAM yetarli bo'lsa, tezroq.
+- **systemd .mount** — yangi loyihalar uchun (declarative).
+- **Credentials fayl `chmod 600`** — parolni xavfsiz saqlash.
+
+## 16. Mashqlar
+
+1. **fstab tahlil:** `cat /etc/fstab` ni o'qing. Sizdagi har mount uchun device va mount point ni yozing.
+2. **Mount tekshirish:** `sudo mount -a` — xato bormi?
+3. **findmnt:** `findmnt --tree` — daraxt ko'rinishi.
+4. **tmpfs test:** `sudo mount -t tmpfs -o size=100M tmpfs /mnt/temp`. `df -h /mnt/temp` — RAM ishlatadimi?
+5. **USB:** USB ulang, `lsblk` orqali topish, qo'lda mount qilish, `df -h` bilan tekshirish.
+6. **Bind mount:** `sudo mkdir /mnt/bind && sudo mount --bind /etc /mnt/bind`. `ls /mnt/bind` — `/etc` bilan bir xil?
+
+## 17. Bilim sinovi
+
+**Savol 1.** fstab da device sifatida UUID afzal, chunki:
+
+- a) Qisqaroq
+- b) Qurilma tartibi (`/dev/sdb1`) o'zgarishi mumkin, UUID barqaror
+- c) Faqat root uchun
+- d) Tezroq
+
+<Callout type="success" title="Javob">
+**(b)** UUID o'zgarmas, qurilma nomi tartibi o'zgarishi mumkin.[¹](https://manpages.debian.org/bookworm/manpages/fstab.5.en.html)
+</Callout>
+
+**Savol 2.** `nofail` opsiyasi nima qiladi?
+
+- a) Hech qachon fail bermaslik
+- b) Optional fstab entry — disk mavjud bo'lmasa boot davom etadi
+- c) Faqat USB uchun
+- d) Faqat NFS uchun
+
+<Callout type="success" title="Javob">
+**(b)** Tashqi disklar uchun ishlatilsin — boot'ni buzmaslik.
+</Callout>
+
+**Savol 3.** NFS yoki Samba uchun qaysi opsiya majburiy?
+
+- a) `noatime`
+- b) `_netdev` — tarmoq tayyor bo'lguncha kutish
+- c) `discard`
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(b)** Tarmoq xizmatlar tayyor bo'lmagunicha mount xato bo'ladi.
+</Callout>
+
+**Savol 4.** Bind mount nima?
+
+- a) Network mount
+- b) Bir katalog'ni boshqa joyga ham mount qilish (alias kabi)
+- c) Read-only mount
+- d) Encrypted mount
+
+<Callout type="success" title="Javob">
+**(b)** Asl mount + qo'shimcha mountpoint.
+</Callout>
+
+**Savol 5.** Mount qilingan filesystem'ni umount qilolmasligingiz sababi:
+
+- a) Root emassiz
+- b) Filesystem band — biron jarayon yoki shell uni ishlatmoqda
+- c) Disk yo'q
+- d) fstab da bor
+
+<Callout type="success" title="Javob">
+**(b)** `lsof` yoki `fuser` orqali kim ishlatayotganini topib, jarayonni yoping. Yoki `umount -l` (lazy).
+</Callout>
+
+## Manbalar
+
+1. fstab(5). [https://manpages.debian.org/bookworm/manpages/fstab.5.en.html](https://manpages.debian.org/bookworm/manpages/fstab.5.en.html)
+2. mount(8). [https://manpages.debian.org/bookworm/manpages/mount.8.en.html](https://manpages.debian.org/bookworm/manpages/mount.8.en.html)
+3. ArchWiki — fstab. [https://wiki.archlinux.org/title/Fstab](https://wiki.archlinux.org/title/Fstab)
+
+## Keyingi qadam
+
+👉 [Swap xotira boshqaruvi](/fundamentals/swap-memory)

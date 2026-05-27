@@ -1,0 +1,424 @@
+---
+title: "RAID — Redundant Array of Independent Disks"
+description: "Linux'da dasturiy RAID — mdadm, RAID 0/1/5/6/10, monitoring va tiklash."
+order: 111
+level: "advanced"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/disk-management"
+learning_objectives:
+  - "RAID darajalari va ularning xususiyatlari"
+  - "mdadm bilan RAID yaratish"
+  - "Disk almashtirish va array tiklash"
+  - "Monitoring va alert sozlash"
+tags: ["advanced", "raid", "mdadm", "storage", "redundancy"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — RAID"
+    url: "https://wiki.archlinux.org/title/RAID"
+  - title: "Linux RAID Wiki"
+    url: "https://raid.wiki.kernel.org/"
+  - title: "mdadm(8) manpage"
+    url: "https://manpages.debian.org/bookworm/mdadm/mdadm.8.en.html"
+---
+
+**RAID** (Redundant Array of Independent Disks) — bir nechta diskni birlashtirib **ishonchlilik** (disk yo'qolsa ham ma'lumot saqlanish) yoki **tezlik**ni oshirish. Linux'da `mdadm` orqali dasturiy RAID yaratiladi.[¹](https://wiki.archlinux.org/title/RAID)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Asosiy RAID darajalari: 0, 1, 5, 6, 10.
+- `mdadm` bilan array yaratish.
+- Disk almashtirish va tiklash.
+- Monitoring va email alert.
+</Callout>
+
+## 1. RAID darajalari
+
+| Daraja | Disk soni | Ishonchlilik | Tezlik | Joy |
+|---|---|---|---|---|
+| **RAID 0** | 2+ | Yo'q | Tez (stripping) | 100% |
+| **RAID 1** | 2 | 1 disk yo'qolsa OK (mirror) | O'rta | 50% |
+| **RAID 5** | 3+ | 1 disk yo'qolsa OK (parity) | O'rta | (N-1)/N |
+| **RAID 6** | 4+ | 2 disk yo'qolsa OK | Sekin yozish | (N-2)/N |
+| **RAID 10** | 4+ | 1+ disk yo'qolsa OK | Tez | 50% |
+
+### RAID 0 — Striping
+
+```
+Disk 1: [A1] [A3] [A5]
+Disk 2: [A2] [A4] [A6]
+```
+
+Tezlik 2x, lekin bitta disk yo'qolsa — **hammasi yo'qoladi**.
+
+### RAID 1 — Mirroring
+
+```
+Disk 1: [A1] [A2] [A3]
+Disk 2: [A1] [A2] [A3]   ← aynan nusxa
+```
+
+100% kafolat, lekin foydali joy yarim.
+
+### RAID 5 — Parity
+
+```
+Disk 1: [A1] [B1] [Cp]
+Disk 2: [A2] [Bp] [C1]
+Disk 3: [Ap] [B2] [C2]
+```
+
+Har bir blok bir diskda parity (xor) saqlanadi. Bitta disk yo'qolsa, parity'dan tiklanadi.
+
+### RAID 10 — 1+0
+
+RAID 1 (mirror) va RAID 0 (stripe) birlashishi. 4 disk minimal.
+
+```
+Pair 1: Disk1 ↔ Disk2  (mirror)
+Pair 2: Disk3 ↔ Disk4  (mirror)
+Stripe across pairs.
+```
+
+Eng tezkor va eng ishonchli — lekin foydali joy 50%.
+
+## 2. `mdadm` o'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install mdadm
+
+# Fedora/RHEL
+sudo dnf install mdadm
+
+# Arch
+sudo pacman -S mdadm
+```
+
+## 3. RAID 1 yaratish — mirror
+
+```bash
+# 2 ta bir xil hajmli disk
+lsblk
+# /dev/sdb va /dev/sdc — 1 TB har biri
+
+# Partition yaratish (RAID type)
+sudo parted /dev/sdb mklabel gpt
+sudo parted /dev/sdb mkpart primary 1MiB 100%
+sudo parted /dev/sdb set 1 raid on
+
+sudo parted /dev/sdc mklabel gpt
+sudo parted /dev/sdc mkpart primary 1MiB 100%
+sudo parted /dev/sdc set 1 raid on
+
+# RAID 1 yaratish
+sudo mdadm --create /dev/md0 --level=1 --raid-devices=2 \
+           /dev/sdb1 /dev/sdc1
+
+# Status
+cat /proc/mdstat
+```
+
+`/proc/mdstat`:
+
+```
+Personalities : [raid1]
+md0 : active raid1 sdc1[1] sdb1[0]
+      1048510464 blocks super 1.2 [2/2] [UU]
+      [>....................]  resync = 0.5% (5242880/1048510464) ...
+```
+
+`[UU]` — ikkala disk OK. `[U_]` — bitta yo'q.
+
+### Filesystem va mount
+
+```bash
+sudo mkfs.ext4 /dev/md0
+sudo mkdir /mnt/raid
+sudo mount /dev/md0 /mnt/raid
+
+# fstab
+echo "/dev/md0 /mnt/raid ext4 defaults 0 2" | sudo tee -a /etc/fstab
+```
+
+## 4. RAID konfiguratsiyasini saqlash
+
+```bash
+# `mdadm.conf` ga
+sudo mdadm --detail --scan | sudo tee -a /etc/mdadm/mdadm.conf
+
+# Debian/Ubuntu — initramfs yangilash
+sudo update-initramfs -u
+```
+
+Aks holda boot vaqtida RAID auto-assemble bo'lmasligi mumkin.
+
+## 5. RAID 5 yaratish
+
+```bash
+# Minimal 3 disk
+sudo mdadm --create /dev/md1 --level=5 --raid-devices=3 \
+           /dev/sdb1 /dev/sdc1 /dev/sdd1
+
+# Resync uzoq vaqt — disk hajmiga qarab soatlar
+watch cat /proc/mdstat
+```
+
+## 6. RAID statusini ko'rish
+
+```bash
+# Tezkor
+cat /proc/mdstat
+
+# Batafsil
+sudo mdadm --detail /dev/md0
+
+# Faol arraylar
+ls /dev/md*
+```
+
+`mdadm --detail` natija:
+
+```
+/dev/md0:
+        Version : 1.2
+  Creation Time : Mon May 26 10:00:00 2026
+     Raid Level : raid1
+     Array Size : 1048510464 (1023.94 GiB)
+   Raid Devices : 2
+  Total Devices : 2
+          State : clean
+ Active Devices : 2
+Working Devices : 2
+ Failed Devices : 0
+  Spare Devices : 0
+
+    Number   Major   Minor   RaidDevice State
+       0       8       17        0      active sync   /dev/sdb1
+       1       8       33        1      active sync   /dev/sdc1
+```
+
+## 7. Disk yo'qolganda — tiklash
+
+### Simulyatsiya — diskni "buzilgan" deb belgilash
+
+```bash
+# Faqat test! Production'da haqiqiy disk muammosi paydo bo'lganda.
+sudo mdadm --manage /dev/md0 --fail /dev/sdb1
+
+# Status
+cat /proc/mdstat
+# md0 : active raid1 sdc1[1] sdb1[0](F)
+#       1048510464 blocks super 1.2 [2/1] [_U]
+```
+
+`(F)` — failed, `[_U]` — bitta yo'q.
+
+### Buzilgan diskni olib tashlash
+
+```bash
+sudo mdadm --manage /dev/md0 --remove /dev/sdb1
+```
+
+### Yangi diskni qo'shish
+
+```bash
+# Yangi disk /dev/sdd qo'shildi va partition tayyor
+sudo mdadm --manage /dev/md0 --add /dev/sdd1
+
+# Resync boshlanadi
+watch cat /proc/mdstat
+```
+
+## 8. Hot spare — avtomatik tiklash
+
+Spare disk array'ga qo'shilgan, lekin ishlamaydigan. Disk yo'qolganda avtomatik o'rniga turadi.
+
+```bash
+sudo mdadm --create /dev/md0 --level=5 --raid-devices=3 --spare-devices=1 \
+           /dev/sdb1 /dev/sdc1 /dev/sdd1 /dev/sde1
+```
+
+`sde1` — spare. Birorta disk yo'qolsa, avtomatik resync boshlaydi.
+
+## 9. RAID o'sirish (grow)
+
+```bash
+# RAID 5'ga yangi disk qo'shish
+sudo mdadm --grow /dev/md0 --raid-devices=4 --add /dev/sde1
+
+# Reshape boshlanadi (sekin, soatlab)
+watch cat /proc/mdstat
+```
+
+So'ng filesystem'ni kengaytirish (LVM darsida tasvirlangan).
+
+## 10. Monitoring va email alert
+
+`/etc/mdadm/mdadm.conf` (Debian/Ubuntu):
+
+```
+MAILADDR admin@example.com
+```
+
+`mdadm` daemon'i (`mdmonitor.service`) buzilish bo'lsa email yuboradi.
+
+```bash
+sudo systemctl enable --now mdmonitor.service
+
+# Test alert
+sudo mdadm --monitor --scan --test --oneshot
+```
+
+## 11. RAID + LVM birgalikda
+
+Tipik production setup:
+
+```
+4 ta disk
+   ↓
+RAID 10 (mdadm)
+   ↓
+LVM PV (/dev/md0)
+   ↓
+VG → bir nechta LV
+   ↓
+Filesystem (ext4, xfs)
+```
+
+Bu kompozitsiyada:
+
+- RAID — disk yo'qolishidan saqlash.
+- LVM — elastik joy boshqaruvi.
+- Filesystem — fayllar saqlash.
+
+## 12. RAID 1 vs RAID 5 — qaysisini tanlash
+
+| | RAID 1 | RAID 5 |
+|---|---|---|
+| Minimal disk | 2 | 3 |
+| Joy samarasi | 50% | 67-87% |
+| Yozish tezlik | Past (har ikkita) | O'rta (parity calc) |
+| Disk yo'qolganda | OK | OK (lekin sekin tiklanadi) |
+| Tiklash vaqti | Tez | Sekin (parity hisoblash) |
+| Production tavsiya | Kichik server, OS | Katta storage |
+
+**Modern tavsiya:** Katta disk (4 TB+) uchun **RAID 6** yoki **RAID 10** (RAID 5 tiklash vaqtida ikkinchi disk yo'qolishi xavfli).
+
+## 13. RAID 5 va katta disk muammosi
+
+4 TB+ disk uchun RAID 5 xavfli — bitta disk yo'qolganda tiklash kunlar olishi mumkin, va shu vaqtda ikkinchi disk yo'qolsa — barcha ma'lumot yo'qoladi.
+
+**Yechim:**
+
+- **RAID 6** — 2 disk yo'qolsa ham OK.
+- **RAID 10** — tezroq.
+- **ZFS** yoki **btrfs** RAID — fayl tizimi darajasidagi checksum.
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `mdadm --create /dev/mdN --level=L --raid-devices=N` | Array yaratish |
+| `cat /proc/mdstat` | Status |
+| `mdadm --detail /dev/md0` | Batafsil ma'lumot |
+| `mdadm --manage /dev/md0 --fail /dev/sdb1` | Diskni "buzilgan" deb belgilash (test) |
+| `mdadm --manage /dev/md0 --remove /dev/sdb1` | Diskni olib tashlash |
+| `mdadm --manage /dev/md0 --add /dev/sdd1` | Yangi disk qo'shish |
+| `mdadm --grow /dev/md0 --raid-devices=N` | Array o'sirish |
+| `mdadm --stop /dev/md0` | Array'ni to'xtatish |
+| `mdadm --detail --scan` | Konfiguratsiya scan |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`mdadm.conf` yangilamaslik** — reboot keyin RAID auto-assemble bo'lmasligi mumkin.
+- **`initramfs` yangilamaslik** — root RAID bo'lsa, boot xato.
+- **RAID 5 ko'p disk bilan (>5)** — tiklash xavfi. RAID 6 yoki RAID 10 tanlang.
+- **Backup'siz RAID** — RAID — backup emas! Birgalikda ishlatish.
+- **Disk kapasiteti farqi** — RAID eng kichik diskka tenglashtiradi. Bir xil disk hajmlar tavsiya.
+
+## 16. Eng yaxshi amaliyot
+
+- **RAID + backup** — RAID disk yo'qolishidan, backup — ma'lumot yo'qolishidan (hujum, xato, virus).
+- **Hot spare har production array'da.**
+- **Email monitoring** — `mdadm.conf` da `MAILADDR`.
+- **SMART monitoring** — diskning oldindan ogohlantirishlari.
+- **Bir xil disk modellari** ammo turli **partiya** dan — bir vaqtda yo'qolish xavfi past.
+- **RAID + LVM + LUKS** — to'liq production stack.
+- **Reshape paytida backup oling** — reshape uzoq va xavfli.
+
+## 17. Mashqlar
+
+1. **Test VM:** VirtualBox VM'ga 3 ta yangi disk qo'shing. Har biri 2 GB.
+2. **RAID 5 yaratish:** Yuqoridagi ketma-ketlik bo'yicha RAID 5 yarating.
+3. **Status:** `cat /proc/mdstat` natijasi bilan tanishing.
+4. **Diskni "yo'qotish":** `mdadm --fail` bilan bittasini buzilgan deb belgilang. `/proc/mdstat` o'zgardimi?
+5. **Tiklash:** Diskni olib tashlang, "yangi" qo'shing — resync boshlanadi.
+6. **fail-over test:** Filesystem mount qilingan holatda diskni fail qiling — ma'lumot saqlanganmi?
+
+## 18. Bilim sinovi
+
+**Savol 1.** RAID 1 ning maqsadi:
+
+- a) Tezlik
+- b) Mirroring — bir disk yo'qolsa ham ma'lumot saqlanish
+- c) Joy iqtisodi
+- d) Shifrlash
+
+<Callout type="success" title="Javob">
+**(b)** Mirror — ikki diskda bir xil ma'lumot.[¹](https://wiki.archlinux.org/title/RAID)
+</Callout>
+
+**Savol 2.** RAID 5 minimal disk soni:
+
+- a) 2
+- b) 3
+- c) 4
+- d) 5
+
+<Callout type="success" title="Javob">
+**(b)** 3 ta — 2 ta ma'lumot, 1 ta parity (distributed).
+</Callout>
+
+**Savol 3.** RAID — backup'ni almashtiradimi?
+
+- a) Ha, to'liq
+- b) Yo'q — RAID disk yo'qolishidan, backup — boshqa xavflardan (xato, virus, ofat)
+- c) Faqat RAID 1 uchun
+- d) Faqat enterprise'da
+
+<Callout type="success" title="Javob">
+**(b)** RAID ≠ backup. Ikkalasi kerak.
+</Callout>
+
+**Savol 4.** Hot spare nima?
+
+- a) Foal disk
+- b) Array'da "kutib turuvchi" disk — bittasi yo'qolsa avtomatik o'rniga turadi
+- c) Tezroq disk
+- d) Backup disk
+
+<Callout type="success" title="Javob">
+**(b)** Spare — avtomatik tiklash uchun.
+</Callout>
+
+**Savol 5.** 8 TB disklar bilan eng xavfsiz RAID:
+
+- a) RAID 0
+- b) RAID 5
+- c) RAID 6 yoki RAID 10
+- d) RAID 1
+
+<Callout type="success" title="Javob">
+**(c)** Katta disk uchun 2 disk fail toleranti kerak.
+</Callout>
+
+## Manbalar
+
+1. ArchWiki — RAID. [https://wiki.archlinux.org/title/RAID](https://wiki.archlinux.org/title/RAID)
+2. Linux RAID Wiki. [https://raid.wiki.kernel.org/](https://raid.wiki.kernel.org/)
+3. mdadm(8). [https://manpages.debian.org/bookworm/mdadm/mdadm.8.en.html](https://manpages.debian.org/bookworm/mdadm/mdadm.8.en.html)
+
+## Keyingi qadam
+
+👉 [fstab va mount sozlamalari](/fundamentals/fstab)

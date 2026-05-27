@@ -1,0 +1,187 @@
+---
+title: "Backports nima?"
+description: "Debian Stable foydalanuvchilari uchun yangiroq paketlarni xavfsiz olish usuli — backports repozitoriyi."
+order: 3
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/debian/apt-debian"
+learning_objectives:
+  - "Debian Stable va paket eskirishi muammosini tushunish"
+  - "Backports nima va u qanday ishlaydi"
+  - "Backports'ni yoqish va undan paket o'rnatish"
+tags: ["debian", "backports", "stable"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Backports"
+    url: "https://backports.debian.org/"
+  - title: "Debian Backports — Instructions"
+    url: "https://backports.debian.org/Instructions/"
+---
+
+Debian Stable o'zining barqarorligi bilan mashhur — lekin shu sababli paketlari ham ko'pincha eskirgan bo'ladi. **Backports** — bu yangiroq paketlarni Stable foydalanuvchilariga xavfsiz yetkazib berishning rasmiy mexanizmi.[¹](https://backports.debian.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Stable va eski paketlar muammosi.
+- Backports nima va qanday ishlaydi.
+- `sources.list` ga backports qo'shish.
+- Backports'dan paket o'rnatish.
+</Callout>
+
+## 1. Muammo: Stable eskirgan
+
+Debian 12 (Bookworm) 2023-yilda chiqdi. Keyingi 2 yil ichida ko'plab dasturlarning yangi versiyalari (Firefox, Node.js, Kubernetes, va h.k.) chiqdi. Stable repozitoriylari esa **xavfsizlik yamoqlaridan tashqari** o'zgartirilmaydi — bu Debian'ning kafolati.
+
+Natija: yangi xususiyat kerak bo'lsa, foydalanuvchi tanloviga keladi:
+- Stable'da qolish va eski versiya bilan ishlash.
+- Testing yoki Sid'ga ko'chish — kamroq barqaror.
+- **Backports** — yangi paketni Stable foydalanuvchilari uchun maxsus qayta yig'ish.
+
+## 2. Backports qanday ishlaydi
+
+Debian Backports — rasmiy repozitoriya bo'lib, u **Testing yoki Sid**'dagi paketlarni Stable uchun qayta yig'adi. Buni Debian dasturchilari ko'ngilli ravishda bajaradi.
+
+Asosiy tamoyillar:[²](https://backports.debian.org/Instructions/)
+
+- Faqat **ariza bo'yicha** paketlar backport qilinadi (har bir paket alohida).
+- Backports paketlari **sinovdan kamroq o'tgan**, shuning uchun ehtiyot bo'lish kerak.
+- Standart ravishda `apt upgrade` backports'dan paketlarni **olmaydi** — siz qo'l bilan tanlashingiz kerak.
+
+## 3. Backports'ni yoqish
+
+Debian 12 (Bookworm) uchun `/etc/apt/sources.list` ga qo'shing:[²](https://backports.debian.org/Instructions/)
+
+```
+deb http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+```
+
+So'ng yangilang:
+
+```bash
+sudo apt update
+```
+
+## 4. Backports'dan paket o'rnatish
+
+Standart `apt install <paket>` Stable versiyani oladi. Backports versiyasini olish uchun maxsus belgilash kerak:
+
+```bash
+sudo apt -t bookworm-backports install <paket>
+```
+
+Misol — yangi versiyali `linux-image` (yadro):
+
+```bash
+sudo apt -t bookworm-backports install linux-image-amd64
+```
+
+## 5. Paketning qaysi manbadan kelganini tekshirish
+
+```bash
+apt policy firefox-esr
+```
+
+Misol natija:
+
+```
+firefox-esr:
+  Installed: 115.10.0esr-1~deb12u1
+  Candidate: 115.10.0esr-1~deb12u1
+  Version table:
+     128.0esr-1~deb12u1 100
+        100 http://deb.debian.org/debian bookworm-backports/main amd64 Packages
+ *** 115.10.0esr-1~deb12u1 500
+        500 http://security.debian.org/debian-security bookworm-security/main amd64 Packages
+```
+
+`100` raqami — backports'ning **past** ustuvorligini bildiradi (qiymat 500 — odatdagi). Shuning uchun `apt upgrade` avtomatik backports versiyasiga o'tmaydi.
+
+## 6. Backports'ni qachon ishlatish kerak?
+
+✅ **Ishlatish foydali:**
+
+- Yangi apparatga drayverlar (yangi yadro yoki firmware).
+- Faol rivojlanayotgan dasturlar (Firefox, LibreOffice, Kubernetes).
+- Kerakli xususiyat faqat yangi versiyada.
+
+❌ **Ishlatishdan saqlanish:**
+
+- Tizim asosiy paketlari (`libc6`, `systemd`) — bog'liqliklar kaskadi xavfli.
+- Server uchun barqarorlik birinchi o'rinda turganda.
+
+## 7. Backports paketni qaytarish
+
+Backports versiyasini olib tashlab, Stable versiyaga qaytish:
+
+```bash
+sudo apt install <paket>=<stable-versiya>
+sudo apt-mark hold <paket>     # avtomatik yangilanmaslik
+```
+
+Yoki paketni butunlay o'chirib qaytadan o'rnatish:
+
+```bash
+sudo apt purge <paket>
+sudo apt install <paket>
+```
+
+## 8. Amaliy misol
+
+Bookworm Stable da Linux yadrosi 6.1 versiyasi. Yangi `6.10` yadrosi backports'da bor:
+
+```bash
+# Backports yoqilganmi tekshirish
+grep backports /etc/apt/sources.list
+
+# Yangi yadro qidirish
+apt list -a linux-image-amd64
+
+# Backports'dan o'rnatish
+sudo apt -t bookworm-backports install linux-image-amd64
+
+# Qayta yuklash kerak
+sudo reboot
+
+# Joriy yadro
+uname -r
+```
+
+## 9. Mashqlar
+
+1. [backports.debian.org](https://backports.debian.org/) ni oching. Backports qaysi reliz turlari uchun mavjud (`bookworm-backports`, `bullseye-backports`)?
+2. (Debian o'rnatilgan tizimda) `apt policy bash` natijasini ko'ring. `Candidate` qaysi manbadan?
+3. Backports'ni yoqing va `apt list -t bookworm-backports` bilan ko'rinadigan paketlarni ko'ring.
+
+## 10. Bilim sinovi
+
+**Savol 1.** Backports nima?
+
+- a) Eski Debian relizlari uchun yangi paketlar
+- b) Testing/Sid'dan Stable uchun qayta yig'ilgan yangi paketlar
+- c) Debian'ning faqat serverlar uchun bo'limi
+- d) Bug-fix paketlar
+
+<Callout type="success" title="Javob">
+**(b)** Backports — yangiroq paketlarni Stable foydalanuvchilariga yetkazib berish.[¹](https://backports.debian.org/)
+</Callout>
+
+**Savol 2.** Backports'dan paket o'rnatish uchun `apt` qaysi flag ishlatadi?
+
+- a) `-b`
+- b) `-t`
+- c) `-B`
+- d) `--backports`
+
+<Callout type="success" title="Javob">
+**(b)** `apt -t <kodli-nom> install <paket>` — `-t` (target release) backports kabi maxsus relizlarni belgilash uchun.[²](https://backports.debian.org/Instructions/)
+</Callout>
+
+## Manbalar
+
+1. Debian Backports. [https://backports.debian.org/](https://backports.debian.org/)
+2. Debian Backports — Instructions. [https://backports.debian.org/Instructions/](https://backports.debian.org/Instructions/)
+
+## Keyingi qadam
+
+👉 [Stable / Testing / Sid](/debian/release-cycle)

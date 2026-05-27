@@ -1,0 +1,237 @@
+---
+title: "Shell nima?"
+description: "Linux shell tushunchasi — bash, zsh, fish va boshqalar; shell turi va u terminal'dan qanday farq qiladi."
+order: 1
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/fundamentals/terminal"
+learning_objectives:
+  - "Terminal va shell o'rtasidagi farqni ajratish"
+  - "Mavjud shell turlarini va ularning xususiyatlarini bilish"
+  - "Joriy shell va undagi muhitni tekshirish"
+tags: ["beginner", "shell", "bash", "zsh"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU Bash Reference Manual — What is a shell?"
+    url: "https://www.gnu.org/software/bash/manual/bash.html#What-is-a-shell_003f"
+  - title: "ArchWiki — Command-line shell"
+    url: "https://wiki.archlinux.org/title/Command-line_shell"
+  - title: "Debian Reference — Bourne shell"
+    url: "https://www.debian.org/doc/manuals/debian-reference/ch01.en.html#_the_simple_shell_command"
+---
+
+**Shell** — bu siz buyruq yozadigan, uni o'qib operatsion tizimga uzatuvchi dastur. Terminal — bu shell ishlatadigan oyna; shell esa terminal ichida ishlovchi alohida dastur.[¹](https://www.gnu.org/software/bash/manual/bash.html#What-is-a-shell_003f)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Terminal va shell o'rtasidagi farq.
+- Asosiy shell turlari: sh, bash, zsh, fish.
+- Joriy shell'ni bilish va boshqasiga o'tish.
+- Login va non-login, interactive va non-interactive farq.
+</Callout>
+
+## 1. Terminal vs Shell
+
+```
+┌──────────────────────────────────┐
+│  Terminal (GNOME Terminal, ...) │  ← Grafik oyna, klaviatura kiritishi
+│  ┌────────────────────────────┐  │
+│  │  Shell (bash, zsh, ...)    │  │  ← Buyruqlarni o'qiydigan dastur
+│  │  $ ls                       │  │
+│  │  Documents Downloads        │  │
+│  └────────────────────────────┘  │
+└──────────────────────────────────┘
+```
+
+- **Terminal** (terminal emulator) — klaviatura kiritishini ko'rsatuvchi va matn chiqaruvchi grafik dastur (GNOME Terminal, Konsole, iTerm2).
+- **Shell** — bu terminal ichida ishlaydigan dastur bo'lib, sizning buyruqlaringizni o'qiydi, ularni bajaradi va natijani qaytaradi.
+
+Bir xil terminal bir nechta shell'larni ishga tushira oladi.
+
+## 2. Asosiy shell turlari
+
+| Shell | Tavsif | Manba |
+|---|---|---|
+| **sh** | Bourne shell — 1979-yil. POSIX standartining asosi. | Klassik Unix |
+| **bash** | Bourne Again Shell — sh'ning kengaytirilgan versiyasi. Ko'p Linux distributivlari standart. | [gnu.org/software/bash](https://www.gnu.org/software/bash/) |
+| **zsh** | Z shell — bash'dan kuchliroq, ko'plab "tema" va plagin imkoniyatlari. macOS standart. | [zsh.sourceforge.io](https://www.zsh.sourceforge.io/) |
+| **fish** | Friendly Interactive Shell — boshlovchilarga qulay, sintaksis xil. | [fishshell.com](https://fishshell.com/) |
+| **dash** | Debian Almquist Shell — kichik, tez, faqat skript uchun ishlatiladi. | Debian |
+| **ksh** | KornShell — UNIX serverlarda ko'p ishlatiladi. | AT&T |
+
+## 3. Joriy shell'ni bilish
+
+```bash
+# Sizning hozirgi shell'ingiz
+echo $SHELL
+
+# Yoki
+echo $0
+
+# Tizimdagi mavjud shell'lar
+cat /etc/shells
+```
+
+Misol natija `/etc/shells` uchun:
+
+```
+# /etc/shells: valid login shells
+/bin/sh
+/bin/bash
+/bin/dash
+/usr/bin/bash
+/usr/bin/sh
+/usr/bin/zsh
+```
+
+## 4. Default shell'ni o'zgartirish
+
+```bash
+# zsh'ni o'rnatish (agar yo'q bo'lsa)
+sudo apt install zsh
+
+# Joriy foydalanuvchi uchun default shell'ni o'zgartirish
+chsh -s /usr/bin/zsh
+
+# Logout va qayta login qiling
+```
+
+`chsh` faqat `/etc/shells` ichidagi shell'larni qabul qiladi.
+
+## 5. Login va non-login shell
+
+| Tur | Qachon | Misol |
+|---|---|---|
+| **Login shell** | Tizimga kirish (terminal yoki SSH) | `bash -l`, SSH'dan kirish |
+| **Non-login shell** | Allaqachon kirgan foydalanuvchining yangi terminal oynasi | Yangi terminal tab |
+| **Interactive shell** | Foydalanuvchi buyruq yozadi | Oddiy terminal |
+| **Non-interactive shell** | Skript orqali | `bash script.sh` |
+
+Har bir tur boshlanishida turli konfiguratsiya fayllarini o'qiydi:
+
+| Tur | O'qiladigan fayllar |
+|---|---|
+| Login bash | `/etc/profile`, `~/.bash_profile`, `~/.bash_login`, `~/.profile` |
+| Interactive non-login bash | `~/.bashrc` |
+| Non-interactive bash | `BASH_ENV` muhit o'zgaruvchisi |
+
+## 6. Shell promptini sozlash
+
+Prompt — bu shell siz uchun buyruq kutayotganini bildiruvchi qator (`$`, `#`, `%`). Bash'da uni `PS1` muhit o'zgaruvchisi belgilaydi:
+
+```bash
+# Joriy prompt
+echo $PS1
+
+# Vaqtinchalik o'zgartirish
+PS1='\u@\h:\w$ '
+
+# Doimiy o'zgartirish uchun ~/.bashrc ga qo'shing
+```
+
+Tipik `PS1` qiymati:
+
+```bash
+# Misol — Ubuntu standart
+PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+```
+
+| Belgi | Ma'no |
+|---|---|
+| `\u` | Foydalanuvchi nomi |
+| `\h` | Host nomi (qisqa) |
+| `\w` | Joriy katalog |
+| `\W` | Faqat katalog nomi |
+| `\$` | `$` oddiy, `#` root uchun |
+| `\t` | Vaqt (HH:MM:SS) |
+| `\d` | Sana |
+
+## 7. Amaliy misol
+
+```bash
+# Sizning login va interactive holatingiz
+shopt | grep login_shell
+
+# Bash versiyasi
+bash --version
+
+# Bash'ning qaerda joylashganligi
+which bash
+```
+
+## 8. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `echo $SHELL` | Sizning default shell yo'lingiz |
+| `cat /etc/shells` | Tizimdagi mavjud shell'lar |
+| `chsh -s <yo'l>` | Default shell'ni o'zgartirish |
+| `which bash` | Bash binarining yo'li |
+| `bash --version` | Bash versiyasi |
+
+## 9. Eng tez-tez uchraydigan xatolar
+
+- **Shell va terminal'ni aralashtirish** — terminal — bu oyna; shell — buyruqlarni bajaradigan dastur.
+- **`chsh` ishlamaydi** — yangi shell `/etc/shells` ichida bo'lishi shart.
+- **`~/.bashrc` o'zgarishlar darhol ishlamaydi** — `source ~/.bashrc` bilan qayta yuklang yoki yangi terminal oching.
+- **Skript birinchi qator o'tkazib yuborilgan** — `#!/bin/bash` (shebang) bo'lishi shart.
+
+## 10. Eng yaxshi amaliyot
+
+- **Yangi boshlovchilar uchun bash** — eng keng tarqalgan; barcha o'quv qo'llanmalari unga moslashgan.
+- **Kundalik foydalanish uchun zsh + Oh My Zsh** — qulay autocompletion va tema.
+- **Skriptlar uchun POSIX sh** — eng portativ; `#!/bin/sh` bilan boshlang.
+- **`.bashrc` ni toza saqlang** — har 6 oyda bir marta tahrirlab keraksiz qatorlarni olib tashlang.
+
+## 11. Bilim sinovi
+
+**Savol 1.** Terminal va shell o'rtasidagi farq qaysi?
+
+- a) Ular bir xil
+- b) Terminal — oyna; shell — buyruqlarni o'qiydigan dastur
+- c) Terminal — Linux'da; shell — Windows'da
+- d) Terminal — root uchun; shell — oddiy foydalanuvchi uchun
+
+<Callout type="success" title="Javob">
+**(b)** Terminal — kirish/chiqishni ko'rsatuvchi oyna; shell esa terminal ichida ishlovchi buyruq tarjimoni.[¹](https://www.gnu.org/software/bash/manual/bash.html#What-is-a-shell_003f)
+</Callout>
+
+**Savol 2.** Default shell'ingizni bilish uchun qaysi buyruq?
+
+- a) `echo $0`
+- b) `echo $SHELL`
+- c) `which shell`
+- d) `whereis shell`
+
+<Callout type="success" title="Javob">
+**(b)** `echo $SHELL` — login shell'ning yo'lini ko'rsatadi.
+</Callout>
+
+**Savol 3.** Interactive non-login bash qaysi konfiguratsiya faylini o'qiydi?
+
+- a) `/etc/profile`
+- b) `~/.bash_profile`
+- c) `~/.bashrc`
+- d) `~/.bash_history`
+
+<Callout type="success" title="Javob">
+**(c)** `~/.bashrc` — har yangi terminal oynasida o'qiladi.
+</Callout>
+
+## 12. Mashq
+
+1. `echo $SHELL` natijasini yozing.
+2. `cat /etc/shells` natijasi nima? Sizda nechta shell mavjud?
+3. `bash --version` chiqishidagi versiyani toping. Bu versiya 5.0'dan kattami?
+4. `~/.bashrc` faylini oching va ichidagi `alias` qatorlarini sanang.
+
+## Manbalar
+
+1. GNU Bash Reference Manual — What is a shell? [https://www.gnu.org/software/bash/manual/bash.html#What-is-a-shell_003f](https://www.gnu.org/software/bash/manual/bash.html#What-is-a-shell_003f)
+2. ArchWiki — Command-line shell. [https://wiki.archlinux.org/title/Command-line_shell](https://wiki.archlinux.org/title/Command-line_shell)
+3. Debian Reference — Bourne shell. [https://www.debian.org/doc/manuals/debian-reference/ch01.en.html#_the_simple_shell_command](https://www.debian.org/doc/manuals/debian-reference/ch01.en.html#_the_simple_shell_command)
+
+## Keyingi qadam
+
+👉 [Asosiy buyruqlar](/fundamentals/basic-commands)

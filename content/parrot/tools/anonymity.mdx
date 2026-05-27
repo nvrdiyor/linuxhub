@@ -1,0 +1,244 @@
+---
+title: "Anonimlik — Tor va AnonSurf"
+description: "Parrot OS'ning anonimlik vositalari — Tor brauzeri, AnonSurf orqali butun trafikni Tor'ga yo'naltirish."
+order: 1
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/parrot/introduction"
+learning_objectives:
+  - "Tor tarmog'ining ishlash printsipini bilish"
+  - "Tor Browser bilan ishlash"
+  - "AnonSurf orqali butun tizim trafigini Tor orqali yuborish"
+  - "Anonimlik chegaralari va eng yaxshi amaliyot"
+tags: ["parrot", "tor", "anonsurf", "privacy"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Tor Project — About"
+    url: "https://www.torproject.org/about/history/"
+  - title: "Tor Project — Documentation"
+    url: "https://support.torproject.org/"
+  - title: "Parrot Documentation — Anonymity"
+    url: "https://docs.parrotsec.org/anonymity/"
+---
+
+<Callout type="warning" title="Anonimlik mas'uliyat bilan">
+Tor — qonuniy texnologiya. Lekin uni jinoiy faoliyat uchun ishlatish — qonun bo'yicha jinoiy javobgarlik. Tor sizni "ko'rinmas" qilmaydi — texnik xatolar yoki ehtiyotsizlik orqali aniqlanishingiz mumkin.
+</Callout>
+
+**Tor** (The Onion Router) — anonimlikni ta'minlovchi tarmoq. Trafik ko'ngilli relaylar zanjiri orqali shifrlangan o'tadi. Parrot OS'da Tor va **AnonSurf** (butun tizim trafigini Tor orqali yuborish) integratsiya qilingan.[¹](https://www.torproject.org/about/history/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Tor qanday ishlaydi.
+- Tor Browser bilan ishlash.
+- AnonSurf — butun trafikni Tor'ga.
+- Anonimlik chegaralari.
+</Callout>
+
+## 1. Tor qanday ishlaydi?
+
+```
+Siz ──▶ Guard Relay ──▶ Middle Relay ──▶ Exit Relay ──▶ Sayt
+        (kirish)         (oraliq)         (chiqish)
+```
+
+- Har bir relay faqat **bir oldingi** va **bir keyingi** xostni biladi.
+- Trafik **uch qatlamli shifrlangan** — har relay o'z qatlamini ochadi.
+- Exit relay sizning haqiqiy IP'ngizni bilmaydi.
+- Sayt esa faqat Exit relay IP'sini ko'radi.
+
+Bu "onion routing" — har qatlam piyozning po'sti kabi.
+
+## 2. Tor Browser
+
+Tor Browser — eng oson va eng xavfsiz Tor'dan foydalanish usuli. U Firefox asosida, lekin maxsus sozlangan (JavaScript cheklangan, fingerprinting kamaytirilgan).
+
+```bash
+# Parrot'da default keladi yoki o'rnatish
+sudo apt install torbrowser-launcher
+
+# Ishga tushirish
+torbrowser-launcher
+```
+
+Birinchi marotaba Tor Browser'ni rasmiy saytdan yuklab oladi va imzosini tekshiradi.
+
+**Foydalanish:**
+
+- Faqat Tor Browser ichidagi trafik Tor orqali.
+- Boshqa brauzer (Firefox, Chrome) odatiy ulanadi.
+- HTTPS doim ishlatilsin (Exit relay HTTP'ni o'qiy oladi).
+
+## 3. AnonSurf — butun tizim trafigi Tor orqali
+
+AnonSurf Parrot OS'ga xos vosita.[³](https://docs.parrotsec.org/anonymity/) Butun tizim trafigini (Firefox, terminal, ilovalar) Tor'ga yo'naltiradi.
+
+```bash
+# Statusni ko'rish
+anonsurf status
+
+# Yoqish
+sudo anonsurf start
+
+# To'xtatish
+sudo anonsurf stop
+
+# Tor identity'ni o'zgartirish (yangi zanjir)
+sudo anonsurf change
+
+# IP tekshirish (Tor orqalimi?)
+anonsurf myip
+```
+
+**Yoqilgan holatda:**
+
+- Hamma trafik Tor orqali.
+- DNS so'rovlari ham Tor orqali (DNS leak yo'q).
+- IP `anonsurf myip` orqali tekshiriladi — bu real IP emas, balki Exit relay IP'si bo'lishi kerak.
+
+## 4. Tekshirish
+
+Brauzer orqali [https://check.torproject.org](https://check.torproject.org/) ga kiring:
+
+> "Congratulations. This browser is configured to use Tor."
+
+Yoki:
+
+```bash
+curl -s https://check.torproject.org/api/ip | python3 -m json.tool
+```
+
+## 5. Anonimlik chegaralari
+
+Tor sizni **ko'rinmas qilmaydi**. Quyidagilar siz tomondan keladigan xavf:
+
+### 1. Login
+
+Agar siz Tor orqali Gmail'ga kirsangiz, Google sizning haqiqiy identifikatingizni biladi. Tor IP'ni yashiradi, lekin **siz** — emas.
+
+### 2. Browser fingerprinting
+
+Brauzer versiyasi, ekran o'lchami, plugin'lar — bularning kombinatsiyasi sizni unique qiladi. Tor Browser bu omilni minimallashtiradi.
+
+### 3. JavaScript va plagin'lar
+
+JavaScript orqali real IP olib chiqilishi mumkin (WebRTC). Tor Browser default'da JavaScript'ni cheklaydi.
+
+### 4. Exit relay HTTP'ni o'qiy oladi
+
+HTTPS bo'lmagan saytda Exit relay sizning trafigingizni ko'ra oladi. **HTTPS doim majburiy.**
+
+### 5. Tahliliy hujumlar
+
+Davlat darajasidagi aktorlar (NSA, Mossad) trafik tahlili orqali Tor foydalanuvchilarini deanonimizatsiya qila olishi mumkin (real misol — Silk Road).
+
+## 6. Eng yaxshi anonimlik amaliyoti
+
+✅ **Qiling:**
+
+- Tor Browser ichida turing — boshqa brauzer aralashtirmang.
+- HTTPS faqat.
+- Bridge'larni ishlating, agar Tor bloklangan bo'lsa.
+- **Tails OS** — eng yuqori anonimlik (RAM'dan ishlaydi, hech narsa diskka yozilmaydi).
+- AnonSurf'ni yodda saqlang (`anonsurf status`).
+
+❌ **Qilmang:**
+
+- Tor ichida shaxsiy hisoblarga login.
+- BitTorrent (P2P tarmoqlar Tor'ni buzadi va sizni fosh qiladi).
+- Tor Browser'da Flash, Java plagin'lari.
+- Yangi profil — har sessiyada Tor Browser'ni yangidan ochish.
+
+## 7. Tails OS — to'liq anonim Live OS
+
+Eng yuqori anonimlik darajasi uchun [Tails](https://tails.net/) tavsiya etiladi:
+
+- Live USB'dan ishlaydi.
+- Hech narsa diskka yozilmaydi (RAM only).
+- Hamma trafik majburiy Tor.
+- Tugagandan keyin hech qanday iz qoldirmaydi.
+
+Jurnalist, faol, whistleblower'lar uchun standart.
+
+## 8. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `torbrowser-launcher` | Tor Browser yuklash va ishga tushirish |
+| `sudo anonsurf start` | Tizim trafigini Tor'ga |
+| `sudo anonsurf stop` | To'xtatish |
+| `sudo anonsurf change` | Yangi Tor identity |
+| `anonsurf status` | Holatni ko'rish |
+| `anonsurf myip` | Joriy IP |
+| `curl https://check.torproject.org/api/ip` | Tor tekshiruv |
+
+## 9. Eng tez-tez uchraydigan xatolar
+
+- **AnonSurf yoqilgan deb tasdiqlamaslik** — `anonsurf status` ni tekshiring.
+- **Tor Browser'da login** — Tor anonimlikni texnik berdi, lekin login sizni fosh qildi.
+- **HTTP saytda** — Exit relay trafikni o'qiy oladi.
+- **JavaScript yoqilgan** — fingerprinting xavfi.
+- **BitTorrent Tor orqali** — P2P protokolarda real IP olib chiqiladi.
+- **VPN + Tor** — odatda yaxshi, lekin notog'ri sozlangan VPN — fingerprinting.
+
+## 10. Eng yaxshi amaliyot
+
+- **Tor Browser default** — fingerprinting minimalik uchun.
+- **Bridge'lar** agar Tor bloklangan bo'lsa: `https://bridges.torproject.org/`.
+- **Daily security yangilanishlari** — Tor Browser har 2-3 haftada chiqadi.
+- **NoScript va HTTPS Everywhere** — Tor Browser default keladi.
+- **Real-life anonimlik kerak bo'lsa — Tails OS.**
+
+## 11. Bilim sinovi
+
+**Savol 1.** Tor "onion routing" deyilishining sababi:
+
+- a) Tor logosi piyoz
+- b) Trafik bir necha qatlamlik shifrlash orqali o'tadi
+- c) Tor faqat Linux'da ishlaydi
+- d) Tor relay'lar Italiyada
+
+<Callout type="success" title="Javob">
+**(b)** Har relay o'z qatlamini ochadi — piyoz po'sti kabi.[¹](https://www.torproject.org/about/history/)
+</Callout>
+
+**Savol 2.** AnonSurf nima qiladi?
+
+- a) Faqat Firefox'ni Tor'ga yuboradi
+- b) Butun tizim trafigini Tor orqali yo'naltiradi
+- c) Faqat email'ni shifrlaydi
+- d) Antivirus
+
+<Callout type="success" title="Javob">
+**(b)** AnonSurf — butun tizim darajasidagi Tor.[³](https://docs.parrotsec.org/anonymity/)
+</Callout>
+
+**Savol 3.** Eng yuqori anonimlik uchun:
+
+- a) Tor Browser
+- b) AnonSurf
+- c) Tails OS
+- d) VPN
+
+<Callout type="success" title="Javob">
+**(c)** Tails — RAM only, hech narsa diskka yozilmaydi, hamma trafik Tor.
+</Callout>
+
+## 12. Mashq
+
+1. `sudo anonsurf start` ni bajaring (Parrot'da).
+2. `anonsurf myip` orqali IP'ni ko'ring — bu sizning real IP'ngiz emasligini tekshiring.
+3. Brauzer'da [check.torproject.org](https://check.torproject.org/) ga kiring. Tor orqali ulangansizmi?
+4. `sudo anonsurf change` orqali Tor identity'ni o'zgartiring. Yangi IP keldimi?
+5. `sudo anonsurf stop` orqali to'xtating.
+
+## Manbalar
+
+1. Tor Project — About. [https://www.torproject.org/about/history/](https://www.torproject.org/about/history/)
+2. Tor Project — Documentation. [https://support.torproject.org/](https://support.torproject.org/)
+3. Parrot Documentation — Anonymity. [https://docs.parrotsec.org/anonymity/](https://docs.parrotsec.org/anonymity/)
+
+## Keyingi qadam
+
+👉 [Kriptografiya asboblari](/parrot/tools/cryptography)

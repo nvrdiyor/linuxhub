@@ -1,0 +1,458 @@
+---
+title: "iptables va nftables — tarmoq firewall"
+description: "Linux'ning low-level firewall — iptables (eski) va nftables (yangi), chain'lar, qoidalar va NAT."
+order: 114
+level: "advanced"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/networking"
+  - "/fundamentals/firewall"
+learning_objectives:
+  - "netfilter arxitekturasi"
+  - "iptables: chain, table, rule"
+  - "nftables zamonaviy sintaksis"
+  - "NAT va port forwarding"
+tags: ["advanced", "iptables", "nftables", "firewall", "netfilter"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "netfilter project"
+    url: "https://www.netfilter.org/"
+  - title: "ArchWiki — iptables"
+    url: "https://wiki.archlinux.org/title/Iptables"
+  - title: "ArchWiki — nftables"
+    url: "https://wiki.archlinux.org/title/Nftables"
+  - title: "Debian — nftables"
+    url: "https://wiki.debian.org/nftables"
+---
+
+UFW va firewalld — bularning ostida **netfilter** turadi. iptables va nftables — netfilter bilan ishlash uchun CLI vositalari. Bu darsda quyi qatlamga tushib, qanday haqiqatda ishlashini ko'ramiz.[¹](https://www.netfilter.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- netfilter arxitekturasi.
+- iptables tushunchalari: table, chain, rule.
+- nftables modern sintaksis.
+- NAT va port forwarding.
+- Migratsiya iptables → nftables.
+</Callout>
+
+## 1. netfilter — yadro tarmoq filtri
+
+Linux yadrosining ichida o'rnatilgan paket filterlash tizimi. Hech qanday paket netfilter'siz tarmoqdan o'tib bo'lmaydi.
+
+```
+[Tarmoq] ──▶ [netfilter] ──▶ [Yadro] ──▶ [Jarayon]
+              ↑↓
+           iptables / nftables (CLI vositalar)
+```
+
+## 2. iptables — klassik
+
+iptables (1998-) — netfilter uchun klassik CLI. Hozir ham keng ishlatiladi.[²](https://wiki.archlinux.org/title/Iptables)
+
+### Tushunchalar
+
+| Termin | Ma'no |
+|---|---|
+| **Table** | Qoidalar guruhi (`filter`, `nat`, `mangle`, `raw`) |
+| **Chain** | Qoidalar zanjiri (INPUT, OUTPUT, FORWARD) |
+| **Rule** | Bitta qoida (match + action) |
+| **Target** | Qoida bajariladigan amaliyot (ACCEPT, DROP, REJECT, LOG) |
+
+### Tablelar
+
+| Table | Maqsad |
+|---|---|
+| `filter` | Default — paket o'tkazish/rad qilish |
+| `nat` | NAT (Network Address Translation) |
+| `mangle` | Paket sarlavhalarini o'zgartirish |
+| `raw` | Connection tracking'dan oldin |
+
+### Chains (filter table)
+
+| Chain | Qachon |
+|---|---|
+| `INPUT` | Mahalliy jarayonga kelayotgan paketlar |
+| `OUTPUT` | Mahalliy jarayondan chiqayotgan |
+| `FORWARD` | Router orqali o'tayotgan |
+
+NAT table:
+
+| Chain | Qachon |
+|---|---|
+| `PREROUTING` | Paket kirishidan oldin (DNAT) |
+| `POSTROUTING` | Paket chiqishidan oldin (SNAT, MASQUERADE) |
+| `OUTPUT` | Mahalliy paket NAT |
+
+## 3. iptables asosiy buyruqlar
+
+```bash
+# Joriy qoidalar
+sudo iptables -L                  # filter table
+sudo iptables -L -v --line-numbers   # verbose + qator raqamlari
+sudo iptables -t nat -L           # nat table
+
+# Default policy
+sudo iptables -P INPUT DROP       # default = rad qilish
+sudo iptables -P OUTPUT ACCEPT
+sudo iptables -P FORWARD DROP
+
+# Qoida qo'shish (-A append, -I insert)
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT    # SSH
+sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT    # HTTP
+sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT   # HTTPS
+
+# Loopback
+sudo iptables -A INPUT -i lo -j ACCEPT
+
+# Established/Related (javob paketlari)
+sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Qoida o'chirish
+sudo iptables -D INPUT 5         # 5-qator
+sudo iptables -D INPUT -p tcp --dport 22 -j ACCEPT  # match by rule
+
+# Flush — barchani o'chirish
+sudo iptables -F INPUT
+sudo iptables -F
+```
+
+## 4. Tipik iptables konfiguratsiya — server
+
+```bash
+#!/bin/bash
+# /usr/local/bin/firewall.sh
+
+# Flush
+iptables -F
+iptables -X
+iptables -Z
+
+# Default policy
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+
+# Loopback
+iptables -A INPUT -i lo -j ACCEPT
+
+# Established connections
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# SSH (rate limited)
+iptables -A INPUT -p tcp --dport 22 -m state --state NEW \
+    -m recent --set --name SSH
+iptables -A INPUT -p tcp --dport 22 -m state --state NEW \
+    -m recent --update --seconds 60 --hitcount 4 --name SSH -j DROP
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+# HTTP/HTTPS
+iptables -A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT
+
+# ICMP (ping) — rate limited
+iptables -A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/s -j ACCEPT
+
+# Log droppped (debug)
+iptables -A INPUT -m limit --limit 5/m -j LOG --log-prefix "iptables-dropped: "
+```
+
+## 5. iptables qoidalarini saqlash
+
+```bash
+# Debian/Ubuntu
+sudo apt install iptables-persistent
+sudo netfilter-persistent save
+
+# Yoki qo'lda
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
+sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
+
+# Tiklash
+sudo iptables-restore < /etc/iptables/rules.v4
+```
+
+## 6. NAT — Network Address Translation
+
+NAT — bir IP'ni boshqasiga aylantirish. 3 ta tur:
+
+- **SNAT** (Source NAT) — chiqayotgan paketning manbai IP.
+- **DNAT** (Destination NAT) — kelayotgan paketning maqsad IP.
+- **MASQUERADE** — SNAT'ning maxsus turi (dynamic IP uchun).
+
+### Misol — internet sharing (router)
+
+```bash
+# IP forwarding yoqish
+sudo sysctl -w net.ipv4.ip_forward=1
+echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-forward.conf
+
+# MASQUERADE (internal tarmoq → public IP)
+sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+# Forwarding ruxsat
+sudo iptables -A FORWARD -i eth1 -o eth0 -j ACCEPT
+sudo iptables -A FORWARD -i eth0 -o eth1 -m state --state ESTABLISHED,RELATED -j ACCEPT
+```
+
+### DNAT — port forwarding
+
+Server'ning 8080-portini ichki server'ga yo'naltirish:
+
+```bash
+sudo iptables -t nat -A PREROUTING -p tcp --dport 8080 \
+    -j DNAT --to-destination 192.168.1.100:80
+```
+
+## 7. nftables — zamonaviy
+
+nftables (2014-) — iptables o'rnida turuvchi yangi tizim.[³](https://wiki.archlinux.org/title/Nftables) Bitta vositada barcha protokollar (IPv4, IPv6, ARP, bridge).
+
+### O'rnatish
+
+```bash
+sudo apt install nftables
+sudo systemctl enable --now nftables
+```
+
+### nftables sintaksis
+
+Bitta konfiguratsiya fayl — `/etc/nftables.conf`:
+
+```nftables
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        # Loopback
+        iifname "lo" accept
+
+        # Established
+        ct state established,related accept
+
+        # ICMP
+        icmp type echo-request limit rate 5/second accept
+        icmpv6 type echo-request limit rate 5/second accept
+
+        # SSH (rate limited)
+        tcp dport 22 ct state new limit rate 4/minute accept
+
+        # HTTP/HTTPS
+        tcp dport { 80, 443 } accept
+
+        # Log dropped
+        log prefix "nftables-dropped: " limit rate 5/minute
+    }
+
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+    }
+
+    chain output {
+        type filter hook output priority 0; policy accept;
+    }
+}
+```
+
+Yuklash:
+
+```bash
+sudo nft -f /etc/nftables.conf
+
+# Yoki
+sudo systemctl restart nftables
+```
+
+### nftables CLI
+
+```bash
+# Joriy qoidalar
+sudo nft list ruleset
+
+# Aniq table
+sudo nft list table inet filter
+
+# Qoida qo'shish
+sudo nft add rule inet filter input tcp dport 8080 accept
+
+# Qoida o'chirish (handle bilan)
+sudo nft list ruleset -a       # handle ko'rsatadi
+sudo nft delete rule inet filter input handle 10
+
+# Flush
+sudo nft flush ruleset
+```
+
+## 8. iptables vs nftables
+
+| | iptables | nftables |
+|---|---|---|
+| Yosh | 1998 | 2014 |
+| Sintaksis | Imperative | Declarative |
+| Bir vosita IPv4+IPv6 | Yo'q (ip6tables alohida) | Ha |
+| Atomic update | Yo'q (qoida-qoida) | Ha (butun fayl) |
+| Performance | Yaxshi | Yaxshiroq (katta qoidalarda) |
+| Mavjudligi | Hamma joyda | Modern distributivlar |
+
+Modern Debian, Ubuntu, Fedora, RHEL 8+ — nftables default. Lekin iptables compat'i mavjud (`iptables-nft`).
+
+## 9. iptables → nftables migratsiya
+
+```bash
+# iptables qoidalarni nftables ga o'tkazish
+sudo iptables-save > /tmp/iptables.txt
+sudo iptables-restore-translate -f /tmp/iptables.txt > /tmp/nftables.txt
+
+# Tekshirib, qo'llang
+sudo nft -f /tmp/nftables.txt
+```
+
+## 10. UFW va firewalld
+
+UFW (Ubuntu) va firewalld (Fedora/RHEL) — yuqori daraja, iptables/nftables ustida.
+
+UFW (alohida [Firewall darsida](/fundamentals/firewall) tasvirlangan):
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw enable
+```
+
+UFW ortida iptables yoki nftables — distributivga bog'liq.
+
+## 11. Misol — Docker bilan firewall
+
+Docker iptables qoidalarni avtomatik qo'shadi. Konfliktni oldini olish uchun:
+
+```
+# /etc/docker/daemon.json
+{
+    "iptables": false
+}
+```
+
+So'ng tarmoqni qo'lda boshqaring.
+
+## 12. Asosiy buyruqlar va izoh
+
+### iptables
+
+| Buyruq | Vazifa |
+|---|---|
+| `iptables -L -v --line-numbers` | Qoidalarni ko'rish |
+| `iptables -A CHAIN -p PROT --dport N -j ACTION` | Qoida qo'shish |
+| `iptables -D CHAIN N` | Qatorni o'chirish |
+| `iptables -F` | Flush |
+| `iptables -P CHAIN POLICY` | Default policy |
+| `iptables-save` | Hozirgi qoidalar matn |
+| `iptables-restore` | Faylga yuklash |
+
+### nftables
+
+| Buyruq | Vazifa |
+|---|---|
+| `nft list ruleset` | Hamma qoidalar |
+| `nft add rule ...` | Qoida qo'shish |
+| `nft delete rule ... handle N` | O'chirish |
+| `nft flush ruleset` | Hammasini olib tashlash |
+| `nft -f /etc/nftables.conf` | Fayldan yuklash |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **SSH'ni bloklash** — birinchi marotaba qoida o'rnatishda. Doim `iptables -A INPUT ... -j ACCEPT` SSH uchun avval.
+- **Default policy DROP, lekin loopback unutilgan** — local connection'lar buziladi.
+- **Established'sis** — javob paketlari rad etiladi. `-m state --state ESTABLISHED,RELATED -j ACCEPT` majburiy.
+- **iptables va Docker** — Docker iptables qoidalarni o'zgartiradi.
+- **nftables va iptables birga** — bir mashinada ikkalasini ishlatish — chalkashlik.
+- **Reboot keyin qoidalar yo'q** — `iptables-persistent` yoki nftables sistematik yoqilgan bo'lishi kerak.
+
+## 14. Eng yaxshi amaliyot
+
+- **Yangi loyihalar — nftables.**
+- **`iptables` — eski tizimlar uchun.**
+- **Doim `-I INPUT 1 ... ACCEPT` SSH uchun avval** — o'zingizni bloklamaslik.
+- **Established connections ruxsati** — tarmoq ishlashi uchun.
+- **Rate limiting SSH'ga** — brute-force'dan saqlanish.
+- **Log qoidasi oxirida** — drop sabablarini debug uchun.
+- **fail2ban + iptables/nftables** — IP-asoslangan brute-force himoyasi.
+- **`ufw` yoki `firewalld`** boshlovchilar uchun — quyi daraja kerak bo'lmasa.
+
+## 15. Mashqlar
+
+1. **Joriy holat:** `sudo iptables -L -v` — sizdagi qoidalar nima?
+2. **nftables tekshirish:** `sudo nft list ruleset` — nftables ishlatiladimi?
+3. **Test qoida:** `sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT` qo'shing va `iptables -L INPUT` bilan tekshiring.
+4. **Saqlash:** `sudo iptables-save > /tmp/iptables.txt` — hozirgi holatni saqlang.
+5. **nftables fayli:** `/etc/nftables.conf` ni ko'ring (mavjud bo'lsa). Strukturasini tahlil qiling.
+6. **Bloklangan urinish:** `sudo iptables -L -v` chiqishida `pkts` ustuni 0 dan kattami? Qoidalar ishlatildimi?
+
+## 16. Bilim sinovi
+
+**Savol 1.** netfilter nima?
+
+- a) Linux yadrosining tarmoq filtri (iptables/nftables uning ustida)
+- b) Tashqi vositalar
+- c) Faqat router uchun
+- d) Antivirus
+
+<Callout type="success" title="Javob">
+**(a)** Yadro qatlami; iptables/nftables — CLI vositalar.[¹](https://www.netfilter.org/)
+</Callout>
+
+**Savol 2.** iptables va nftables farqi:
+
+- a) Bir xil
+- b) nftables — modern, declarative, IPv4+IPv6 bir vositada
+- c) iptables tezroq
+- d) nftables faqat Fedora'da
+
+<Callout type="success" title="Javob">
+**(b)** nftables — keyingi avlod.[³](https://wiki.archlinux.org/title/Nftables)
+</Callout>
+
+**Savol 3.** SSH'ni rate-limit qilish nima beradi?
+
+- a) Tezroq SSH
+- b) Brute-force urinishlardan himoya (N urinishdan keyin tashlash)
+- c) Faqat root uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Brute-force ham IP-darajasida cheklanadi.
+</Callout>
+
+**Savol 4.** NAT MASQUERADE nima uchun?
+
+- a) Static IP uchun
+- b) Dynamic IP (ISP'dan o'zgaruvchan) — internal tarmoq → public
+- c) Faqat IPv6 uchun
+- d) Backup uchun
+
+<Callout type="success" title="Javob">
+**(b)** SNAT'ning oson varianti — interfeysning joriy IP'sini ishlatadi.
+</Callout>
+
+**Savol 5.** UFW ostida qaysi vosita ishlaydi?
+
+- a) Mustaqil tizim
+- b) iptables yoki nftables (distributiv versiyasiga qarab)
+- c) Faqat Python
+- d) Apache
+
+<Callout type="success" title="Javob">
+**(b)** UFW — wrapper. Modern Ubuntu nftables'ga o'tdi.
+</Callout>
+
+## Manbalar
+
+1. netfilter project. [https://www.netfilter.org/](https://www.netfilter.org/)
+2. ArchWiki — iptables. [https://wiki.archlinux.org/title/Iptables](https://wiki.archlinux.org/title/Iptables)
+3. ArchWiki — nftables. [https://wiki.archlinux.org/title/Nftables](https://wiki.archlinux.org/title/Nftables)
+4. Debian — nftables. [https://wiki.debian.org/nftables](https://wiki.debian.org/nftables)
+
+## Keyingi qadam
+
+👉 [WireGuard VPN](/fundamentals/vpn-wireguard)

@@ -1,0 +1,446 @@
+---
+title: "cgroups va namespaces — container'lar asosi"
+description: "Linux cgroups (resource limits) va namespaces (isolation) — Docker va systemd ostidagi texnologiyalar."
+order: 147
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/processes"
+learning_objectives:
+  - "cgroups v1 va v2 farqi"
+  - "Namespace turlari (pid, net, mnt, user)"
+  - "systemd va cgroups integratsiya"
+  - "Manual container yaratish (unshare)"
+tags: ["advanced", "cgroups", "namespaces", "containers", "isolation"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "cgroups documentation"
+    url: "https://docs.kernel.org/admin-guide/cgroup-v2.html"
+  - title: "namespaces(7)"
+    url: "https://man7.org/linux/man-pages/man7/namespaces.7.html"
+  - title: "ArchWiki — cgroups"
+    url: "https://wiki.archlinux.org/title/Cgroups"
+---
+
+Docker va Kubernetes "sehri" — ikki Linux yadrosi xususiyati: **cgroups** (resource limits) va **namespaces** (isolation). Bu darsda quyi qatlamda nima sodir bo'layotganini ko'rib chiqamiz.[¹](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- cgroups — CPU, RAM, I/O limit.
+- Namespaces — process isolation.
+- systemd va cgroups.
+- `unshare` bilan manual container.
+</Callout>
+
+## 1. cgroups — resource cheklash
+
+**cgroups** (Control Groups) — yadro xususiyati: jarayonlar guruhini yaratish va ularga resource limit qo'yish.
+
+### cgroups v1 va v2
+
+| | v1 | v2 |
+|---|---|---|
+| Yili | 2008 | 2016 |
+| Hierarchy | Per-controller | Unified |
+| Mavjudligi | Eski | Modern (Linux 5.x+) |
+| Default | Eski distributiv | Modern (Fedora 31+, Ubuntu 22.04+) |
+
+### Tekshirish
+
+```bash
+# v1
+ls /sys/fs/cgroup/
+# blkio, cpu, cpuacct, devices, memory, ...
+
+# v2 (unified)
+ls /sys/fs/cgroup/
+# cgroup.controllers, cgroup.procs, ...
+```
+
+Yoki:
+
+```bash
+stat -fc %T /sys/fs/cgroup/
+# cgroup2fs — v2
+# tmpfs — v1
+```
+
+## 2. cgroups v2 — asosiy
+
+```bash
+# Hozirgi cgroup
+cat /proc/self/cgroup
+# 0::/user.slice/user-1000.slice/...
+
+# Hamma cgroup'lar
+ls /sys/fs/cgroup/
+```
+
+### Misol — manual memory limit
+
+```bash
+# Yangi cgroup
+sudo mkdir /sys/fs/cgroup/mygroup
+
+# RAM limit (100 MB)
+echo "100M" | sudo tee /sys/fs/cgroup/mygroup/memory.max
+
+# CPU weight (default 100)
+echo "50" | sudo tee /sys/fs/cgroup/mygroup/cpu.weight
+
+# Jarayonni qo'shish
+echo $$ | sudo tee /sys/fs/cgroup/mygroup/cgroup.procs
+# Shu shellda boshlangan har bir narsa shu cgroup'da
+
+# Test
+stress-ng --vm 1 --vm-bytes 200M --timeout 30s
+# 100 MB'dan ko'p ishlatsa, OOM kill
+```
+
+## 3. systemd va cgroups
+
+systemd har xizmatni alohida cgroup'ga qo'yadi (automatic).
+
+```bash
+# Service cgroup
+systemctl show nginx -p ControlGroup
+# /system.slice/nginx.service
+
+# Cgroup tree
+systemd-cgls
+
+# Real-time monitoring
+systemd-cgtop
+```
+
+### Service'ga limit
+
+```ini
+# /etc/systemd/system/myapp.service
+[Service]
+ExecStart=/opt/myapp/run
+
+# Resource limits
+MemoryMax=512M
+MemoryHigh=400M
+CPUQuota=50%
+CPUWeight=100
+IOWeight=100
+TasksMax=100
+```
+
+systemd avtomatik tarjima qiladi cgroups v2 sozlama'ga.
+
+### Slice — group cheklov
+
+```ini
+# /etc/systemd/system/myapps.slice
+[Slice]
+MemoryMax=2G
+CPUQuota=200%
+```
+
+```ini
+# Service shu slice'da
+[Service]
+Slice=myapps.slice
+```
+
+Hamma myapps.slice ichidagi servicelar birgalikda 2 GB RAM va 200% CPU.
+
+## 4. Namespaces — isolation
+
+Namespace — bir nechta tur, har biri o'z resource view:
+
+| Namespace | Cheklaydi |
+|---|---|
+| `pid` | Jarayon ID'lar |
+| `net` | Tarmoq interfeyslari, routing |
+| `mnt` | Mount qilingan fayl tizimlar |
+| `uts` | Hostname |
+| `ipc` | Inter-process communication |
+| `user` | UID/GID |
+| `cgroup` | Cgroup |
+| `time` | Boot time |
+
+Container'da jarayon `pid 1` deb ko'radi, lekin host'da boshqa PID.
+
+```bash
+# Joriy namespaces
+ls -la /proc/self/ns/
+# cgroup -> cgroup:[4026531835]
+# ipc -> ipc:[4026531839]
+# mnt -> mnt:[4026531840]
+# net -> net:[4026531992]
+# pid -> pid:[4026531836]
+# ...
+```
+
+Raqamlar — namespace ID. Bir xil — bir namespace'da.
+
+## 5. `unshare` — manual namespace
+
+```bash
+sudo apt install util-linux    # `unshare` ichida
+
+# Yangi PID namespace
+sudo unshare --pid --mount-proc --fork bash
+
+# Endi shu shell'da
+ps aux       # faqat 'bash' va 'ps' — host PID'lar yo'q
+
+exit
+```
+
+`/proc/<pid>/ns/` — har jarayon namespaces.
+
+### Tarmoq namespace
+
+```bash
+# Yangi network namespace
+sudo ip netns add myns
+
+# Ichida buyruq
+sudo ip netns exec myns ip a
+# faqat lo (loopback)
+
+# Veth pair
+sudo ip link add veth0 type veth peer name veth1
+
+# veth1 ni namespace'ga
+sudo ip link set veth1 netns myns
+
+# Konfiguratsiya
+sudo ip addr add 192.168.99.1/24 dev veth0
+sudo ip link set veth0 up
+
+sudo ip netns exec myns ip addr add 192.168.99.2/24 dev veth1
+sudo ip netns exec myns ip link set veth1 up
+sudo ip netns exec myns ip link set lo up
+
+# Test
+sudo ip netns exec myns ping 192.168.99.1
+
+# Tozalash
+sudo ip netns del myns
+```
+
+## 6. Misol — minimal container
+
+cgroups + namespaces bilan:
+
+```bash
+#!/bin/bash
+# minimal-container.sh
+
+# 1. cgroup
+sudo mkdir -p /sys/fs/cgroup/container
+echo "256M" | sudo tee /sys/fs/cgroup/container/memory.max
+
+# 2. Namespaces (unshare)
+sudo unshare --pid --mount --uts --ipc --net --fork bash -c '
+    # Yangi container ichida
+    hostname mycontainer
+
+    mount -t proc proc /proc
+
+    echo $$ > /sys/fs/cgroup/container/cgroup.procs
+
+    echo "Container ichida — PID 1"
+    bash
+'
+```
+
+Bu juda minimal — Docker'ning ostida shu mexanizm.
+
+## 7. `systemd-run` — ad-hoc cgroup
+
+```bash
+# Faylda bash run, lekin cgroup va limits bilan
+sudo systemd-run --slice=user.slice --uid=1000 \
+    -p MemoryMax=256M \
+    -p CPUQuota=50% \
+    --pty bash
+```
+
+Yangi transient unit yaratiladi.
+
+## 8. Container runtime ostida
+
+**runc** — OCI standart runtime. Docker, Podman uni ishlatadi.
+
+```bash
+# runc o'rnatish
+sudo apt install runc
+
+# Minimal bundle
+mkdir mycontainer && cd mycontainer
+runc spec
+
+# `config.json` yaratiladi. Image katalogi:
+mkdir rootfs
+docker export $(docker create busybox) | tar -C rootfs -xvf -
+
+# Run
+sudo runc run mycontainer
+```
+
+`config.json` — namespace, mount, cgroup sozlamalari.
+
+## 9. `nsenter` — mavjud namespace'ga ulanish
+
+Container debug uchun foydali:
+
+```bash
+# Docker container PID
+docker inspect --format '{{.State.Pid}}' my-container
+# 12345
+
+# Container namespace ichida bash
+sudo nsenter --target 12345 --mount --uts --ipc --net --pid --
+sh
+
+# Faqat aniq namespace
+sudo nsenter --target 12345 --net ip a
+```
+
+## 10. cgroups foydali metrikalar
+
+```bash
+# CPU
+cat /sys/fs/cgroup/<group>/cpu.stat
+# usage_usec, user_usec, system_usec
+
+# Memory
+cat /sys/fs/cgroup/<group>/memory.current
+# joriy ishlatish
+cat /sys/fs/cgroup/<group>/memory.peak
+# eng yuqori
+
+# I/O
+cat /sys/fs/cgroup/<group>/io.stat
+```
+
+systemd:
+
+```bash
+systemd-cgtop    # top kabi, lekin cgroups uchun
+```
+
+## 11. Misol — process'ni cheklab ishga tushirish
+
+```bash
+# RAM 512M va CPU 50% bilan
+systemd-run --user --slice=limited.slice \
+    -p MemoryMax=512M \
+    -p CPUQuota=50% \
+    -p TasksMax=20 \
+    --pty firefox
+```
+
+Endi Firefox 512 MB'dan ko'p ishlatmaydi.
+
+## 12. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `cat /proc/self/cgroup` | Joriy cgroup |
+| `systemd-cgls` | Cgroup tree |
+| `systemd-cgtop` | Real-time cgroup top |
+| `ls /proc/self/ns/` | Joriy namespaces |
+| `unshare --pid --mount-proc --fork bash` | Yangi PID NS |
+| `ip netns add <name>` | Network namespace |
+| `ip netns exec <name> <cmd>` | NS ichida buyruq |
+| `nsenter --target <pid> --net <cmd>` | Mavjud NS'ga kirish |
+| `systemd-run -p MemoryMax=...` | Ad-hoc cgroup |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **cgroups v1 va v2 aralash** — qaysisida sizning distributiv ekanligini bilish kerak.
+- **Namespace yopilsa, ichida ishlamoqda jarayonlar tugaydi** — `unshare` ko'pincha background process'lar uchun emas.
+- **`unshare --pid` bilan `--mount-proc`** ham kerak — aks holda `ps` xato.
+- **Manual cgroup'da fayl yo'q** — modullar enable qilinmagan.
+- **`/sys/fs/cgroup/` write — `root` kerak** — yoki delegated.
+
+## 14. Eng yaxshi amaliyot
+
+- **Container runtime'lardan foydalaning** — Docker/Podman OCI standart. Manual cgroup/namespace murakkab.
+- **systemd resource limits** — service hardening.
+- **systemd-cgtop** monitoring uchun.
+- **`nsenter`** debug uchun foydali.
+- **`runc` direct** faqat OCI standart o'rganish uchun.
+
+## 15. Mashqlar
+
+1. **Cgroup turini bilish:** `stat -fc %T /sys/fs/cgroup/` — v1 yoki v2?
+2. **systemd-cgls:** Sizdagi cgroup tree qanday?
+3. **systemd-cgtop:** Real-time monitoring 30 soniya.
+4. **unshare test:** `sudo unshare --pid --mount-proc --fork bash` — `ps aux` qanday natija beradi?
+5. **systemd-run:** `systemd-run --user -p MemoryMax=10M --pty bash` — `cat /sys/fs/cgroup/.../memory.max` bilan tasdiqlang.
+
+## 16. Bilim sinovi
+
+**Savol 1.** cgroups nima uchun:
+
+- a) Process isolation
+- b) Resource limits (CPU, RAM, I/O)
+- c) Tarmoq
+- d) Disk
+
+<Callout type="success" title="Javob">
+**(b)** Cgroups — resource control.[¹](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+</Callout>
+
+**Savol 2.** Namespaces nima uchun:
+
+- a) Resource limits
+- b) Isolation — har container o'z view (PID, network, mount va h.k.)
+- c) Backup
+- d) Logging
+
+<Callout type="success" title="Javob">
+**(b)** "Container" ko'rishini ta'minlash.[²](https://man7.org/linux/man-pages/man7/namespaces.7.html)
+</Callout>
+
+**Savol 3.** Docker ostida nima ishlaydi?
+
+- a) Maxsus hypervisor
+- b) Linux cgroups + namespaces
+- c) Microsoft texnologiyasi
+- d) BSD jail
+
+<Callout type="success" title="Javob">
+**(b)** Container = cgroups + namespaces + filesystem image.
+</Callout>
+
+**Savol 4.** systemd-run nima qiladi:
+
+- a) Service yaratadi (file'ga)
+- b) Ad-hoc transient unit cgroup va limits bilan
+- c) Reboot
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Vaqtinchalik service — log, resource limits avtomatik.
+</Callout>
+
+**Savol 5.** Container'ga debug uchun ulanish:
+
+- a) `docker exec` (yoki `nsenter` direct)
+- b) SSH faqat
+- c) Imkonsiz
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** `docker exec` ostida nsenter ishlaydi.
+</Callout>
+
+## Manbalar
+
+1. cgroups documentation. [https://docs.kernel.org/admin-guide/cgroup-v2.html](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+2. namespaces(7). [https://man7.org/linux/man-pages/man7/namespaces.7.html](https://man7.org/linux/man-pages/man7/namespaces.7.html)
+3. ArchWiki — cgroups. [https://wiki.archlinux.org/title/Cgroups](https://wiki.archlinux.org/title/Cgroups)
+
+## Keyingi qadam
+
+👉 [strace va dynamic tracing](/fundamentals/strace-tracing)

@@ -1,0 +1,165 @@
+---
+title: "Ubuntu Server o'rnatish"
+description: "Ubuntu Server ISO bilan grafik interfeyssiz, terminal asosli server tizimini o'rnatish."
+order: 4
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/ubuntu/introduction"
+  - "/ubuntu/installation/requirements"
+learning_objectives:
+  - "Ubuntu Server va Desktop o'rtasidagi farqlarni izohlash"
+  - "Subiquity o'rnatuvchisining asosiy qadamlarini bajarish"
+  - "Birinchi marta kirgandan keyin nima qilish kerakligini bilish"
+tags: ["ubuntu", "server", "installation", "subiquity"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu Tutorial — Install Ubuntu Server"
+    url: "https://ubuntu.com/tutorials/install-ubuntu-server"
+  - title: "Ubuntu Server documentation"
+    url: "https://documentation.ubuntu.com/server/"
+  - title: "Subiquity installer"
+    url: "https://github.com/canonical/subiquity"
+---
+
+Ubuntu Server — bu grafik interfeyssiz, faqat terminal asosli server uchun mo'ljallangan nashr. Bu darsda rasmiy Ubuntu o'quv qo'llanmasi asosida server o'rnatishni o'rganamiz.[¹](https://ubuntu.com/tutorials/install-ubuntu-server)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Ubuntu Server uchun ISO yuklab olish.
+- **Subiquity** o'rnatuvchi qadamlari.
+- Tarmoq va saqlash sozlamalari.
+- Birinchi yuklanishdan keyingi ishlar.
+</Callout>
+
+## 1. Server va Desktop farqi
+
+| | Server | Desktop |
+|---|---|---|
+| GUI | Yo'q (faqat terminal) | GNOME |
+| RAM minimal | 1 GB | 4 GB |
+| ISO hajmi | ~2 GB | ~5 GB |
+| Asosiy maqsad | Veb-server, ma'lumot bazasi, SSH | Kundalik kompyuter |
+| Login | TTY (matn) yoki SSH | GDM |
+
+## 2. ISO yuklab olish
+
+[Ubuntu Server yuklash sahifasi](https://ubuntu.com/download/server) dan hozirgi LTS ISO faylini oling. Bootable USB tayyorlash xuddi Desktop dagidek:
+
+👉 [USB dan o'rnatish darsiga qarang](/ubuntu/installation/usb)
+
+## 3. Subiquity o'rnatuvchi
+
+Ubuntu Server `subiquity` o'rnatuvchini ishlatadi — terminalga asoslangan, lekin oson navigatsiyali interfeys.[³](https://github.com/canonical/subiquity)
+
+<Steps>
+  <Step title="Til">
+    `English` ni tanlang (server muhitida bu standart).
+  </Step>
+  <Step title="Klaviatura">
+    Klaviatura turkumi.
+  </Step>
+  <Step title="O'rnatish turi">
+    **Ubuntu Server** (eng tarqalgan) yoki **Ubuntu Server (minimized)** — paketlar minimal to'plamda.
+  </Step>
+  <Step title="Tarmoq">
+    DHCP avtomatik ravishda ulanadi. **Static IP** kerak bo'lsa, tarmoq interfeysiga bosib qo'l bilan kiriting.
+  </Step>
+  <Step title="Proxy va arxiv ko'zgusi">
+    Tarmoq orqasidan o'tayotgan bo'lsangiz proxy ko'rsating. Aks holda — bo'sh qoldiring.
+  </Step>
+  <Step title="Disk sozlash">
+    - **Use an entire disk** — diskni butunlay tozalash.
+    - **Custom storage layout** — qo'l bilan bo'limlar (LVM, RAID).
+    - **Set up this disk as an LVM group** — keyingi kengaytirishni osonlashtiradi (tavsiya etiladi).
+  </Step>
+  <Step title="Foydalanuvchi profili">
+    Server nomi (hostname), foydalanuvchi nomi, parol.
+  </Step>
+  <Step title="SSH">
+    **Install OpenSSH server** ni belgilang — masofadan ulanish uchun majburiy. Agar GitHub kalitingiz bo'lsa, "Import SSH key" ham qulay.
+  </Step>
+  <Step title="Featured Server Snaps">
+    Bu yerda **hech narsani belgilamang**, kelajakda kerakli paketlarni o'zingiz o'rnatasiz. Bu yerda har xil paketlar (Docker, Nextcloud va boshqalar) bor — ammo serverni "puxta o'rnatish" amaliyoti bo'sh tizimdan boshlanadi.
+  </Step>
+  <Step title="O'rnatish va qayta yuklash">
+    Tugaganidan keyin USB'ni chiqarib qayta yuklang.
+  </Step>
+</Steps>
+
+## 4. Birinchi marta kirish
+
+Login prompti ko'rinadi:
+
+```
+ubuntu-server login: ali
+Password:
+```
+
+Kirgandan keyin darhol:
+
+```bash
+# Yangilanishlar
+sudo apt update
+sudo apt upgrade
+
+# Server nomini ko'rish
+hostnamectl
+
+# IP manzilini bilish
+ip -brief addr
+```
+
+## 5. SSH bilan masofadan ulanish
+
+Boshqa kompyuterdan (Windows PowerShell yoki Linux/macOS terminalida):
+
+```bash
+ssh ali@192.168.1.50
+```
+
+Birinchi ulanishda host kalit barmoq izini tasdiqlash so'raladi — `yes` yozing. Bu serverning haqiqiyligini tekshiruvchi mexanizm.
+
+<Callout type="tip">
+Server tayyor bo'lgach, dastlabki ishlardan biri — SSHga kalitli kirishni sozlash va parolli kirishni o'chirib qo'yish. [SSH kalitlari darsi](/fundamentals/ssh) ga qarang.
+</Callout>
+
+## 6. Mashqlar
+
+1. [Ubuntu Server documentation](https://documentation.ubuntu.com/server/) ni oching. "Server tutorials" bo'limida nechta o'quv qo'llanma bor?
+2. (Virtual mashinada) Ubuntu Serverni LVM bilan o'rnating. O'rnatishdan keyin `lsblk` natijasini ko'ring va LVM volume guruhi qaysi nomda ekanligini yozing.
+3. `hostnamectl` chiqishida `Operating System` qatorida nima yozilgan?
+
+## 7. Bilim sinovi
+
+**Savol 1.** Ubuntu Server o'rnatuvchisining nomi qanday?
+
+- a) Anaconda
+- b) Calamares
+- c) Subiquity
+- d) Ubiquity
+
+<Callout type="success" title="Javob">
+**(c)** Subiquity — Ubuntu Server uchun rasmiy o'rnatuvchi.[³](https://github.com/canonical/subiquity)
+</Callout>
+
+**Savol 2.** SSH bilan masofaviy ulanish uchun qaysi paketni o'rnatish kerak?
+
+- a) openssh-client (faqat)
+- b) openssh-server
+- c) apt-ssh
+- d) ssh-tools
+
+<Callout type="success" title="Javob">
+**(b)** Server tomonida `openssh-server`. Klient tomonida `openssh-client` (odatda o'rnatilgan).
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Tutorial — Install Ubuntu Server. [https://ubuntu.com/tutorials/install-ubuntu-server](https://ubuntu.com/tutorials/install-ubuntu-server)
+2. Ubuntu Server documentation. [https://documentation.ubuntu.com/server/](https://documentation.ubuntu.com/server/)
+3. Subiquity installer. [https://github.com/canonical/subiquity](https://github.com/canonical/subiquity)
+
+## Keyingi qadam
+
+👉 [APT bilan ishlash](/ubuntu/apt-basics)

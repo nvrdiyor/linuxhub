@@ -1,0 +1,164 @@
+---
+title: "Debian ga kirish"
+description: "Debian — eng eski va eng barqaror Linux distributivlaridan biri. Ubuntu, Kali va boshqa ko'plab tizimlarning asosi."
+order: 1
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/fundamentals/intro"
+learning_objectives:
+  - "Debian loyihasi va uning tashkiliy tuzilishini bilish"
+  - "Debian falsafasini boshqa distributivlardan ajratib turuvchi xususiyatlarni izohlash"
+  - "Qaysi distributivlar Debian asosida qurilganini bilish"
+tags: ["debian", "beginner", "history"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian — About"
+    url: "https://www.debian.org/intro/about"
+  - title: "Debian — Why Debian"
+    url: "https://www.debian.org/intro/why_debian"
+  - title: "Debian Project History"
+    url: "https://www.debian.org/doc/manuals/project-history/"
+---
+
+**Debian** — bu eng eski va eng nufuzli Linux distributivlaridan biri, butunlay ko'ngillilardan tashkil topgan global hamjamiyat tomonidan ishlab chiqiladi.[¹](https://www.debian.org/intro/about) Loyiha 1993-yilda Ian Murdock tomonidan yaratilgan va shundan beri "erkin dasturlar" tamoyiliga sodiq qolib kelmoqda.
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Debian kim tomonidan va qachon yaratilganligi.
+- Loyihaning tashkiliy tuzilishi (hech qanday kompaniya emas).
+- Debian'ning asosiy farqlovchi xususiyatlari.
+- Debian asosidagi mashhur distributivlar.
+</Callout>
+
+## 1. Debian — nima va kim tomonidan?
+
+Debian — bu **hamjamiyat loyihasi**. Hech qanday kompaniya uni "egasi" emas:[¹](https://www.debian.org/intro/about)
+
+- 1000+ ko'ngilli **Debian Developer** (DD) maqomidagi a'zolar tomonidan rivojlantiriladi.
+- Saylanadigan **Debian Project Leader** har yili qayta tanlanadi.
+- Loyiha xarajatlari (serverlar, tadbirlar) ham faqat xayriya orqali yopiladi — "Software in the Public Interest" tashkiloti orqali.
+
+So'zning kelib chiqishi: "Debian" = **Deb**ra (Ian Murdock'ning xotini) + **Ian** (uning ismi).[³](https://www.debian.org/doc/manuals/project-history/)
+
+## 2. Falsafasi: erkin dasturlar
+
+Debian "100% erkin dasturlar" tamoyiliga sodiq.[²](https://www.debian.org/intro/why_debian) Bu shuni anglatadi:
+
+- Asosiy distributivga faqat **Debian Free Software Guidelines (DFSG)** ga mos keluvchi paketlar kiradi.
+- Maxsus drayverlar va prashivkalar (non-free firmware) alohida `non-free-firmware` repozitoriysida.
+- Foydalanuvchi har doim ko'rishi kerak: qaysi paket erkin, qaysi qaysi shartlar bilan.
+
+Bu Ubuntu va boshqa "amaliyotchi" distributivlardan ajralib turuvchi xususiyat — Ubuntu drayverlarni boshlanishidayoq taklif qiladi, Debian esa avval foydalanuvchidan tushuncha so'raydi.
+
+## 3. Debian'ning farqlovchi xususiyatlari
+
+| Xususiyat | Tafsilot |
+|---|---|
+| **Barqarorlik** | Stable reliz — minglab paketlar sinovdan o'tgandan keyingina chiqariladi. |
+| **Erkinlik** | DFSG — qattiq mezon. |
+| **Universallik** | Desktop, server, embedded, mainframe — barchasi uchun bitta distributiv. |
+| **Uzoq umrlik** | Har reliz **5 yil** yordam oladi (3 yil standart + 2 yil LTS). |
+| **Mustaqillik** | Hech qanday kompaniya boshqarmaydi. |
+
+## 4. Debian asosidagi distributivlar
+
+Debian Linux dunyosining "ildizi" — undan ko'plab distributivlar paydo bo'lgan:
+
+```
+Debian
+├── Ubuntu (Canonical)
+│   ├── Linux Mint
+│   ├── Elementary OS
+│   ├── Pop!_OS
+│   └── Kubuntu, Xubuntu, Lubuntu (flavor'lar)
+├── Kali Linux (Offensive Security)
+├── Parrot OS
+├── MX Linux
+├── Tails
+└── Raspberry Pi OS (eski Raspbian)
+```
+
+Bu distributivlarning hammasi `apt`, `dpkg`, `.deb` paket formatini Debian'dan oladi.
+
+## 5. Reliz nomlari
+
+Har bir Debian relizi **Toy Story** filmidagi qahramon nomi bilan ataladi:[³](https://www.debian.org/doc/manuals/project-history/)
+
+| Versiya | Kodli nom | Sana |
+|---|---|---|
+| Debian 10 | **Buster** | 2019 |
+| Debian 11 | **Bullseye** | 2021 |
+| Debian 12 | **Bookworm** | 2023 |
+| Debian 13 | **Trixie** | rejalashtirilmoqda |
+| `unstable` | **Sid** (hech qachon o'zgarmaydi) | doimiy |
+
+`Sid` — bu Toy Story'dagi "yomon" bola; Debian rivojlanish shoxchasi ham har vaqt buzilishi mumkin bo'lgani uchun shu nom berilgan.
+
+## 6. Qanday foydalanish
+
+Debian quyidagi vazifalar uchun mukammal:
+
+- **Server** — barqarorligi tufayli.
+- **Tajriba** — sinovdan o'tgan paketlar kerak bo'lganda.
+- **Eski apparat** — yengilroq dasturlash va kichikroq talablar.
+- **O'rganish** — Linuxni chuqurroq tushunish uchun.
+
+## 7. Amaliy misol
+
+Debian o'rnatilgan tizimda:
+
+```bash
+# Reliz va kodli nom
+cat /etc/debian_version
+# Misol: 12.7
+
+lsb_release -a
+```
+
+```
+Distributor ID: Debian
+Description:    Debian GNU/Linux 12 (bookworm)
+Release:        12
+Codename:       bookworm
+```
+
+## 8. Mashqlar
+
+1. [debian.org/intro/about](https://www.debian.org/intro/about) ni oching. Loyihaga nechta dasturchi a'zo?
+2. [Debian relizlari sahifasi](https://www.debian.org/releases/) ni o'qing. Hozirgi `stable` versiya qaysi?
+3. Ubuntu va Debian o'rtasidagi 3 ta o'xshashlikni va 3 ta farqni o'z so'zlaringiz bilan ayting.
+
+## 9. Bilim sinovi
+
+**Savol 1.** Debianni kim boshqaradi?
+
+- a) Canonical Ltd.
+- b) Red Hat
+- c) Hamjamiyat — saylanadigan rahbar
+- d) Linus Torvalds
+
+<Callout type="success" title="Javob">
+**(c)** Debian — hamjamiyat loyihasi. Project Leader har yili saylanadi.[¹](https://www.debian.org/intro/about)
+</Callout>
+
+**Savol 2.** Debian reliz nomlari qaysi filmdan olingan?
+
+- a) Star Wars
+- b) Toy Story
+- c) The Matrix
+- d) Lord of the Rings
+
+<Callout type="success" title="Javob">
+**(b)** Toy Story — Buster, Bullseye, Bookworm, Trixie, Sid va boshqalar.[³](https://www.debian.org/doc/manuals/project-history/)
+</Callout>
+
+## Manbalar
+
+1. Debian — About. [https://www.debian.org/intro/about](https://www.debian.org/intro/about)
+2. Debian — Why Debian. [https://www.debian.org/intro/why_debian](https://www.debian.org/intro/why_debian)
+3. Debian Project History. [https://www.debian.org/doc/manuals/project-history/](https://www.debian.org/doc/manuals/project-history/)
+
+## Keyingi qadam
+
+👉 [Debian ijtimoiy shartnomasi](/debian/social-contract)

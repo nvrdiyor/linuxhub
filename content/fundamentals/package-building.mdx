@@ -1,0 +1,531 @@
+---
+title: "Paket qurish — deb va rpm"
+description: ".deb (Debian/Ubuntu) va .rpm (Fedora/RHEL) paketlar yaratish — dasturchilar uchun."
+order: 150
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/package-managers"
+learning_objectives:
+  - "Debian package structure"
+  - "RPM package structure"
+  - "dpkg-deb va rpmbuild bilan ishlash"
+  - "FPM — universal paket yaratish"
+tags: ["advanced", "deb", "rpm", "packaging", "fpm"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian New Maintainer's Guide"
+    url: "https://www.debian.org/doc/manuals/maint-guide/"
+  - title: "RPM Packaging Guide"
+    url: "https://rpm-packaging-guide.github.io/"
+  - title: "FPM"
+    url: "https://github.com/jordansissel/fpm"
+---
+
+Dastur yaratdingiz — Linux'da qanday tarqatish? `.deb` yoki `.rpm` paket. Bu darsda ikkalasini yaratish va modern alternativlarni ko'rib chiqamiz.[¹](https://www.debian.org/doc/manuals/maint-guide/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- .deb fayl strukturasi.
+- .rpm fayl strukturasi.
+- Manual paket yaratish (`dpkg-deb`, `rpmbuild`).
+- FPM — universal paket builder.
+- Modern alternativalar (Snap, Flatpak, AppImage).
+</Callout>
+
+## 1. `.deb` paket strukturasi
+
+`.deb` — `ar` format archive ichida 2 ta `.tar.gz`:
+
+```
+mypackage_1.0_amd64.deb
+├── debian-binary       (versiya, hozir "2.0")
+├── control.tar.gz      (metadata)
+└── data.tar.gz         (installat fayllar)
+```
+
+`control.tar.gz` ichida:
+
+```
+control       — paket nomi, versiya, bog'liqliklar
+postinst      — install'dan keyin ishga tushadi
+preinst       — install'dan oldin
+postrm        — uninstall'dan keyin
+prerm         — uninstall'dan oldin
+md5sums       — fayl checksum'lar
+```
+
+`data.tar.gz` — root filesystem'ga ko'chiriladigan fayllar (`/usr/bin/myapp`, `/etc/myapp/conf` va h.k.).
+
+## 2. Sodda .deb yaratish
+
+Misol — `hello` skript paketga.
+
+```bash
+mkdir -p hello_1.0/DEBIAN
+mkdir -p hello_1.0/usr/local/bin
+```
+
+`hello_1.0/DEBIAN/control`:
+
+```
+Package: hello
+Version: 1.0
+Architecture: all
+Maintainer: Ali Valiyev <ali@example.com>
+Description: A simple hello script
+ Just prints hello.
+```
+
+`hello_1.0/usr/local/bin/hello`:
+
+```bash
+#!/bin/bash
+echo "Hello, $(whoami)!"
+```
+
+```bash
+chmod +x hello_1.0/usr/local/bin/hello
+
+# Build
+dpkg-deb --build hello_1.0
+# hello_1.0.deb yaratildi
+
+# Test
+sudo dpkg -i hello_1.0.deb
+hello
+# Hello, ali!
+
+# Inspect
+dpkg-deb -I hello_1.0.deb       # control
+dpkg-deb -c hello_1.0.deb       # fayllar
+
+# Uninstall
+sudo dpkg -r hello
+```
+
+## 3. Control fayl maydonlari
+
+```
+Package: mypackage
+Version: 1.0.0
+Architecture: amd64
+Maintainer: Name <email>
+Section: utils                  # admin, devel, net, web, ...
+Priority: optional              # required, important, standard, optional, extra
+Depends: libc6 (>= 2.34), python3
+Recommends: ...
+Suggests: ...
+Conflicts: ...
+Replaces: ...
+Description: Short description
+ Long description.
+ Multi-line, har qator bo'shliq bilan boshlanadi.
+```
+
+### Dependency operators
+
+```
+Depends: libc6 (>= 2.34)
+Depends: python3 (>= 3.8) | python (>= 2.7)    # OR
+Depends: package1, package2                     # AND
+```
+
+## 4. Maintainer scripts
+
+`preinst`, `postinst`, `prerm`, `postrm` — bash skript.
+
+`postinst` misol:
+
+```bash
+#!/bin/bash
+set -e
+
+case "$1" in
+    configure)
+        # User yaratish
+        if ! getent passwd myapp > /dev/null; then
+            useradd -r -s /bin/false myapp
+        fi
+
+        # systemd service'ni yoqish
+        systemctl enable myapp.service
+        systemctl start myapp.service
+        ;;
+esac
+
+exit 0
+```
+
+```bash
+chmod 0755 hello_1.0/DEBIAN/postinst
+```
+
+## 5. `.rpm` paket
+
+`.rpm` ko'p ma'lumotni `.spec` faylda saqlaydi.
+
+`hello.spec`:
+
+```
+Name:           hello
+Version:        1.0
+Release:        1%{?dist}
+Summary:        Simple hello script
+
+License:        MIT
+URL:            https://example.com/hello
+Source0:        %{name}-%{version}.tar.gz
+
+BuildArch:      noarch
+Requires:       bash
+
+%description
+A simple hello script that prints greeting.
+
+%prep
+%setup -q
+
+%install
+mkdir -p %{buildroot}%{_bindir}
+install -m 0755 hello %{buildroot}%{_bindir}/hello
+
+%files
+%{_bindir}/hello
+
+%changelog
+* Mon May 26 2026 Ali Valiyev <ali@example.com> - 1.0-1
+- Initial release
+```
+
+```bash
+sudo dnf install rpm-build
+
+# Workspace
+mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+# Tarball yaratish
+tar -czf ~/rpmbuild/SOURCES/hello-1.0.tar.gz hello-1.0/
+
+# Spec ko'chirish
+cp hello.spec ~/rpmbuild/SPECS/
+
+# Build
+rpmbuild -ba ~/rpmbuild/SPECS/hello.spec
+
+# Natija
+ls ~/rpmbuild/RPMS/noarch/
+# hello-1.0-1.noarch.rpm
+
+# Install
+sudo dnf install ~/rpmbuild/RPMS/noarch/hello-1.0-1.noarch.rpm
+```
+
+## 6. FPM — universal builder
+
+[FPM](https://github.com/jordansissel/fpm) — Ruby skript, `.deb`, `.rpm`, `.tar`, `.zip`, `.osxpkg` va boshqalarni yaratadi.[³](https://github.com/jordansissel/fpm)
+
+```bash
+# O'rnatish
+sudo apt install ruby ruby-dev rubygems build-essential
+sudo gem install fpm
+
+# Yoki Fedora
+sudo dnf install ruby-devel rubygems
+gem install --user-install fpm
+```
+
+### Misol
+
+```bash
+# Skript yoki binary tayyor
+mkdir -p pkg/usr/local/bin
+cp hello pkg/usr/local/bin/
+
+# .deb
+fpm -s dir -t deb \
+    -n hello \
+    -v 1.0 \
+    --description "Simple hello" \
+    --maintainer "ali@example.com" \
+    --depends bash \
+    -C pkg \
+    usr/local/bin/hello
+
+# .rpm
+fpm -s dir -t rpm \
+    -n hello \
+    -v 1.0 \
+    --description "Simple hello" \
+    --depends bash \
+    -C pkg \
+    usr/local/bin/hello
+
+# Natija
+ls *.deb *.rpm
+```
+
+### Python paket'dan
+
+```bash
+fpm -s python -t deb requests
+# python3-requests_2.31.0_all.deb
+```
+
+### Node.js paket'dan
+
+```bash
+fpm -s npm -t deb lodash
+```
+
+## 7. `dh_make` va Debian classic workflow
+
+Debian rasmiy workflow — `debhelper`:
+
+```bash
+sudo apt install dh-make build-essential devscripts
+
+# Loyiha tayyorlash
+cd myproject-1.0
+dh_make --createorig
+
+# `debian/` katalogi yaratiladi
+ls debian/
+# changelog control rules ...
+
+# Build
+dpkg-buildpackage -us -uc
+
+# Natija — parent katalogda
+ls ../*.deb
+```
+
+Bu rasmiy Debian workflow — agar paket Debian repository'ga kirishini xohlasangiz, shu yo'lda.
+
+## 8. Modern alternativalar
+
+### Snap
+
+```bash
+sudo snap install snapcraft --classic
+
+mkdir myapp && cd myapp
+snapcraft init     # snap/snapcraft.yaml
+
+# Build
+snapcraft
+
+# Test install
+sudo snap install ./myapp_1.0_amd64.snap --dangerous
+
+# Snap Store'ga yuborish
+snapcraft login
+snapcraft register myapp
+snapcraft upload myapp_1.0_amd64.snap
+```
+
+### Flatpak
+
+```bash
+sudo apt install flatpak-builder
+
+# manifest.json yoki .yml
+flatpak-builder --user --install build com.example.myapp.yml
+```
+
+### AppImage
+
+```bash
+# AppDir struktura
+mkdir -p myapp.AppDir/usr/bin
+cp myapp myapp.AppDir/usr/bin/
+
+# AppRun
+cat > myapp.AppDir/AppRun <<'EOF'
+#!/bin/sh
+exec ${APPDIR}/usr/bin/myapp
+EOF
+chmod +x myapp.AppDir/AppRun
+
+# Desktop file
+cat > myapp.AppDir/myapp.desktop <<EOF
+[Desktop Entry]
+Name=MyApp
+Exec=myapp
+Icon=myapp
+Type=Application
+EOF
+
+# Build
+appimagetool myapp.AppDir myapp-1.0.AppImage
+chmod +x myapp-1.0.AppImage
+
+./myapp-1.0.AppImage
+```
+
+## 9. PPA — Personal Package Archive (Ubuntu)
+
+Launchpad orqali bepul Debian repository:
+
+1. Launchpad akkaunt yaratish.
+2. GPG key generate va upload.
+3. Source package yuborish (`dput`).
+
+```bash
+# Source package build
+debuild -S -sa
+
+# Upload
+dput ppa:username/ppa-name ../myapp_1.0-1_source.changes
+```
+
+Foydalanuvchi:
+
+```bash
+sudo add-apt-repository ppa:username/ppa-name
+sudo apt update
+sudo apt install myapp
+```
+
+## 10. Repository server — apt
+
+O'z apt repository — `reprepro`:
+
+```bash
+sudo apt install reprepro
+
+mkdir -p /srv/apt/conf
+cat > /srv/apt/conf/distributions <<EOF
+Origin: My Repo
+Label: My Repo
+Codename: stable
+Architectures: amd64 source
+Components: main
+Description: My personal apt repository
+SignWith: yes
+EOF
+
+# Paket qo'shish
+reprepro -b /srv/apt includedeb stable myapp_1.0.deb
+
+# Web server orqali serve qilish (nginx)
+```
+
+Foydalanuvchi:
+
+```bash
+echo "deb http://repo.example.com/apt stable main" | sudo tee /etc/apt/sources.list.d/myrepo.list
+sudo apt update
+sudo apt install myapp
+```
+
+## 11. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `dpkg-deb --build <dir>` | .deb yaratish |
+| `dpkg-deb -I <file.deb>` | Control inspect |
+| `dpkg-deb -c <file.deb>` | Fayllar |
+| `rpmbuild -ba <spec>` | .rpm yaratish |
+| `rpm -qpi <file.rpm>` | Inspect |
+| `rpm -qpl <file.rpm>` | Fayllar |
+| `fpm -s <src> -t <dst> ...` | Universal builder |
+| `dh_make` | Debian workflow init |
+| `dpkg-buildpackage` | Debian build |
+| `debuild -S -sa` | Source package |
+| `lintian <file.deb>` | Quality check |
+| `rpmlint <file.rpm>` | RPM quality |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **`Architecture: all` vs `amd64`** — `all` = barcha (Python/shell skript), `amd64` = aniq binary.
+- **Permissions noto'g'ri** — `postinst` 755 emas — install xato.
+- **Dependency mavjud emas** — install vaqtida xato. Apt'da package nomi to'g'ri ekanini tekshiring.
+- **Version o'zgartirmaslik** — yangi `.deb` lekin eski versiya — install xato.
+- **`rpmbuild` `~/rpmbuild/` strukturasi yo'q** — `rpmdev-setuptree` ishlatib yarating.
+
+## 13. Eng yaxshi amaliyot
+
+- **FPM** — eng oson, ko'p format.
+- **Strict semantic versioning** — 1.2.3 (major.minor.patch).
+- **Changelog** — har versiya uchun.
+- **`lintian` va `rpmlint`** — quality check.
+- **GPG sign** — repository uchun.
+- **systemd unit fayl** — agar service bo'lsa.
+- **Tests** — install va uninstall test.
+- **Backup eski versiya** — rollback uchun.
+
+## 14. Mashqlar
+
+1. **Sodda .deb:** Yuqoridagi `hello` misolni bajaring.
+2. **Install/uninstall:** `dpkg -i` va `dpkg -r` bilan sinab ko'ring.
+3. **Inspect:** `dpkg-deb -I` va `dpkg-deb -c` chiqishini ko'ring.
+4. **FPM:** Ruby o'rnating va FPM bilan tarball'dan .deb yarating.
+5. **Lintian:** `lintian hello_1.0.deb` — quality issue'lar bormi?
+
+## 15. Bilim sinovi
+
+**Savol 1.** `.deb` fayli ichida nima bor?
+
+- a) ZIP archive
+- b) ar archive — control.tar.gz va data.tar.gz
+- c) JSON
+- d) Tar fayl
+
+<Callout type="success" title="Javob">
+**(b)** `ar` arxiv ichida ikki tarball.[¹](https://www.debian.org/doc/manuals/maint-guide/)
+</Callout>
+
+**Savol 2.** `.rpm` paket asosiy fayli:
+
+- a) `control`
+- b) `.spec` fayl (build vaqtida)
+- c) `manifest.json`
+- d) `package.yml`
+
+<Callout type="success" title="Javob">
+**(b)** `.spec` — rpmbuild ko'rsatma.[²](https://rpm-packaging-guide.github.io/)
+</Callout>
+
+**Savol 3.** FPM nima qiladi:
+
+- a) Faqat .deb
+- b) Universal — .deb, .rpm, .tar va boshqalarni bir vositadan
+- c) Faqat Ruby uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Tezkor cross-format build.[³](https://github.com/jordansissel/fpm)
+</Callout>
+
+**Savol 4.** `Architecture: all` deb paket'da:
+
+- a) Faqat amd64
+- b) Hamma arxitektura uchun mos (skript, Python va h.k.)
+- c) Faqat ARM
+- d) Xato
+
+<Callout type="success" title="Javob">
+**(b)** Architecture-independent paket.
+</Callout>
+
+**Savol 5.** `postinst` skript:
+
+- a) Install vaqtida ishga tushiriladi
+- b) Install'dan keyin (user yaratish, systemd enable va h.k.)
+- c) Uninstall
+- d) Hech qachon
+
+<Callout type="success" title="Javob">
+**(b)** Post-install hook.
+</Callout>
+
+## Manbalar
+
+1. Debian New Maintainer's Guide. [https://www.debian.org/doc/manuals/maint-guide/](https://www.debian.org/doc/manuals/maint-guide/)
+2. RPM Packaging Guide. [https://rpm-packaging-guide.github.io/](https://rpm-packaging-guide.github.io/)
+3. FPM. [https://github.com/jordansissel/fpm](https://github.com/jordansissel/fpm)
+
+## Keyingi qadam
+
+👉 [Linux desktop muhitlari chuqurroq](/fundamentals/desktop-environments)

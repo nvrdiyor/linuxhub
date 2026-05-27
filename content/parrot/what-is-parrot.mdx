@@ -1,0 +1,117 @@
+---
+title: "Parrot OS nima?"
+description: "Parrot Security tomonidan tayyorlanadigan, xavfsizlik va maxfiylik uchun Debian Testing asosidagi distributiv."
+order: 1
+level: "beginner"
+estimated_minutes: 4
+prerequisites:
+  - "/parrot/introduction"
+learning_objectives:
+  - "Parrot OS kim tomonidan va qaysi maqsad uchun tayyorlanishini bilish"
+  - "Parrot va Kali farqi"
+  - "Asosiy texnik xususiyatlar"
+tags: ["parrot", "beginner", "security"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Parrot Security — official site"
+    url: "https://parrotsec.org/"
+  - title: "Parrot Documentation"
+    url: "https://docs.parrotsec.org/"
+---
+
+**Parrot OS** (Parrot Security) — Parrot Security tashkiloti tomonidan tayyorlanadigan Debian Testing asosidagi xavfsizlik distributivi. 2013-yilda boshlangan va xavfsizlik, maxfiylik, va kundalik foydalanish o'rtasidagi muvozanat bilan farqlanadi.[¹](https://parrotsec.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Parrot OS kim tomonidan va qachon boshlangan.
+- Kali bilan asosiy farqlar.
+- Texnik tafsilotlar (DE, paket bazasi, rolling release).
+</Callout>
+
+## 1. Parrot OS
+
+- **Tashkilot:** Parrot Security (ko'ngillilar va kompaniya birikkani).
+- **Asosi:** Debian Testing.
+- **Reliz model:** Rolling release.
+- **Default DE:** MATE (an'anaviy), KDE Plasma ham mavjud.
+- **Maqsad:** Xavfsizlik, anonimlik, dasturlash.
+
+## 2. Parrot va Kali farqi
+
+| | Parrot OS | Kali Linux |
+|---|---|---|
+| Tashkilot | Parrot Security | Offensive Security |
+| DE | MATE (default) | Xfce (default) |
+| Yetib boruvchi auditoriya | Security + kundalik foydalanish | Faqat security |
+| Default user | `user` (parol bilan) | `kali` |
+| Anonimlik (Tor/AnonSurf) | Default to'plamda | Qo'shimcha o'rnatish kerak |
+| Yengilroq | ✅ | — |
+| Asboblar soni | 600+ | 600+ |
+
+Asosiy farq — Parrot **kundalik foydalanishga** ko'proq mos. Kali esa **faqat** xavfsizlik ishi uchun mo'ljallangan.
+
+## 3. Tarixi
+
+```
+2013 — Parrot OS 1.0 (Debian Wheezy asosida)
+2017 — Parrot Home Edition qo'shildi
+2019 — Parrot 4.0 — yangi infratuzilma
+2020 — Parrot 4.10 — Linux kernel 5.9
+2024+— Parrot 6.x — Debian 12 (Bookworm) asosida
+```
+
+## 4. Texnik xususiyatlar
+
+- **Yadro:** Linux 6.x+ (LTS).
+- **Init:** systemd.
+- **Display server:** X11 (Wayland eksperimental).
+- **Paket menejer:** apt (Debian asosida).
+- **Default browser:** Firefox ESR.
+- **Default email:** Thunderbird.
+- **Anonimlik:** Tor + AnonSurf (Parrot Security Edition).
+
+## 5. Foydalanish stsenariylari
+
+- Xavfsizlik test va audit.
+- Maxfiylik (jurnalist, faollar uchun).
+- Dasturlash (oldindan o'rnatilgan IDE va vositalar).
+- Forensics (DEFT alternative).
+- Privacy-oriented kundalik foydalanish.
+
+## 6. Mashqlar
+
+1. [parrotsec.org](https://parrotsec.org/) ni oching. Hozirgi versiya raqami nima?
+2. Parrot va Kali — kundalik kompyuter uchun qaysi biri ko'proq mos kelishi mumkin? Nima uchun?
+
+## 7. Bilim sinovi
+
+**Savol 1.** Parrot OS qaysi distributiv asosida?
+
+- a) Ubuntu
+- b) Debian Testing
+- c) Arch Linux
+- d) Fedora
+
+<Callout type="success" title="Javob">
+**(b)** Debian Testing.[¹](https://parrotsec.org/)
+</Callout>
+
+**Savol 2.** Parrot va Kali asosiy farqi:
+
+- a) Hech qanday
+- b) Parrot kundalik foydalanish uchun mos, Kali faqat security
+- c) Kali katta to'plam, Parrot kichik
+- d) Parrot pullik, Kali bepul
+
+<Callout type="success" title="Javob">
+**(b)** Parrot MATE, Tor/AnonSurf, dasturlash vositalari bilan kundalik foydalanish uchun ham mos.
+</Callout>
+
+## Manbalar
+
+1. Parrot Security — official site. [https://parrotsec.org/](https://parrotsec.org/)
+2. Parrot Documentation. [https://docs.parrotsec.org/](https://docs.parrotsec.org/)
+
+## Keyingi qadam
+
+👉 [Parrot versiyalari](/parrot/editions)

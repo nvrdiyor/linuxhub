@@ -1,0 +1,390 @@
+---
+title: "Xavfsizlik asoslari"
+description: "Linux server va ish stoli xavfsizligi — login siyosati, SSH qattiqlashtirish, firewall, yangilanishlar va asosiy hardening."
+order: 4
+level: "advanced"
+estimated_minutes: 8
+prerequisites:
+  - "/fundamentals/ssh"
+  - "/fundamentals/firewall"
+  - "/fundamentals/users-groups"
+learning_objectives:
+  - "Hardening tushunchasini bilish"
+  - "SSH va parol siyosatlarini mustahkamlash"
+  - "Avtomatik xavfsizlik yangilanishlarini yoqish"
+  - "Asosiy IDS va monitoring vositalari"
+tags: ["advanced", "security", "hardening", "ssh", "ufw"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — Security"
+    url: "https://wiki.archlinux.org/title/Security"
+  - title: "Debian — Securing Debian Manual"
+    url: "https://www.debian.org/doc/manuals/securing-debian-manual/"
+  - title: "Ubuntu — Security documentation"
+    url: "https://documentation.ubuntu.com/server/explanation/intro-to/security/"
+  - title: "OpenSSH — sshd_config(5)"
+    url: "https://man.openbsd.org/sshd_config"
+---
+
+Xavfsiz Linux tizimi — bu nafaqat firewall, balki **ko'p qatlamli himoya**. Bu darsda asosiy hardening amaliyotlarini ko'rib chiqamiz, manba sifatida rasmiy distributiv hujjatlarini ishlatamiz.[¹](https://wiki.archlinux.org/title/Security)[²](https://www.debian.org/doc/manuals/securing-debian-manual/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Login va parol siyosati.
+- SSH qattiqlashtirish (kalit asoslangan, port o'zgartirish).
+- Avtomatik xavfsizlik yangilanishlari.
+- Fail2ban — brute-force hujumlardan himoya.
+- Audit va kuzatish.
+</Callout>
+
+## 1. Asosiy printsiplar
+
+- **Eng kichik huquq printsipi (Least Privilege)** — har bir foydalanuvchi va xizmatga faqat zarur ruxsatni bering.
+- **Defense in depth** — ko'p qatlamli himoya. Bitta qatlam buzilsa, qolganlar ushlab turadi.
+- **Yangilanish — bu xavfsizlik** — eski versiya = ma'lum zaifliklar.
+- **Loglash va monitoring** — siz nimani ko'rmasangiz, hujum bo'lganini bilolmaysiz.
+- **Backup oxirgi himoya qatlami** — har qanday hujumdan keyin tiklanish.
+
+## 2. Parol siyosati
+
+```bash
+# Parolni o'zgartirish
+passwd
+
+# Parol siyosatini o'rnatish — /etc/login.defs
+PASS_MAX_DAYS   90    # maksimal kun
+PASS_MIN_DAYS   1     # minimal kun (qayta o'zgartirishga ruxsat)
+PASS_MIN_LEN    12    # minimal uzunlik
+PASS_WARN_AGE   7     # qancha kun oldin ogohlantirish
+```
+
+PAM bilan kuchli parol talab qilish:
+
+```bash
+# Ubuntu/Debian
+sudo apt install libpam-pwquality
+
+# /etc/security/pwquality.conf
+minlen = 12
+minclass = 3      # kamida 3 ta sinf: kichik, katta, raqam, belgi
+maxrepeat = 2     # ketma-ket bir xil belgi soni
+```
+
+Foydalanuvchini majburlash:
+
+```bash
+# Keyingi loginda parolni o'zgartirishga majbur
+sudo chage -d 0 ali
+```
+
+## 3. SSH qattiqlashtirish
+
+SSH — server uchun eng katta hujum yuzasi. Quyidagi sozlamalar `/etc/ssh/sshd_config` da:[⁴](https://man.openbsd.org/sshd_config)
+
+```bash
+# Asosiy qattiqlashtirish
+Port 2222                          # standart 22 dan o'zgartirish (zaiflashtiradi avtomatik skanerlardan)
+PermitRootLogin no                 # root sifatida SSH ni rad qilish
+PasswordAuthentication no          # faqat kalit
+PubkeyAuthentication yes
+PermitEmptyPasswords no
+MaxAuthTries 3                     # 3 ta urinishdan keyin uzish
+LoginGraceTime 30                  # 30 soniyada login qilmasa uzish
+AllowUsers ali bob                 # faqat ushbu foydalanuvchilar SSH qila oladi
+ClientAliveInterval 300            # neaktiv 5 daqiqada uzish
+ClientAliveCountMax 2
+```
+
+Sozlamalarni qo'llash:
+
+```bash
+# Sintaksis tekshirish
+sudo sshd -t
+
+# Qayta yuklash
+sudo systemctl reload ssh
+
+# Yangi portga firewall ochish
+sudo ufw allow 2222/tcp
+sudo ufw delete allow 22/tcp
+```
+
+<Callout type="warning">
+**MUHIM:** SSH portni o'zgartirishdan oldin yangi portga ulanish ishlayotganini tekshiring. Aks holda — tizimga kira olmay qolasiz!
+</Callout>
+
+## 4. SSH kalit autentifikatsiya
+
+Parolni butunlay o'chirish:
+
+```bash
+# 1. Mijozda kalit yaratish (agar bo'lmasa)
+ssh-keygen -t ed25519 -C "ali@laptop"
+
+# 2. Kalitni serverga ko'chirish
+ssh-copy-id ali@server.com
+
+# 3. Sinab ko'rish
+ssh ali@server.com
+
+# 4. Faqat kalit ishlashini tasdiqlash, so'ng:
+# /etc/ssh/sshd_config:
+PasswordAuthentication no
+```
+
+Batafsil [SSH darsida](/fundamentals/ssh).
+
+## 5. Avtomatik xavfsizlik yangilanishlari
+
+### Ubuntu/Debian — `unattended-upgrades`
+
+```bash
+sudo apt install unattended-upgrades apt-listchanges
+
+# Interaktiv sozlash
+sudo dpkg-reconfigure -plow unattended-upgrades
+
+# Sinash
+sudo unattended-upgrade --dry-run --debug
+```
+
+Konfiguratsiya: `/etc/apt/apt.conf.d/50unattended-upgrades`.
+
+Default — faqat security yangilanishlar. Tavsiya: shu tarzda qoldirish.
+
+### RHEL/Fedora — `dnf-automatic`
+
+```bash
+sudo dnf install dnf-automatic
+sudo systemctl enable --now dnf-automatic.timer
+```
+
+## 6. Firewall
+
+Default Linux'da firewall yo'q. Tavsiya — UFW (Ubuntu) yoki firewalld (Fedora). Batafsil [Firewall darsida](/fundamentals/firewall).
+
+Tezkor sozlash:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp     # yoki yangi SSH port
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+```
+
+## 7. Fail2ban — brute-force hujumlardan himoya
+
+```bash
+sudo apt install fail2ban
+
+# Konfiguratsiya — /etc/fail2ban/jail.local
+sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+```
+
+Asosiy sozlamalar `jail.local`:
+
+```ini
+[DEFAULT]
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+port    = 2222
+```
+
+```bash
+sudo systemctl enable --now fail2ban
+
+# Holatni ko'rish
+sudo fail2ban-client status
+sudo fail2ban-client status sshd
+```
+
+## 8. Sudo siyosati
+
+```bash
+# Sudoers ni tahrirlash (faqat visudo orqali!)
+sudo visudo
+
+# Foydalanuvchi uchun cheklangan sudo
+# Misol — faqat apt buyruqlari
+ali ALL=(root) /usr/bin/apt update, /usr/bin/apt upgrade
+
+# Log saqlash
+Defaults logfile="/var/log/sudo.log"
+Defaults log_input, log_output
+```
+
+## 9. Servislar inventarizatsiyasi
+
+Faqat zarur xizmatlarni qoldiring:
+
+```bash
+# Hozir ishlayotganlar
+systemctl list-units --type=service --state=running
+
+# Avtomatik yoqilganlar
+systemctl list-unit-files --state=enabled
+
+# Kerak bo'lmaganini o'chirish
+sudo systemctl disable --now bluetooth.service   # masalan, serverda
+```
+
+## 10. Tarmoq qattiqlashtirish
+
+```bash
+# Tinglovchi portlar ro'yxati
+sudo ss -tunlp
+
+# Ko'p xizmatlar default ravishda hamma IP'ga (`0.0.0.0`) tinglaydi.
+# Faqat lokal kerak bo'lsa, sozlamada `bind 127.0.0.1` qiling.
+
+# Misol — PostgreSQL faqat lokal:
+# /etc/postgresql/15/main/postgresql.conf
+listen_addresses = 'localhost'
+```
+
+## 11. Audit va kuzatish
+
+### Login urinishlarini kuzatish
+
+```bash
+# Muvaffaqiyatsiz login
+sudo grep "Failed password" /var/log/auth.log
+
+# Yoki journalctl orqali
+sudo journalctl -u ssh | grep "Failed password"
+
+# Kim hozir kirgan
+who
+w
+
+# Login tarixi
+last -20
+```
+
+### auditd — kuchli audit
+
+```bash
+sudo apt install auditd
+
+# /etc/passwd o'zgartirilishini kuzatish
+sudo auditctl -w /etc/passwd -p wa -k passwd_changes
+
+# So'ngi audit voqealari
+sudo ausearch -k passwd_changes
+```
+
+## 12. Disk shifrlash
+
+- **LUKS** — to'liq disk shifrlash. O'rnatish vaqtida tanlash mumkin (Debian, Ubuntu, Fedora).
+- **eCryptfs** — bitta katalog shifrlash.
+- **VeraCrypt** — cross-platform shifrlash konteynerlari.
+
+## 13. Asosiy hardening cheklist
+
+```
+☐ root SSH login o'chirilgan (PermitRootLogin no)
+☐ SSH parol autentifikatsiya o'chirilgan
+☐ SSH kalit asoslangan ishlaydi
+☐ Firewall (UFW) faol va minimal portlar ochiq
+☐ unattended-upgrades / dnf-automatic yoqilgan
+☐ fail2ban o'rnatilgan va sozlangan
+☐ Kuchli parol siyosati (12+ belgi, 90 kun)
+☐ Sudo loglar yoqilgan
+☐ Keraksiz xizmatlar o'chirilgan
+☐ Bind portlar minimal (127.0.0.1 kerak bo'lsa)
+☐ Kunlik backup ishlaydi
+☐ Loglar markazlashtirilgan (kichikroq tarmoqda — kamida journalctl)
+☐ Disk shifrlangan (LUKS) — laptop uchun majburiy
+```
+
+## 14. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `chage -l <foydalanuvchi>` | Parol holati |
+| `sudo visudo` | Sudoers xavfsiz tahrirlash |
+| `ssh-keygen -t ed25519` | Yangi SSH kalit |
+| `ssh-copy-id` | Kalitni serverga |
+| `sudo sshd -t` | SSH config sintaksis tekshirish |
+| `sudo ufw status` | Firewall holati |
+| `sudo fail2ban-client status` | Fail2ban statuslari |
+| `sudo last` | Login tarixi |
+| `who`, `w` | Hozir kirgan foydalanuvchilar |
+| `sudo aureport` | Audit hisoboti |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **Root parolini ishlatish** — har bir foydalanuvchi `sudo` orqali. Root login butunlay o'chirilsin.
+- **Parol bilan SSH** — kalit asoslangan **majburiy** ko'chirilsin. Brute-force hujumlari oxirgi 10 yilda ko'paygan.
+- **Firewall'siz** — har bir xizmat ochiq. Bitta `apt install` zarari katta bo'lishi mumkin.
+- **Yangilanishlarni qoldirish** — `apt update && apt upgrade` har kuni yoki haftalik. Kechikkan yangilanish — ochiq zaiflik.
+- **`777` ruxsat** — hech qanday vaziyatda kerak emas. Aniq qaysi guruh kerakligini aniqlang.
+- **SSH portni o'zgartirish — "obscurity" emas** — bu skanerlar sonini kamaytiradi, lekin xavfsizlikning asosiy qatlami emas.
+
+## 16. Eng yaxshi amaliyot
+
+- **Yangi server uchun cheklist** — yuqoridagi 14-qism. Birinchi 24 soat ichida hammasini.
+- **SSH klyuch passphrase bilan** — ssh-agent qulay; passphrase qo'shimcha qatlamga aylanadi.
+- **Bir SSH kalit — bir maqsad** — laptop, ish kompyuteri, server uchun alohida.
+- **Backup test qilish** — backup ishlayotganini bilish — uni qachondir tiklab ko'rish bilan.
+- **`unattended-upgrades` notify email** — yangilanishlardan xabar olib turing.
+- **Hardening cheklist hujjatlash** — jamoaviy ish uchun.
+
+## 17. Bilim sinovi
+
+**Savol 1.** SSH uchun eng kuchli autentifikatsiya:
+
+- a) Kuchli parol
+- b) Kalit asoslangan (key-based)
+- c) IP whitelisting
+- d) Multi-factor authentication
+
+<Callout type="success" title="Javob">
+**(b)** Kalit asoslangan eng kam zaif. (d) — MFA — bonus qatlam (juda yaxshi). (c) — yordamchi himoya, lekin asosiy emas.[⁴](https://man.openbsd.org/sshd_config)
+</Callout>
+
+**Savol 2.** `unattended-upgrades` qaysi vazifani bajaradi?
+
+- a) Tizimni har kuni qayta yuklash
+- b) Avtomatik xavfsizlik yangilanishlarini o'rnatish
+- c) Foydalanuvchilarni avtomatik o'chirish
+- d) Firewall'ni avtomatik sozlash
+
+<Callout type="success" title="Javob">
+**(b)** Default sozlanganda faqat security yangilanishlari avtomatik o'rnatiladi.
+</Callout>
+
+**Savol 3.** Fail2ban nimaga himoya beradi?
+
+- a) Virus
+- b) Brute-force login urinishlari (ko'p marta noto'g'ri parol)
+- c) DDoS
+- d) SQL injection
+
+<Callout type="success" title="Javob">
+**(b)** Loglarni kuzatadi va N marta muvaffaqiyatsiz login urinishidan keyin IP'ni vaqtinchalik bloklaydi.
+</Callout>
+
+## 18. Mashq
+
+1. Server uchun hardening cheklistini bajaring (yuqoridagi 14-qism). Har bir bandni qaysi buyruq bilan tekshirganingizni yozing.
+2. `sudo last -20` natijasini ko'ring. Begona IP manzillar bormi?
+3. `sudo grep "Failed password" /var/log/auth.log | wc -l` — oxirgi loglarda nechta muvaffaqiyatsiz SSH urinishi?
+4. `sudo ss -tunlp` — qaysi xizmatlar `0.0.0.0` ga tinglamoqda? Ulardan qaysilari faqat lokal'da bo'lishi mumkin?
+
+## Manbalar
+
+1. ArchWiki — Security. [https://wiki.archlinux.org/title/Security](https://wiki.archlinux.org/title/Security)
+2. Debian — Securing Debian Manual. [https://www.debian.org/doc/manuals/securing-debian-manual/](https://www.debian.org/doc/manuals/securing-debian-manual/)
+3. Ubuntu — Security documentation. [https://documentation.ubuntu.com/server/explanation/intro-to/security/](https://documentation.ubuntu.com/server/explanation/intro-to/security/)
+4. OpenSSH — sshd_config(5). [https://man.openbsd.org/sshd_config](https://man.openbsd.org/sshd_config)
+
+## Keyingi qadam
+
+👉 [Zaxiralash strategiyalari](/fundamentals/backup-strategies)

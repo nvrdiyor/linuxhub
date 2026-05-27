@@ -1,0 +1,286 @@
+---
+title: "AUR (Arch User Repository)"
+description: "Arch User Repository — hamjamiyat tomonidan yaratilgan paketlar ombori. yay va paru bilan ishlash."
+order: 2
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/manjaro/packages/pacman"
+learning_objectives:
+  - "AUR nima va u qanday ishlaydi"
+  - "AUR helper'lar (yay, paru) bilan o'rnatish"
+  - "PKGBUILD tahlili"
+  - "Xavfsizlik tavsiyalari"
+tags: ["manjaro", "arch", "aur", "yay", "paru"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — Arch User Repository"
+    url: "https://wiki.archlinux.org/title/Arch_User_Repository"
+  - title: "Manjaro Wiki — Arch User Repository"
+    url: "https://wiki.manjaro.org/index.php/Arch_User_Repository"
+  - title: "yay on GitHub"
+    url: "https://github.com/Jguer/yay"
+---
+
+**AUR** (Arch User Repository) — Arch hamjamiyati tomonidan saqlanadigan paketlar to'plami. 80,000+ paket — rasmiy repodan tashqari hamma narsa. Lekin **xavfsizlik mas'uliyati foydalanuvchida**.[¹](https://wiki.archlinux.org/title/Arch_User_Repository)
+
+<Callout type="warning">
+AUR paketlari **hamjamiyat** tomonidan tayyorlanadi. Arch yoki Manjaro jamoasi ularni audit qilmaydi. PKGBUILD'ni o'qib ko'rmasdan o'rnatish — **xavfli**.
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- AUR nima va u qanday ishlaydi.
+- AUR helper'lar: yay, paru.
+- PKGBUILD'ni o'qish va sinash.
+- Xavfsizlik amaliyoti.
+</Callout>
+
+## 1. AUR nima?
+
+AUR — bu **paketlarning manbai emas**, balki **PKGBUILD fayllarning** to'plami. PKGBUILD — paket qanday tayyorlanishini tushuntiruvchi `bash` skript.
+
+Workflow:
+
+```
+1. AUR'dan PKGBUILD oling
+2. `makepkg` ushbu skriptni bajarib `.pkg.tar.zst` yaratadi
+3. `pacman -U` orqali o'rnatadi
+```
+
+AUR helper'lar (yay, paru) bu jarayonni avtomatlashtiradi.
+
+## 2. AUR helper'lar
+
+| Helper | Tavsif |
+|---|---|
+| **yay** | Eng mashhur, Go'da yozilgan |
+| **paru** | yay'ning Rust qiyinligi |
+| **trizen** | Perl'da, eskirgan |
+| **pikaur** | Python'da |
+
+Manjaro'da `pamac` (GUI) ham AUR'ni qo'llab-quvvatlaydi.
+
+## 3. yay o'rnatish
+
+Manjaro'da:
+
+```bash
+sudo pacman -S yay
+```
+
+Arch'da (yo'q bo'lsa):
+
+```bash
+sudo pacman -S --needed base-devel git
+git clone https://aur.archlinux.org/yay.git
+cd yay
+makepkg -si
+```
+
+## 4. yay bilan ishlash
+
+```bash
+# Qidirish (rasmiy repo + AUR)
+yay -Ss spotify
+
+# AUR + repo'dan o'rnatish
+yay -S spotify
+
+# Faqat AUR'dan
+yay -Sa spotify
+
+# Yangilash (rasmiy + AUR)
+yay -Syu
+
+# Faqat AUR yangilanishi
+yay -Sua
+
+# O'chirish
+yay -R spotify
+
+# Paket ma'lumoti
+yay -Si spotify
+
+# Yetim paketlarni tozalash
+yay -Yc
+```
+
+## 5. paru — alternativ
+
+```bash
+# O'rnatish (paketdan)
+sudo pacman -S paru
+
+# Yoki AUR'dan
+yay -S paru
+
+# Foydalanish — yay bilan deyarli bir xil
+paru -S spotify
+paru -Syu
+```
+
+## 6. PKGBUILD — qaytadan ko'rib chiqamiz
+
+Har AUR paketning PKGBUILD'ini ko'rishingiz **shart**:
+
+```bash
+# yay default PKGBUILD'ni ko'rsatadi (so'raydi: ko'rmoqchimisiz?)
+yay -S spotify
+# yay: View PKGBUILD? [y/N] → y
+```
+
+Tipik PKGBUILD:
+
+```bash
+pkgname=mypackage
+pkgver=1.0
+pkgrel=1
+pkgdesc="Misol paket"
+arch=('x86_64')
+url="https://example.com"
+license=('MIT')
+depends=('bash')
+makedepends=('git')
+source=("https://example.com/source-${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    make
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    make DESTDIR="${pkgdir}/" install
+}
+```
+
+**Diqqat:**
+
+- `source=` — qaerdan yuklab oladi?
+- `sha256sums=('SKIP')` — yaxlitlik tekshirilmagan = xavf.
+- `build()` va `package()` — bu skript root sifatida ishlaydi.
+- `prepare()`, `pkgver()` — qo'shimcha funksiyalar — ehtiyot bilan o'qing.
+
+**Eng xavfli:** Paket yangilanganda PKGBUILD ham o'zgaradi. Avval ishonchli bo'lsa ham, yangi versiyada zararli kod paydo bo'lishi mumkin.
+
+## 7. Pamac GUI bilan AUR
+
+```bash
+# AUR'ni yoqish (default'da o'chirilgan)
+sudo nano /etc/pamac.conf
+# Quyidagi qatorni uncomment qiling:
+EnableAUR
+```
+
+Yoki Pamac UI ichida: **Preferences → Third Party → Enable AUR support**.
+
+Endi Pamac'da AUR paketlar ham qidirish va o'rnatish mumkin.
+
+## 8. AUR statistikasi va populyarlik
+
+[aur.archlinux.org](https://aur.archlinux.org/) saytida har paketning:
+
+- **Votes** — necha kishi ovoz bergan.
+- **Popularity** — ishlatish darajasi.
+- **Maintainer** — kim qo'llab-quvvatlaydi.
+- **Last Updated** — oxirgi marotaba qachon yangilangan.
+
+Ko'p ovozli va faol qo'llab-quvvatlanadigan paketlar **odatda** ishonchli. Lekin bu **kafolat emas**.
+
+## 9. Yangi AUR paketni xavfsiz o'rnatish — chek-list
+
+```bash
+# 1. PKGBUILD'ni o'qing
+yay -G mypackage          # PKGBUILD'ni yuklab oladi, lekin o'rnatmaydi
+cd mypackage
+cat PKGBUILD              # to'liq o'qing
+cat *.install             # post-install skriptlar bormi?
+
+# 2. source URL'larni tekshiring
+# - Rasmiy ishlab chiqaruvchining sayti bormi?
+# - HTTPS ishlatilganmi?
+
+# 3. SHA tekshiruv qiymatlari "SKIP" emasligini tekshiring
+
+# 4. Tayyor bo'lsa
+makepkg -si
+```
+
+## 10. AUR muammolarda
+
+- **Build xato** — bog'liqliklar yetishmayotgan. PKGBUILD'da `depends=`, `makedepends=` ni o'qing.
+- **`pacman -Syu` paketi buzdi** — AUR paketi yangi `glibc` bilan mos kelmaydi. AUR paketni qayta yig'ish (`yay -Sua`).
+- **Paket olib tashlangan** — AUR'dan o'chirilgan, lekin sizda hali ham bor. `pacman -R`.
+- **Yetim paketlar** — `pacman -Qdtq` va o'chirish.
+
+## 11. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `yay -Ss <so'z>` | Qidirish (repo + AUR) |
+| `yay -S <paket>` | O'rnatish |
+| `yay -Syu` | Tizim + AUR yangilash |
+| `yay -Sua` | Faqat AUR yangilash |
+| `yay -G <paket>` | PKGBUILD'ni yuklab olish |
+| `makepkg -si` | Build + o'rnatish |
+| `yay -Yc` | Yetim paketlarni tozalash |
+| `yay -Ps` | Tizim haqida statistika |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **PKGBUILD'ni o'qimaslik** — xavfsizlik xavfi.
+- **`sudo yay`** — yay foydalanuvchi sifatida ishlash kerak (sudo'ni o'zi chaqiradi). `sudo yay` xato.
+- **Eski PKGBUILD** — `yay -Sua` orqali yangilang.
+- **Eski Manjaro tizimda AUR** — Manjaro 1-2 hafta kechikadi. AUR paketlari **Arch joriy paketlariga** moslangan — Manjaro'da build xatosi bo'lishi mumkin.
+
+## 13. Eng yaxshi amaliyot
+
+- **AUR'ni minimal ishlatish** — agar rasmiy repo'da paket bor bo'lsa, undan tanlang.
+- **PKGBUILD'ni doim o'qing** — yangi paket yoki yangilanishda.
+- **Faqat ko'p ovozli paketlar** — 100+ vote yaxshi belgi.
+- **`yay -Sua` muntazam** — eski AUR paketlari xavfsizlik xavfi.
+- **Backup avval** — AUR paket tizimni buzishi mumkin.
+- **Manjaro stable + faqat oson AUR** — eng barqaror kombinatsiya.
+
+## 14. Bilim sinovi
+
+**Savol 1.** AUR nimani saqlaydi?
+
+- a) Tayyor binary paketlar
+- b) PKGBUILD skriptlar — qanday tayyorlash
+- c) Faqat manba kodi
+- d) Boshqa distributiv paketlar
+
+<Callout type="success" title="Javob">
+**(b)** AUR — PKGBUILD fayllar to'plami. Aktiv build foydalanuvchida bo'ladi.[¹](https://wiki.archlinux.org/title/Arch_User_Repository)
+</Callout>
+
+**Savol 2.** Mashhur AUR helper:
+
+- a) apt
+- b) yay
+- c) dnf
+- d) snap
+
+<Callout type="success" title="Javob">
+**(b)** yay — eng mashhur. paru ham keng tarqalgan.[³](https://github.com/Jguer/yay)
+</Callout>
+
+## 15. Mashq
+
+1. (Manjaro o'rnatilgan tizimda) `yay --version` — yay mavjudmi?
+2. `yay -Ss "spotify"` — natijalarni ko'ring. Birinchi va ikkinchi natija qaerdan (repo yoki AUR)?
+3. `yay -Si spotify-launcher` — paket ma'lumoti. Maintainer kim?
+4. (Ehtiyot bilan) `yay -G visual-studio-code-bin` — PKGBUILD'ni yuklab olib, o'qib chiqing. `source` qaerdan keladi?
+
+## Manbalar
+
+1. ArchWiki — Arch User Repository. [https://wiki.archlinux.org/title/Arch_User_Repository](https://wiki.archlinux.org/title/Arch_User_Repository)
+2. Manjaro Wiki — Arch User Repository. [https://wiki.manjaro.org/index.php/Arch_User_Repository](https://wiki.manjaro.org/index.php/Arch_User_Repository)
+3. yay on GitHub. [https://github.com/Jguer/yay](https://github.com/Jguer/yay)
+
+## Keyingi qadam
+
+👉 [Pamac](/manjaro/packages/pamac)

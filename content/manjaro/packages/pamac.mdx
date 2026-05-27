@@ -1,0 +1,158 @@
+---
+title: "Pamac"
+description: "Manjaro'ning grafik paket menejeri — Pamac. Pacman, AUR, Flatpak va Snap'ni bir oynada."
+order: 3
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/manjaro/packages/pacman"
+learning_objectives:
+  - "Pamac GUI bilan ishlash"
+  - "Manbalarni yoqish (AUR, Flatpak, Snap)"
+  - "Pamac CLI buyruqlari"
+tags: ["manjaro", "pamac", "gui", "packages"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Manjaro Wiki — Pamac"
+    url: "https://wiki.manjaro.org/index.php/Pamac"
+---
+
+**Pamac** — Manjaro jamoasi tomonidan tayyorlangan grafik paket menejer. U `pacman`, AUR, Flatpak va Snap'ni bir oynada birlashtiradi.[¹](https://wiki.manjaro.org/index.php/Pamac)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Pamac GUI'da paket qidirish va o'rnatish.
+- AUR, Flatpak, Snap manbalarini yoqish.
+- Pamac CLI — `pamac` buyruq.
+</Callout>
+
+## 1. Pamac GUI
+
+Manjaro'da default keladi. **Add/Remove Software** menyusi orqali oching yoki:
+
+```bash
+pamac-manager
+```
+
+Interfeys:
+
+- **Browse** — kategoriya bo'yicha.
+- **Search** — yuqorida qidiruv.
+- **Updates** — yangilanishlar.
+- **Installed** — o'rnatilganlar.
+- **Settings (⚙)** — manbalar yoqish.
+
+## 2. AUR yoqish
+
+Default'da o'chirilgan (xavfsizlik uchun):
+
+1. **Preferences → Third Party**.
+2. **Enable AUR support** — yoqing.
+3. **Check for updates** — AUR yangilanishlarni ham tekshiradi.
+4. **Apply**.
+
+Endi qidirishda AUR paketlar ham chiqadi. Manba ustunida `AUR` belgisi.
+
+## 3. Flatpak va Snap yoqish
+
+```
+Preferences → Third Party → Enable Flatpak / Enable Snap → Apply
+```
+
+So'ng `flatpak` va `snapd` paketlari avtomatik o'rnatiladi.
+
+## 4. Pamac CLI
+
+Pamac GUI bilan birga `pamac` CLI ham keladi:
+
+```bash
+# Qidirish
+pamac search firefox
+
+# O'rnatish (rasmiy + AUR)
+pamac install spotify
+
+# AUR'ni majburlash
+pamac install --no-confirm spotify
+
+# Yangilash
+pamac update
+
+# AUR'siz
+pamac update --no-aur
+
+# O'chirish
+pamac remove firefox
+
+# + sozlama fayllar va yetimlar
+pamac remove --orphans --no-confirm firefox
+
+# Paket ma'lumoti
+pamac info firefox
+
+# Yetim paketlar
+pamac list --orphans
+```
+
+## 5. Pamac va pacman farqi
+
+Pamac — bu **pacman'ning ustida ishlovchi qatlam**. Ikkalasi ham bir xil paket bazasini ishlatadi.
+
+| | pacman | pamac |
+|---|---|---|
+| Interfeys | CLI | CLI + GUI |
+| AUR support | Yo'q (yay kerak) | Ha, built-in |
+| Flatpak/Snap | Yo'q | Ha, built-in |
+| Tezlik | Tez | Biroz sekinroq |
+| Skriptlar uchun | Yaxshi | Yaxshi (pamac CLI) |
+
+**Tavsiya:** GUI yoki yangi foydalanuvchi — pamac. Sysadmin yoki skript — pacman.
+
+## 6. Snapshots (Timeshift bilan birga)
+
+Pamac'ning yangi versiyalari **Timeshift** bilan integratsiya qila oladi:
+
+1. Timeshift'ni o'rnatish: `sudo pacman -S timeshift`.
+2. Avval snapshot olish: Timeshift GUI.
+3. Pamac'da yangilanishdan oldin avtomatik snapshot.
+
+Bu yangilanish muvaffaqiyatsiz bo'lganda eski holatga qaytish imkonini beradi.
+
+## 7. Mashqlar
+
+1. Pamac'ni oching. Yangilanishlar bormi? Qancha?
+2. **Preferences** ga kiring. AUR yoqilgan emasmi?
+3. CLI: `pamac search "video editor"` — qaysi natijalar?
+4. `pamac list --orphans` — yetim paketlar bormi?
+
+## 8. Bilim sinovi
+
+**Savol 1.** Pamac default'da qaysi manbalardan o'rnatadi?
+
+- a) Faqat rasmiy repo
+- b) Rasmiy repo + AUR + Flatpak + Snap
+- c) Faqat AUR
+- d) Faqat Snap
+
+<Callout type="success" title="Javob">
+**(a)** Default'da faqat rasmiy repo. AUR/Flatpak/Snap qo'lda yoqilishi kerak.[¹](https://wiki.manjaro.org/index.php/Pamac)
+</Callout>
+
+**Savol 2.** Pamac va pacman munosabati:
+
+- a) Ular bir-biriga raqobat
+- b) Pamac pacman ustida ishlovchi qatlam
+- c) Pamac pacman'ni almashtiradi
+- d) Hech qanday aloqa yo'q
+
+<Callout type="success" title="Javob">
+**(b)** Pamac — pacman'ning yuqori qavati. Ikkalasi bir DB'da.
+</Callout>
+
+## Manbalar
+
+1. Manjaro Wiki — Pamac. [https://wiki.manjaro.org/index.php/Pamac](https://wiki.manjaro.org/index.php/Pamac)
+
+## Keyingi qadam
+
+👉 [Flatpak va Snap](/manjaro/packages/flatpak-snap)

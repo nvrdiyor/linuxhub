@@ -1,0 +1,426 @@
+---
+title: "NFS — Network File System"
+description: "NFS server va klient sozlash, /etc/exports, autofs va xavfsizlik."
+order: 117
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/fstab"
+  - "/fundamentals/networking"
+learning_objectives:
+  - "NFS arxitekturasi"
+  - "Server o'rnatish va /etc/exports"
+  - "Klient mount"
+  - "Xavfsizlik (sec=krb5)"
+tags: ["advanced", "nfs", "networking", "filesystem"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Linux NFS Documentation"
+    url: "https://wiki.linux-nfs.org/wiki/index.php/Main_Page"
+  - title: "ArchWiki — NFS"
+    url: "https://wiki.archlinux.org/title/NFS"
+  - title: "Debian — NFS"
+    url: "https://wiki.debian.org/NFSServerSetup"
+---
+
+**NFS** (Network File System) — Unix dunyosida fayl tizimlarini tarmoq orqali ulashish standarti. Server'dagi katalogni klient mahalliy filesystem kabi mount qiladi.[¹](https://wiki.linux-nfs.org/wiki/index.php/Main_Page)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- NFS arxitekturasi.
+- Server konfiguratsiyasi.
+- Klient mount.
+- `autofs` — talab bo'yicha mount.
+- Xavfsizlik (NFSv4 + Kerberos).
+</Callout>
+
+## 1. NFS arxitekturasi
+
+```
+[NFS Server]                    [NFS Client]
+   │                                 │
+   ├── Eksport: /srv/data            └── Mount: /mnt/data
+   │
+   └── rpcbind, nfsd (kernel)
+```
+
+NFS daemonlari:
+
+- **nfsd** — yadro xizmati.
+- **rpcbind** (portmap) — RPC ulanishlar.
+- **mountd** — mount so'rovlarni qabul qilish.
+
+## 2. Server o'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install nfs-kernel-server
+
+# Fedora/RHEL
+sudo dnf install nfs-utils
+
+# Arch
+sudo pacman -S nfs-utils
+
+# Yoqish
+sudo systemctl enable --now nfs-server
+```
+
+## 3. `/etc/exports` — qaysi katalog kimga
+
+```
+# Format: KATALOG MIJOZ(OPSIYALAR)
+/srv/data       192.168.1.0/24(rw,sync,no_subtree_check)
+/srv/backup     192.168.1.100(rw,sync,no_root_squash)
+/srv/public     *(ro,sync,all_squash)
+```
+
+| Opsiya | Maqsad |
+|---|---|
+| `rw` / `ro` | Read-write / read-only |
+| `sync` | Yozish darrov diskka (xavfsiz, sekinroq) |
+| `async` | Cache (tez, lekin crash xavfli) |
+| `root_squash` (default) | Klient root → server'da nobody |
+| `no_root_squash` | Klient root → server root (xavfli) |
+| `all_squash` | Hamma user → nobody |
+| `subtree_check` / `no_subtree_check` | Subtree tekshirish |
+| `anonuid=1000` | Anonymous user UID |
+| `anongid=1000` | Anonymous user GID |
+
+### Apply
+
+```bash
+# /etc/exports tahrirlash
+sudo nano /etc/exports
+
+# Eksport qoidalarini qayta yuklash
+sudo exportfs -ra
+
+# Joriy eksportlar
+sudo exportfs -v
+```
+
+## 4. Firewall
+
+```bash
+# Debian/Ubuntu UFW
+sudo ufw allow from 192.168.1.0/24 to any port nfs
+
+# Fedora/RHEL firewalld
+sudo firewall-cmd --permanent --add-service=nfs
+sudo firewall-cmd --permanent --add-service=mountd
+sudo firewall-cmd --permanent --add-service=rpc-bind
+sudo firewall-cmd --reload
+```
+
+## 5. Klient — qo'lda mount
+
+```bash
+# Klient'da NFS klient o'rnatish
+sudo apt install nfs-common
+
+# Server'dagi eksportlarni ko'rish
+showmount -e 192.168.1.10
+
+# Misol:
+# Export list for 192.168.1.10:
+# /srv/data    192.168.1.0/24
+# /srv/public  *
+
+# Mount
+sudo mkdir -p /mnt/data
+sudo mount -t nfs 192.168.1.10:/srv/data /mnt/data
+
+# Tekshirish
+df -h /mnt/data
+ls /mnt/data
+```
+
+## 6. Klient — fstab orqali doimiy
+
+```
+# /etc/fstab
+192.168.1.10:/srv/data  /mnt/data  nfs  defaults,_netdev,nofail  0 0
+```
+
+| Opsiya | Maqsad |
+|---|---|
+| `_netdev` | Tarmoq tayyor bo'lguncha kutish |
+| `nofail` | NFS server yo'q bo'lsa boot to'xtatmaslik |
+| `soft` | Server javob bermasa xato (default `hard` — cheksiz kutish) |
+| `timeo=30` | 3 soniya timeout (30 deciseconds) |
+| `intr` | Interrupt'lar bilan bekor qilish mumkin (eski) |
+| `vers=4` | NFS versiyasi |
+| `rsize=65536`, `wsize=65536` | Read/write buffer |
+
+```bash
+sudo mount -a
+```
+
+## 7. NFS versiyalari
+
+| Versiya | Xususiyatlar |
+|---|---|
+| **NFSv3** | Eski, oddiy, ko'p UDP ishlatadi |
+| **NFSv4** | Modern, TCP, kerberos, ACL, mount yo'q (pseudo-fs) |
+| **NFSv4.1** | pNFS (parallel) |
+| **NFSv4.2** | Server-side copy |
+
+Modern: **NFSv4** default.
+
+## 8. NFSv4 maxsus
+
+NFSv4'da har bir mijoz "root" eksportiga ulanadi:
+
+```
+# Server /etc/exports
+/srv      192.168.1.0/24(rw,sync,no_subtree_check,fsid=0)
+/srv/data 192.168.1.0/24(rw,sync,no_subtree_check)
+/srv/public 192.168.1.0/24(ro,sync,no_subtree_check)
+```
+
+`fsid=0` — pseudo root.
+
+Klient:
+
+```bash
+# Faqat root (hammasi)
+sudo mount -t nfs4 192.168.1.10:/ /mnt/server
+
+# Yoki aniq katalog (pseudo path)
+sudo mount -t nfs4 192.168.1.10:/data /mnt/data
+```
+
+## 9. `autofs` — talab bo'yicha mount
+
+`autofs` — katalogga kirish bo'lganda avtomatik mount qiladi, ishlatilmasa avtomatik umount.
+
+```bash
+sudo apt install autofs
+```
+
+`/etc/auto.master`:
+
+```
+/mnt/auto  /etc/auto.nfs  --timeout=300
+```
+
+`/etc/auto.nfs`:
+
+```
+data    -fstype=nfs4,rw  192.168.1.10:/srv/data
+public  -fstype=nfs4,ro  192.168.1.10:/srv/public
+```
+
+```bash
+sudo systemctl restart autofs
+```
+
+`/mnt/auto/data` ga `cd` qilsa — avtomatik mount. 5 daqiqa ishlatilmasa — avtomatik umount.
+
+## 10. NFS performance tuning
+
+### `rsize` va `wsize`
+
+Buffer hajmlari. Default `1MB` modern Linux'da:
+
+```
+192.168.1.10:/srv/data /mnt/data nfs rw,rsize=1048576,wsize=1048576,_netdev 0 0
+```
+
+### `async` (xavfli)
+
+Server `async` — yozish darrov RAM'ga, keyin diskka. Tezroq, lekin crash bo'lsa ma'lumot yo'qoladi.
+
+```
+# server'da
+/srv/data 192.168.1.0/24(rw,async)
+```
+
+### `nconnect` (modern)
+
+Bir nechta TCP ulanish parallel (NFS 4.1+):
+
+```
+mount -o nconnect=8 server:/srv/data /mnt/data
+```
+
+## 11. NFS xavfsizligi
+
+### Klassik NFS — zaif
+
+- IP-based — IP'ni spoof qilish mumkin.
+- UID/GID-based — klient UID server UID bilan moslashish kerak (mos kelmasa, root_squash).
+- Trafik shifrlanmagan.
+
+### NFSv4 + Kerberos
+
+Modern xavfsizlik:
+
+```
+# /etc/exports
+/srv/data 192.168.1.0/24(rw,sync,sec=krb5p)
+```
+
+`sec` opsiyalar:
+
+- `sys` — klassik (UID-based).
+- `krb5` — Kerberos autentifikatsiya.
+- `krb5i` — + integrity (modify detection).
+- `krb5p` — + privacy (shifrlash).
+
+Kerberos sozlash murakkab, lekin enterprise uchun standart.
+
+### Tarmoq darajasidagi shifrlash
+
+- **VPN orqali** — eng oddiy.
+- **stunnel** — TCP shifrlash.
+
+## 12. UID/GID muvofiqligi
+
+NFS UID raqami bilan ishlaydi. Server'da UID 1000 (`alice`) va klient'da UID 1000 (`bob`) — server uchun bu bir xil!
+
+Yechim:
+
+- **Centralized identity** — LDAP, FreeIPA, Active Directory.
+- **NFSv4 ID mapping** — `idmapd` orqali.
+- **`all_squash`** — hamma user → nobody (eng xavfsiz, lekin oddiy file sharing uchun).
+
+## 13. Troubleshooting
+
+### Klient ulana olmaydi
+
+```bash
+# Server'dan eksport ro'yxati
+showmount -e <server>
+
+# RPC info
+rpcinfo -p <server>
+
+# Test NFS port (default 2049)
+nc -zv <server> 2049
+```
+
+### Mount hang
+
+NFS `hard` opsiyasi (default) — server javob bermasa cheksiz kutadi. `soft` bilan tuzatish:
+
+```bash
+sudo mount -o soft,timeo=30 <server>:/srv/data /mnt/data
+```
+
+### `lsof` qaysi jarayon NFS ishlatadi
+
+```bash
+sudo lsof | grep /mnt/data
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo exportfs -ra` | `/etc/exports`'ni qayta yuklash |
+| `sudo exportfs -v` | Joriy eksportlar |
+| `showmount -e <server>` | Server eksportlari |
+| `rpcinfo -p <server>` | RPC xizmatlar |
+| `sudo mount -t nfs4 server:/path /mnt` | NFS mount |
+| `sudo umount /mnt` | Umount |
+| `nfsstat` | NFS statistikasi |
+| `mount | grep nfs` | Faol NFS mount'lar |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`no_root_squash`** xavfsiz tarmoqda — server'da root permissions klient root bilan.
+- **`async` performance uchun, lekin crash xavfi.**
+- **`hard` mount va server o'lim** — process'lar uvolada qoladi.
+- **Firewall NFS portlarini bloklash** — `2049`, `111` (rpcbind), va NFSv3 bo'lsa dynamic portlar.
+- **UID muvofiqligi muammosi** — markazlashtirilgan identity yoki `all_squash`.
+- **fstab da `nofail`'siz** — NFS server yo'q bo'lsa boot to'xtaydi.
+
+## 16. Eng yaxshi amaliyot
+
+- **NFSv4 ishlatilsin** — modern, oddiy port (faqat 2049).
+- **`sync` ma'lumot uchun, `async` faqat tez kerakli bo'lganda.**
+- **`root_squash` default qoldiring.**
+- **`fstab`'da `nofail,_netdev`.**
+- **Firewall** — faqat ishonchli IP'lardan.
+- **Kerberos enterprise uchun.**
+- **VPN public tarmoq orqali**.
+- **`autofs`** — ko'p eksport uchun (lozimida mount).
+- **Backup NFS shares** — `rsync` orqali.
+
+## 17. Mashqlar
+
+1. **Server o'rnatish (test VM):** `nfs-kernel-server` o'rnating va `/srv/data` ni eksport qiling.
+2. **Eksport ko'rish:** `sudo exportfs -v` — eksportlar nima?
+3. **Klient mount:** Boshqa mashinadan `showmount -e <server-ip>` qiling. So'ng mount qiling.
+4. **Fayl test:** Klient'da fayl yarating. Server'da ham ko'rinadimi?
+5. **fstab:** Klient'da NFS mount'ni `fstab`'ga qo'shing. `sudo mount -a` — xato bormi?
+6. **`autofs` (ixtiyoriy):** Yuqoridagi sozlama bilan autofs sozlang.
+
+## 18. Bilim sinovi
+
+**Savol 1.** NFS server uchun konfiguratsiya fayli:
+
+- a) `/etc/nfs.conf`
+- b) `/etc/exports`
+- c) `/etc/share.conf`
+- d) `/etc/fstab`
+
+<Callout type="success" title="Javob">
+**(b)** `/etc/exports` — eksportlar.[¹](https://wiki.linux-nfs.org/wiki/index.php/Main_Page)
+</Callout>
+
+**Savol 2.** `root_squash` default'da:
+
+- a) Yoqilgan — klient root → server'da nobody
+- b) O'chirilgan
+- c) Faqat NFSv4'da
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** Xavfsizlik uchun default yoqilgan.
+</Callout>
+
+**Savol 3.** NFSv4 default port:
+
+- a) 22
+- b) 80
+- c) 2049
+- d) 8080
+
+<Callout type="success" title="Javob">
+**(c)** 2049 — NFSv4 yagona port (NFSv3 ko'p portlardan foydalanadi).
+</Callout>
+
+**Savol 4.** Klient NFS server eksportlarini ko'rish:
+
+- a) `ls`
+- b) `showmount -e <server>`
+- c) `nfs-list`
+- d) `mount`
+
+<Callout type="success" title="Javob">
+**(b)** `showmount` — server eksportlari.
+</Callout>
+
+**Savol 5.** `autofs` nima qiladi?
+
+- a) NFS server ishga tushiradi
+- b) Katalogga kirish bo'lganda avtomatik mount; ishlatilmasa avtomatik umount
+- c) NFS shifrlash
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Talab bo'yicha mount — resurs tejaydi.
+</Callout>
+
+## Manbalar
+
+1. Linux NFS. [https://wiki.linux-nfs.org/wiki/index.php/Main_Page](https://wiki.linux-nfs.org/wiki/index.php/Main_Page)
+2. ArchWiki — NFS. [https://wiki.archlinux.org/title/NFS](https://wiki.archlinux.org/title/NFS)
+3. Debian — NFS. [https://wiki.debian.org/NFSServerSetup](https://wiki.debian.org/NFSServerSetup)
+
+## Keyingi qadam
+
+👉 [Samba (SMB/CIFS) — Windows bilan fayl sharing](/fundamentals/samba)

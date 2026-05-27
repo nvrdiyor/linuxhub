@@ -1,0 +1,107 @@
+---
+title: "Parametrlangan buildlar"
+description: "Paket funksiyasiga qo'shimcha parametrlar (variant build) bilan ishlash."
+order: 3
+level: "advanced"
+estimated_minutes: 4
+prerequisites:
+  - "/nixos/callpackage/automatic-calls"
+learning_objectives:
+  - "Build-time parametrlar"
+  - "`enableX` / `withY` patternlar"
+tags: ["nixos", "callpackage", "variants"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — callPackage"
+    url: "https://nix.dev/tutorials/callpackage.html"
+---
+
+Ko'p paketlar **variant** build'larni qo'llab-quvvatlaydi — masalan, "X11 bilan" va "X11 siz". Bu paket funksiyasiga qo'shimcha parametrlar orqali amalga oshiriladi.[¹](https://nix.dev/tutorials/callpackage.html)
+
+## 1. Paket misoli
+
+```nix
+# myapp.nix
+{ stdenv, fetchurl
+, enableSSL ? true
+, enableHTTP2 ? false
+, openssl
+}:
+
+stdenv.mkDerivation {
+  pname = "myapp";
+  version = "1.0";
+  src = fetchurl { ... };
+
+  buildInputs = stdenv.lib.optionals enableSSL [ openssl ];
+
+  configureFlags = [
+    (stdenv.lib.optionalString enableSSL "--with-ssl")
+    (stdenv.lib.optionalString enableHTTP2 "--with-http2")
+  ];
+}
+```
+
+## 2. Variant chaqirish
+
+```nix
+let
+  pkgs = import <nixpkgs> {};
+
+  myapp = pkgs.callPackage ./myapp.nix {};                  # default
+  myappNoSSL = pkgs.callPackage ./myapp.nix { enableSSL = false; };
+  myappHTTP2 = pkgs.callPackage ./myapp.nix { enableHTTP2 = true; };
+in
+{ inherit myapp myappNoSSL myappHTTP2; }
+```
+
+## 3. Nixpkgs misol — `ffmpeg`
+
+```nix
+pkgs.ffmpeg_6.override {
+  withAlsa = true;
+  withVulkan = true;
+  withWebp = false;
+}
+```
+
+`override` — paket funksiyasini turli argumentlar bilan qayta chaqirish.
+
+## 4. `overrideAttrs` — derivation atributlari
+
+```nix
+pkgs.vim.overrideAttrs (old: {
+  version = "9.1";
+  src = pkgs.fetchurl {
+    url = "https://...";
+    sha256 = "...";
+  };
+})
+```
+
+`override` vs `overrideAttrs`:
+
+- `override` — paket funksiyasining **argumentlari**.
+- `overrideAttrs` — `mkDerivation` ga uzatilgan **atributlar**.
+
+## 5. Bilim sinovi
+
+**Savol 1.** Paket funksiyasiga argument o'zgartirish uchun:
+
+- a) `overrideAttrs`
+- b) `override`
+- c) `set`
+- d) `update`
+
+<Callout type="success" title="Javob">
+**(b)** `override` — argumentlar uchun.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — callPackage. [https://nix.dev/tutorials/callpackage.html](https://nix.dev/tutorials/callpackage.html)
+
+## Keyingi qadam
+
+👉 [Override'lar](/nixos/callpackage/overrides)

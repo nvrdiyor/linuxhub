@@ -1,0 +1,86 @@
+---
+title: "NixOS virtual mashinada"
+description: "NixOS'ni VirtualBox yoki QEMU ostida sinab ko'rish."
+order: 1
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/introduction"
+learning_objectives:
+  - "NixOS ISO yuklab olish"
+  - "VirtualBox/QEMU'da o'rnatish"
+  - "nixos-rebuild build-vm"
+tags: ["nixos", "vm", "virtualbox"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Manual — Installation"
+    url: "https://nixos.org/manual/nixos/stable/#sec-installation"
+  - title: "NixOS — Download"
+    url: "https://nixos.org/download/"
+---
+
+NixOS'ni sinab ko'rishning eng oson yo'li — virtual mashinada. Bu darsda VirtualBox va `nixos-rebuild build-vm` orqali ikki yo'l.[¹](https://nixos.org/manual/nixos/stable/#sec-installation)
+
+## 1. NixOS ISO
+
+[nixos.org/download](https://nixos.org/download/) — Graphical ISO (Calamares) yoki Minimal ISO.[²](https://nixos.org/download/) Boshlovchilar uchun **Graphical ISO**.
+
+## 2. VirtualBox
+
+1. ISO'ni yuklab oling.
+2. VirtualBox'da yangi VM:
+   - Type: Linux, Version: NixOS (yoki Other Linux 64-bit).
+   - RAM: 4096 MB.
+   - Disk: 30 GB.
+   - ISO ni virtual CD'ga ulang.
+3. Boot — graphical desktop ochiladi.
+4. **Install NixOS** (Calamares) — Ubuntu kabi qadamlar.
+
+## 3. `nixos-rebuild build-vm`
+
+Agar siz mavjud NixOS tizimida bo'lsangiz, configuration o'zgartirishlarni VM'da sinab ko'rishingiz mumkin **haqiqiy tizimni o'zgartirmasdan**:
+
+```bash
+sudo nixos-rebuild build-vm
+
+# Yaratiladi: ./result/bin/run-<hostname>-vm
+./result/bin/run-nixos-vm
+```
+
+QEMU VM ochiladi, sizdagi configuration.nix bilan.
+
+## 4. Asosiy qadamlar VM'da
+
+```bash
+# Login (default: nixos / parol yo'q)
+# Terminal oching
+
+# Versiya
+nixos-version
+
+# Configuration ko'rish
+sudo nano /etc/nixos/configuration.nix
+```
+
+## 5. Bilim sinovi
+
+**Savol 1.** `nixos-rebuild build-vm` nima qiladi?
+
+- a) Yangi tizim o'rnatadi
+- b) Joriy configuration.nix asosida VM yaratadi (test uchun)
+- c) Faqat tarmoq sozlamalarini
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Joriy configuration bilan VM — haqiqiy tizimga ta'sir qilmasdan sinash.[¹](https://nixos.org/manual/nixos/stable/#sec-installation)
+</Callout>
+
+## Manbalar
+
+1. NixOS Manual — Installation. [https://nixos.org/manual/nixos/stable/#sec-installation](https://nixos.org/manual/nixos/stable/#sec-installation)
+2. NixOS — Download. [https://nixos.org/download/](https://nixos.org/download/)
+
+## Keyingi qadam
+
+👉 [Konfiguratsiya asoslari](/nixos/nixos/configuration-basics)

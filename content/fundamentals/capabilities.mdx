@@ -1,0 +1,395 @@
+---
+title: "Linux capabilities va privileged operations"
+description: "Linux capabilities — granular root huquqlari, setcap, getcap va xavfsizlik amaliyoti."
+order: 126
+level: "advanced"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/permissions"
+learning_objectives:
+  - "Linux capabilities tushunchasi"
+  - "setcap, getcap bilan ishlash"
+  - "Eng tez-tez ishlatiladigan capabilities"
+  - "SUID alternativi"
+tags: ["advanced", "capabilities", "security", "setcap"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "capabilities(7) manpage"
+    url: "https://man7.org/linux/man-pages/man7/capabilities.7.html"
+  - title: "ArchWiki — Capabilities"
+    url: "https://wiki.archlinux.org/title/Capabilities"
+---
+
+Klassik Unix'da root — hammaga ruxsat. Lekin bu xavfli — ko'p hollarda dasturga **butun root emas, faqat bir aniq huquq** kerak. Linux **capabilities** root huquqlarini granular bo'laklarga ajratadi.[¹](https://man7.org/linux/man-pages/man7/capabilities.7.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Capabilities nima va nima uchun kerak.
+- 40+ capability ro'yxati.
+- `setcap`, `getcap` bilan ishlash.
+- SUID alternative sifatida.
+</Callout>
+
+## 1. Muammo — `ping` misol
+
+`ping` raw socket ochishi kerak — bu odatda faqat root huquqi:
+
+```bash
+# Eski yondashuv — SUID bit
+ls -la $(which ping)
+# -rwsr-xr-x 1 root root ... /usr/bin/ping
+#    ↑
+# SUID — har kim ping'ni root sifatida ishga tushira oladi
+```
+
+Muammo: agar `ping`'da bug bo'lsa, hujumchi **root huquqi**ga ega bo'lishi mumkin.
+
+**Yechim** — capabilities: ping'ga faqat `CAP_NET_RAW` huquqi berilsin.
+
+```bash
+# Modern Linux
+ls -la $(which ping)
+# -rwxr-xr-x 1 root root ... /usr/bin/ping
+
+getcap $(which ping)
+# /usr/bin/ping cap_net_raw=ep
+```
+
+Endi ping SUID emas, faqat `CAP_NET_RAW` ga ega.
+
+## 2. Capabilities ro'yxati
+
+Eng muhimlari (`man 7 capabilities`):
+
+| Capability | Maqsad |
+|---|---|
+| `CAP_CHOWN` | Fayl egasini o'zgartirish |
+| `CAP_DAC_OVERRIDE` | Fayl ruxsatlarini chetlab o'tish |
+| `CAP_DAC_READ_SEARCH` | O'qish va search ruxsatlarni chetlab o'tish |
+| `CAP_FOWNER` | Egasiga taalluqli operatsiyalarni chetlab o'tish |
+| `CAP_KILL` | Boshqa jarayonlarga signal yuborish |
+| `CAP_NET_ADMIN` | Tarmoq sozlamalarini o'zgartirish (interfeyslar, routing, firewall) |
+| `CAP_NET_BIND_SERVICE` | 1024'dan past portlarga bind |
+| `CAP_NET_RAW` | Raw va packet socket'lar |
+| `CAP_SETUID` / `CAP_SETGID` | UID/GID o'zgartirish |
+| `CAP_SYS_ADMIN` | Ko'p administrative operatsiyalar (juda kuchli) |
+| `CAP_SYS_BOOT` | `reboot()` |
+| `CAP_SYS_MODULE` | Yadro modul yuklash |
+| `CAP_SYS_PTRACE` | Boshqa jarayonlarni ptrace qilish |
+| `CAP_SYS_TIME` | Tizim vaqtini o'zgartirish |
+
+To'liq ro'yxat — 40+ ta.
+
+## 3. `getcap` va `setcap`
+
+```bash
+# Faylga qaysi capability'lar
+getcap /usr/bin/ping
+# /usr/bin/ping cap_net_raw=ep
+
+# Hamma fayllar (sekin)
+sudo getcap -r / 2>/dev/null
+```
+
+```bash
+# Set capability
+sudo setcap cap_net_bind_service=+ep /usr/local/bin/myserver
+
+# Bir nechta
+sudo setcap "cap_net_bind_service,cap_net_admin=+ep" /usr/local/bin/myserver
+
+# O'chirish
+sudo setcap -r /usr/local/bin/myserver
+```
+
+## 4. Capability suffix'lari — `e`, `p`, `i`
+
+`cap_net_raw=ep`'dagi `ep`:
+
+- `e` — **Effective** — joriy aktiv.
+- `p` — **Permitted** — ruxsat etilgan (lekin aktiv emas).
+- `i` — **Inheritable** — child jarayonlarga o'tadi.
+
+Tipik:
+
+- `=ep` — joriy ham, ruxsat ham.
+- `=eip` — + inheritable.
+
+## 5. Misol — non-root web server 80-portda
+
+Default'da port 80 — privileged (faqat root):
+
+```bash
+# Non-root sifatida
+./myserver
+# bind: Permission denied
+```
+
+Eski yondashuv: `sudo ./myserver` yoki `setcap`.
+
+```bash
+# Capability bilan
+sudo setcap cap_net_bind_service=+ep /usr/local/bin/myserver
+
+# Endi non-root ham bind qila oladi
+./myserver
+# Listening on port 80...
+```
+
+## 6. Misol — `tcpdump` non-root
+
+```bash
+# Raw socket kerak
+sudo setcap cap_net_raw,cap_net_admin=+eip /usr/bin/tcpdump
+
+# Endi
+tcpdump -i eth0    # non-root ham ishlaydi
+```
+
+## 7. Container va capabilities
+
+Docker container'lar default'da cheklangan capabilities bilan ishlaydi:
+
+```bash
+# Default'da Docker beradigan capability'lar
+docker run --rm alpine sh -c "cat /proc/self/status | grep CapBnd"
+```
+
+Docker default'da kerakli minimum'ni beradi. Lekin xavfli ish uchun ko'proq kerak:
+
+```bash
+# Qo'shish
+docker run --cap-add=NET_ADMIN alpine
+
+# Olib tashlash
+docker run --cap-drop=ALL --cap-add=NET_BIND_SERVICE alpine
+
+# Privileged (hammasi)
+docker run --privileged alpine
+# ⚠️ XAVFLI — hech qachon ishlatmang production'da
+```
+
+## 8. systemd va capabilities
+
+systemd xizmatlar uchun `AmbientCapabilities` va `CapabilityBoundingSet`:
+
+```ini
+[Service]
+ExecStart=/usr/local/bin/myserver
+
+# Faqat shu capability ga ruxsat (lekin tug'ma)
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# Eng katta to'plam
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# Non-root user sifatida
+User=myserver
+Group=myserver
+```
+
+So'ng `myserver` 80-portga bind qila oladi non-root sifatida.
+
+## 9. Joriy jarayonning capabilities
+
+```bash
+# O'z process
+grep Cap /proc/self/status
+# CapInh: 0000000000000000
+# CapPrm: 0000000000000000
+# CapEff: 0000000000000000
+# CapBnd: 000001ffffffffff
+# CapAmb: 0000000000000000
+
+# Decode
+capsh --decode=0000000000003000
+# 0x0000000000003000=cap_net_bind_service,cap_net_broadcast
+```
+
+`capsh` — `libcap2-bin` paketda.
+
+## 10. Misol — Nginx non-root
+
+Nginx default'da root sifatida boshlaydi va keyin user'ga o'tadi (chunki 80/443 portlarga bind kerak).
+
+Capability bilan butunlay non-root:
+
+```bash
+# setcap
+sudo setcap cap_net_bind_service=+ep /usr/sbin/nginx
+
+# Yoki systemd unit
+```
+
+```ini
+[Service]
+Type=simple
+User=nginx
+Group=nginx
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+ExecStart=/usr/sbin/nginx -g 'daemon off;'
+```
+
+## 11. Audit — kim qachon root huquqlarini ishlatdi
+
+```bash
+# auditd o'rnatish
+sudo apt install auditd
+
+# Qoidalar
+sudo auditctl -w /etc/passwd -p wa -k passwd_changes
+sudo auditctl -a always,exit -F arch=b64 -S setuid -k setuid_calls
+
+# Loglar
+sudo ausearch -k setuid_calls
+```
+
+## 12. SUID, SGID, sticky bit
+
+| Bit | Belgi | Vazifa |
+|---|---|---|
+| SUID | `s` egasi joyida | Bajariladi egasi sifatida |
+| SGID | `s` group joyida | Bajariladi group sifatida |
+| Sticky | `t` boshqa joyida | Faqat egasi o'chira oladi (`/tmp`) |
+
+```bash
+# SUID misol
+ls -la /usr/bin/passwd
+# -rwsr-xr-x 1 root root ... /usr/bin/passwd
+#    ↑
+
+# SUID o'rnatish
+sudo chmod u+s /path/to/binary
+
+# Yoki raqamli
+sudo chmod 4755 /path/to/binary    # 4 = SUID, 755 ruxsat
+
+# O'chirish
+sudo chmod u-s /path/to/binary
+```
+
+### Tizimda barcha SUID fayllarni topish
+
+```bash
+find / -perm -4000 -type f 2>/dev/null
+
+# Audit nuqtai nazaridan
+```
+
+Modern Linux'da capabilities SUID'dan **xavfsizroq alternative**.
+
+## 13. `ambient capabilities` (Linux 4.3+)
+
+Klassik capabilities child jarayonga to'liq o'tmaydi. **Ambient** — explicit inherit.
+
+```bash
+# capsh bilan test
+capsh --keep=1 --user=nobody --inh=cap_net_bind_service --addamb=cap_net_bind_service -- -c './myserver'
+```
+
+systemd `AmbientCapabilities` — shu mexanizm orqali.
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `getcap <file>` | File'ning capabilities |
+| `setcap <cap>=+ep <file>` | Capability set |
+| `setcap -r <file>` | Reset |
+| `getcap -r /` | Recursive scan |
+| `capsh --print` | Joriy capabilities |
+| `capsh --decode=<hex>` | Hex'ni inson o'qiy oladigan |
+| `cat /proc/<pid>/status | grep Cap` | Process capabilities |
+| `find / -perm -4000` | SUID fayllar |
+| `chmod u+s <file>` | SUID set |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`CAP_SYS_ADMIN`** — "yangi root" deyiladi. Juda keng — ko'p capability'ni qamrab oladi.
+- **`setcap` SUID bit bilan birga** — chalkashlik. Bittasini tanlang.
+- **Container'da `--privileged`** — hamma capabilities + host'dan ham ko'p — xavfli.
+- **Default'da capabilities'ni o'rganmaslik** — tipik dastur ko'p capability'ni avtomatik oladi.
+- **`+i` (inheritable) bilan ehtiyot bo'ling** — child jarayonlarga o'tadi.
+
+## 16. Eng yaxshi amaliyot
+
+- **SUID o'rniga capabilities** — minimal huquq.
+- **`CAP_SYS_ADMIN`'dan saqlaning** — keng va xavfli.
+- **systemd `AmbientCapabilities`** — declarative va tarsis.
+- **Container'larda `--cap-drop=ALL --cap-add=...`** — minimal.
+- **Audit SUID/SGID fayllarni** — `find / -perm -4000` muntazam.
+- **Custom binary uchun `setcap`** — sudo va SUID'ga muhtoj emas.
+
+## 17. Mashqlar
+
+1. **Ping capability:** `getcap $(which ping)` — qaysi capability?
+2. **Joriy:** `capsh --print` — sizning shell qaysi capability'lar bilan ishlamoqda?
+3. **SUID inventarizatsiya:** `find / -perm -4000 -type f 2>/dev/null` — qancha SUID fayl?
+4. **Test:** Yangi binary uchun `setcap cap_net_bind_service=+ep <fayl>` qiling. `getcap` bilan tasdiqlang.
+5. **Reset:** `setcap -r <fayl>` orqali olib tashlang.
+
+## 18. Bilim sinovi
+
+**Savol 1.** Linux capabilities nima qiladi?
+
+- a) Tezroq ish
+- b) Root huquqlarini granular bo'laklarga ajratadi
+- c) Hech narsa
+- d) Faqat container'lar uchun
+
+<Callout type="success" title="Javob">
+**(b)** "All-or-nothing" root o'rniga aniq qism.[¹](https://man7.org/linux/man-pages/man7/capabilities.7.html)
+</Callout>
+
+**Savol 2.** Port 80'ga bind uchun:
+
+- a) `CAP_SYS_ADMIN`
+- b) `CAP_NET_BIND_SERVICE`
+- c) `CAP_NET_RAW`
+- d) Faqat root
+
+<Callout type="success" title="Javob">
+**(b)** Privileged port'ga bind uchun maxsus capability.
+</Callout>
+
+**Savol 3.** SUID va capabilities — qaysisi xavfsizroq?
+
+- a) SUID
+- b) Capabilities (faqat kerakli huquq beriladi)
+- c) Bir xil
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(b)** Minimal huquq tamoyili — capabilities granular.
+</Callout>
+
+**Savol 4.** `--privileged` Docker'da:
+
+- a) Tezroq
+- b) Hamma capability + ko'p qo'shimcha — xavfli
+- c) Faqat read-only
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Hech qachon production'da.
+</Callout>
+
+**Savol 5.** systemd'da capability sozlash:
+
+- a) `Capabilities=`
+- b) `AmbientCapabilities=` (ishchi jarayonga) va `CapabilityBoundingSet=` (eng katta to'plam)
+- c) `User=`
+- d) `Permissions=`
+
+<Callout type="success" title="Javob">
+**(b)** Declarative va xavfsiz.
+</Callout>
+
+## Manbalar
+
+1. capabilities(7). [https://man7.org/linux/man-pages/man7/capabilities.7.html](https://man7.org/linux/man-pages/man7/capabilities.7.html)
+2. ArchWiki — Capabilities. [https://wiki.archlinux.org/title/Capabilities](https://wiki.archlinux.org/title/Capabilities)
+
+## Keyingi qadam
+
+👉 [Vim chuqurroq](/fundamentals/vim-deep)

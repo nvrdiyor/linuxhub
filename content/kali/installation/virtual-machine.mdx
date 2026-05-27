@@ -1,0 +1,225 @@
+---
+title: "Virtual mashinada Kali"
+description: "VMware yoki VirtualBox ostida Kali Linux'ni xavfsiz sinab ko'rish — rasmiy Kali tayyor image'lari bilan."
+order: 2
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/kali/installation/requirements"
+learning_objectives:
+  - "VMware va VirtualBox uchun tayyor Kali image'larini yuklab olish va ulash"
+  - "Kali VM ni xavfsiz tarmoq sozlamalari bilan ishga tushirish"
+  - "Snapshot olish va eski holatga qaytish"
+tags: ["kali", "vm", "virtualbox", "vmware"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Kali Docs — Virtualization"
+    url: "https://www.kali.org/docs/virtualization/"
+  - title: "Kali Docs — Import Pre-Made Kali VirtualBox VM"
+    url: "https://www.kali.org/docs/virtualization/import-premade-virtualbox/"
+  - title: "Kali Docs — Import Pre-Made Kali VMware VM"
+    url: "https://www.kali.org/docs/virtualization/import-premade-vmware/"
+---
+
+Kali jamoasi VMware va VirtualBox uchun **tayyor image'larni** rasmiy ravishda taqdim etadi. Bu o'rnatish qadamlarini o'tkazib yuborish va birdaniga ishlash imkonini beradi.[¹](https://www.kali.org/docs/virtualization/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- VirtualBox yoki VMware'ni o'rnatish.
+- Kali tayyor VM image'ni yuklab olish va import qilish.
+- Tarmoq sozlamalarini xavfsiz qilish (NAT, Host-only).
+- Snapshot orqali backup.
+</Callout>
+
+## 1. Virtualization dasturi tanlash
+
+| | VirtualBox | VMware Workstation Player |
+|---|---|---|
+| Litsenziya | Bepul (GPL) | Bepul (shaxsiy foydalanish uchun) |
+| OS | Windows, macOS, Linux | Windows, Linux |
+| Snapshot | Cheksiz | Cheklangan (Pro versiyada) |
+| Yengilroq | ✅ | — |
+| Tezroq | — | ✅ |
+
+Boshlovchilar uchun **VirtualBox** — bepul va oddiy.
+
+## 2. VirtualBox o'rnatish
+
+### Windows / macOS
+
+[virtualbox.org/wiki/Downloads](https://www.virtualbox.org/wiki/Downloads) dan yuklab oling va o'rnating. Extension Pack'ni ham qo'shing (USB 2.0+, RDP).
+
+### Linux
+
+```bash
+# Ubuntu/Debian
+sudo apt install virtualbox
+
+# Fedora
+sudo dnf install VirtualBox
+
+# Arch
+sudo pacman -S virtualbox virtualbox-host-modules-arch
+```
+
+## 3. Kali tayyor VM yuklab olish
+
+1. [https://www.kali.org/get-kali/#kali-virtual-machines](https://www.kali.org/get-kali/#kali-virtual-machines) ga kiring.
+2. **VirtualBox 64-bit** ni tanlang.
+3. `.7z` (yoki `.ova`) faylni yuklab oling. Hajmi ~3-4 GB.
+4. SHA256 hash'ni rasmiy sayt bilan solishtirib tekshiring.
+
+## 4. Import qilish (VirtualBox)
+
+```bash
+# 7z fayl bo'lsa ochish
+sudo apt install p7zip-full
+7z x kali-linux-2025.X-virtualbox-amd64.7z
+```
+
+So'ng VirtualBox'ni oching:
+
+1. **File** → **Import Appliance** (Ctrl+I).
+2. `.ova` faylni tanlang.
+3. **Import** — 5-10 daqiqa kutib turing.
+
+Yoki import qilmasdan: ochilgan papkadagi `.vbox` faylni VirtualBox'ga **drag and drop**.
+
+## 5. Birinchi yuklanish
+
+Default kirish ma'lumotlari (Kali 2020+):
+
+- **Username:** `kali`
+- **Password:** `kali`
+
+<Callout type="danger">
+**DARHOL parolni o'zgartiring:**
+
+```bash
+passwd
+```
+
+Default parol bilan internetga ulanmang.
+</Callout>
+
+## 6. Tarmoq sozlamalari — xavfsizlik
+
+VirtualBox'da VM uchun tarmoq turini tanlash mumkin:
+
+| Tur | Xavfsizlik | Foydalanish |
+|---|---|---|
+| **NAT** (default) | ✅ Host va VM faqat bir tomonlama | Internet kerak bo'lganda |
+| **Bridged** | ⚠️ VM lokal tarmoqqa to'g'ridan-to'g'ri | Faqat ishonchli tarmoqda |
+| **Host-only** | ✅ Faqat host bilan, internetsiz | Internal lab uchun |
+| **Internal** | ✅ VM'lar bir-biri bilan, host'siz | Multi-VM lab uchun |
+
+Boshlovchilar uchun: **NAT** — eng xavfsiz va eng oson.
+
+## 7. Snapshot — backup
+
+VirtualBox'da VM ishlamoqda holatda yoki to'xtagan holatda **Take Snapshot** orqali joriy holatni saqlash mumkin.
+
+1. **Machine** → **Take Snapshot** (Ctrl+Shift+T).
+2. Snapshotga nom bering: "Toza o'rnatish", "Sozlamalardan keyin" va h.k.
+3. Kelajakda ushbu holatga qaytish — **Restore Snapshot**.
+
+**Snapshot strategiyasi:**
+
+- Toza o'rnatishdan keyin — birinchi snapshot.
+- Har jiddiy o'zgartirishdan oldin — yangi snapshot.
+- Test ish uchun — har sessiya boshida snapshot, oxirida restore.
+
+## 8. Resurs sozlash
+
+VirtualBox'da VM ni tanlab **Settings** ga kiring:
+
+- **System** → **Motherboard** → Base Memory: 4096 MB (4 GB).
+- **System** → **Processor** → Yadrolar: 2 (host yadrolari soniga qarab).
+- **Display** → Video Memory: 128 MB.
+- **Storage** → Yetarli disk hajmi.
+
+## 9. VMware Player muqobil
+
+Agar VMware'ni afzal ko'rsangiz:
+
+1. [VMware Workstation Player](https://www.vmware.com/products/workstation-player.html) yuklab oling (shaxsiy foydalanish uchun bepul).
+2. Kali yuklash sahifasidan **VMware 64-bit** ni tanlang (`.7z` ichida `.vmx`).
+3. VMware'da **File → Open** orqali `.vmx` faylni oching.
+
+## 10. Birinchi yangilanish
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+sudo apt full-upgrade -y
+```
+
+Kali rolling release bo'lgani sababli, bu juda muhim — yangilanishlar har 2 haftada chiqadi.
+
+## 11. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `passwd` | Joriy foydalanuvchi parolini o'zgartirish |
+| `sudo apt update` | Paket bazasini yangilash |
+| `sudo apt full-upgrade` | Tizimni to'liq yangilash |
+| `ip a` | Tarmoq interfeyslari |
+| `lsb_release -a` | Kali versiyasi |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Default parolni o'zgartirmaslik** — internetga ulanmasdan oldin majburiy.
+- **Tarmoq Bridged'da** — VM lokal tarmoqqa ochiq qoladi.
+- **VT-x/AMD-V o'chirilgan** — BIOS'da yoqilishi shart, aks holda VM ishga tushmaydi.
+- **Snapshot olmasdan tajriba qilish** — buzilgan VM ni qaytarish imkonsiz.
+- **Resurs cheklash** — host CPU va RAM ni butunlay band qilish; minimal 2 GB host uchun.
+
+## 13. Eng yaxshi amaliyot
+
+- **Toza o'rnatishdan keyin DARHOL snapshot.**
+- **Har sessiya oxirida yangi snapshot** yoki eski snapshotga restore.
+- **Tarmoq Host-only** — agar lab to'liq izolyatsiya kerak bo'lsa.
+- **VirtualBox Guest Additions** — copy-paste, fayllar drag-drop ishlashi uchun (Kali'da `virtualbox-guest-additions-iso` ko'pincha oldindan o'rnatilgan).
+- **Backup VM fayllarini tashqi diskda** — virtualbox papkasi 20+ GB.
+
+## 14. Bilim sinovi
+
+**Savol 1.** Default Kali username va parol nima?
+
+- a) root / toor
+- b) kali / kali
+- c) admin / admin
+- d) ubuntu / ubuntu
+
+<Callout type="success" title="Javob">
+**(b)** Kali 2020+ versiyalarda `kali` / `kali`. Eski versiyalarda `root` / `toor`. **O'zgartirish majburiy.**
+</Callout>
+
+**Savol 2.** Eng xavfsiz tarmoq turi qaysi?
+
+- a) Bridged
+- b) NAT yoki Host-only
+- c) Public network
+- d) Direct connection
+
+<Callout type="success" title="Javob">
+**(b)** NAT — internet bilan, Host-only — to'liq izolyatsiya. Bridged VM ni lokal tarmoqqa ochiq qiladi.
+</Callout>
+
+## 15. Mashq
+
+1. VirtualBox'ni o'rnating va Kali tayyor VM'ni import qiling.
+2. Birinchi loginingizdan keyin parolni o'zgartiring.
+3. `Toza o'rnatish` nomli snapshot oling.
+4. `sudo apt update && sudo apt upgrade` ni bajaring va `Yangilangan` nomli snapshot oling.
+5. `ip a` natijasini ko'ring — sizdagi IP nima?
+
+## Manbalar
+
+1. Kali Docs — Virtualization. [https://www.kali.org/docs/virtualization/](https://www.kali.org/docs/virtualization/)
+2. Kali Docs — Import Pre-Made VirtualBox VM. [https://www.kali.org/docs/virtualization/import-premade-virtualbox/](https://www.kali.org/docs/virtualization/import-premade-virtualbox/)
+3. Kali Docs — Import Pre-Made VMware VM. [https://www.kali.org/docs/virtualization/import-premade-vmware/](https://www.kali.org/docs/virtualization/import-premade-vmware/)
+
+## Keyingi qadam
+
+👉 [USB dan Kali](/kali/installation/usb)

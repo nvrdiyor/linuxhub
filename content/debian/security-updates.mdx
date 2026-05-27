@@ -1,0 +1,206 @@
+---
+title: "Xavfsizlik yangilanishlari"
+description: "Debian xavfsizlik komandasi, DSA bildirishnomalari va `unattended-upgrades` orqali avtomatik yangilanishlar."
+order: 3
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/debian/apt-debian"
+  - "/debian/release-cycle"
+learning_objectives:
+  - "Debian Security Tracker va DSA bildirishnomalarini bilish"
+  - "Xavfsizlik repozitoriylarini to'g'ri sozlash"
+  - "`unattended-upgrades` orqali avtomatik xavfsizlik yangilanishlarini yoqish"
+tags: ["debian", "security", "dsa", "unattended-upgrades"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian Security Information"
+    url: "https://www.debian.org/security/"
+  - title: "Debian Security Tracker"
+    url: "https://security-tracker.debian.org/"
+  - title: "Debian Wiki — UnattendedUpgrades"
+    url: "https://wiki.debian.org/UnattendedUpgrades"
+---
+
+Debian xavfsizlik yangilanishlari **alohida repozitoriya** orqali tarqatiladi va **Debian Security Team** ulashtirgan rasmiy jarayonga muvofiq chiqariladi. Server muhitida bu yangilanishlarni avtomatik olish — eng yaxshi amaliyot.[¹](https://www.debian.org/security/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Debian Security Team va DSA (Debian Security Advisory).
+- Security Tracker — CVE'larni Debian paketlariga bog'lash.
+- `unattended-upgrades` paketi: avtomatik xavfsizlik yamoqlari.
+</Callout>
+
+## 1. Debian Security Team
+
+**Debian Security Team** — bir necha ko'ngillilardan iborat guruh bo'lib, ular CVE (Common Vulnerabilities and Exposures) bildirishnomalarini kuzatib boradi va Debian paketlari uchun yamoq tayyorlaydi.[¹](https://www.debian.org/security/)
+
+Asosiy resurslar:
+
+- **[debian.org/security](https://www.debian.org/security/)** — yangi DSA bildirishnomalari.
+- **[security-tracker.debian.org](https://security-tracker.debian.org/)** — har bir paket uchun ochiq xavfsizlik muammolari ro'yxati.
+- **Mailing list:** `debian-security-announce@lists.debian.org` — yangi DSA'lar haqida bildirishnoma.
+
+## 2. DSA — Debian Security Advisory
+
+Har bir xavfsizlik yangilanishi unikal DSA raqamiga ega (`DSA-XXXX-1`). Misol formati:
+
+```
+DSA-5500-1 firefox-esr — security update
+CVE-2024-XXXX, CVE-2024-YYYY
+Affected: bookworm, bullseye
+Fixed in: 115.7.0esr-1~deb12u1
+```
+
+Bu sizga aytadi: qaysi paket, qaysi CVE'lar, qaysi relizlar himoyalangan va qaysi versiyada tuzatilgan.
+
+## 3. Security repozitoriylari
+
+Debian o'rnatuvchisi `sources.list` ga security qatorni avtomatik qo'shadi:
+
+```
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+```
+
+Hozirgi (Debian 12+) format `bookworm-security` ko'rinishida — ilgari u faqat `bookworm/updates` deb yozilar edi. Eski yo'l ham hali ham ishlaydi, lekin yangi format tavsiya etiladi.
+
+Tekshirish:
+
+```bash
+grep security /etc/apt/sources.list
+```
+
+## 4. Xavfsizlik yangilanishlarini olish
+
+Standart `apt update && apt upgrade` security yangilanishlarni ham oladi. Faqat security yangilanishlarini bajarish istasangiz:
+
+```bash
+# Faqat security manbadan paketlar ro'yxati
+apt list --upgradable | grep -i security
+
+# Aniq paketlarni yangilash
+sudo apt install --only-upgrade firefox-esr
+```
+
+## 5. `unattended-upgrades` — avtomatik xavfsizlik yamoqlari
+
+Server uchun **majburiy** amaliyot. Bu paket o'rnatilgandan keyin har kuni avtomatik ravishda security yangilanishlarini o'rnatadi.[³](https://wiki.debian.org/UnattendedUpgrades)
+
+```bash
+# O'rnatish
+sudo apt install unattended-upgrades apt-listchanges
+
+# Interaktiv sozlash (Yes deyish kerak)
+sudo dpkg-reconfigure -plow unattended-upgrades
+```
+
+Bu `/etc/apt/apt.conf.d/20auto-upgrades` faylini yaratadi:
+
+```
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+```
+
+Asosiy sozlama fayli: `/etc/apt/apt.conf.d/50unattended-upgrades`.
+
+### Asosiy sozlamalar
+
+```
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}-security";
+    // "${distro_id}:${distro_codename}-updates";    // standart: yangilanishlarni emas, faqat security
+};
+
+// Tugagandan keyin kompyuterni qayta yuklash (server uchun ehtiyot bo'ling)
+Unattended-Upgrade::Automatic-Reboot "false";
+
+// Yangilanishdan keyin hisobotni emailga yuborish
+Unattended-Upgrade::Mail "root";
+```
+
+### Sinash
+
+```bash
+# Quruq yurish (hech nima qilmaydi, lekin nima qilishini ko'rsatadi)
+sudo unattended-upgrade --dry-run --debug
+```
+
+### Loglar
+
+```bash
+sudo tail -f /var/log/unattended-upgrades/unattended-upgrades.log
+```
+
+## 6. Server uchun tavsiya etilgan amaliyot
+
+<Steps>
+  <Step title="`unattended-upgrades` o'rnatish">
+    Security paketlarini har kuni avtomatik o'rnatadi.
+  </Step>
+  <Step title="Email bildirishnomalarini yoqish">
+    Yangilanish bo'lganida sizga ma'lum bo'lsin. `Mail "your-email@example.com"` qatori orqali.
+  </Step>
+  <Step title="Rejalashtirilgan qayta yuklash">
+    Yadro yangilanishi bo'lsa, server yangi yadroga ulanmasligi mumkin. Rejalashtirilgan haftalik/oylik qayta yuklash.
+  </Step>
+  <Step title="Debian Security Announce ga obuna bo'lish">
+    [Yozilish formasidan](https://lists.debian.org/debian-security-announce/) o'tib obuna bo'ling. Har bir DSA email orqali keladi.
+  </Step>
+</Steps>
+
+## 7. CVE'larni paket bo'yicha tekshirish
+
+[security-tracker.debian.org](https://security-tracker.debian.org/) saytida har bir paket sahifasi mavjud. URL formati:
+
+```
+https://security-tracker.debian.org/tracker/source-package/<paket>
+```
+
+Misol — Firefox uchun:
+[security-tracker.debian.org/tracker/source-package/firefox-esr](https://security-tracker.debian.org/tracker/source-package/firefox-esr)
+
+Bu sahifa ochiq va yopilgan CVE'larning to'liq ro'yxatini, har birining qaysi versiyada yamalganligini ko'rsatadi.
+
+## 8. Mashqlar
+
+1. [security-tracker.debian.org](https://security-tracker.debian.org/) ga kirib `firefox-esr` ni qidiring. Hozir nechta ochiq CVE bor?
+2. (Debian o'rnatilgan tizimda) `apt list --upgradable | grep security` — necha security yangilanishi mavjud?
+3. `unattended-upgrades` ni o'rnating va `--dry-run` orqali nima qilishini ko'ring.
+
+## 9. Bilim sinovi
+
+**Savol 1.** Debian xavfsizlik yangilanishlarining markaziy ro'yxati qaerda?
+
+- a) GitHub
+- b) Wikipedia
+- c) [debian.org/security](https://www.debian.org/security/)
+- d) [packages.debian.org](https://packages.debian.org)
+
+<Callout type="success" title="Javob">
+**(c)** [debian.org/security](https://www.debian.org/security/) — Debian Security Team'ning rasmiy sahifasi.[¹](https://www.debian.org/security/)
+</Callout>
+
+**Savol 2.** Avtomatik security yangilanishlari uchun qaysi paket o'rnatiladi?
+
+- a) `auto-update`
+- b) `unattended-upgrades`
+- c) `apt-cron`
+- d) `security-daemon`
+
+<Callout type="success" title="Javob">
+**(b)** `unattended-upgrades` standart Debian paketidir.[³](https://wiki.debian.org/UnattendedUpgrades)
+</Callout>
+
+## Manbalar
+
+1. Debian Security Information. [https://www.debian.org/security/](https://www.debian.org/security/)
+2. Debian Security Tracker. [https://security-tracker.debian.org/](https://security-tracker.debian.org/)
+3. Debian Wiki — UnattendedUpgrades. [https://wiki.debian.org/UnattendedUpgrades](https://wiki.debian.org/UnattendedUpgrades)
+
+## Tabriklaymiz
+
+Siz Debian bo'limini muvaffaqiyatli tugatdingiz! Endi Debian asosida ishlovchi maxsus distributivlarni o'rganishingiz mumkin:
+
+- 👉 [Kali Linux ga kirish](/kali/introduction) — xavfsizlik testi uchun.
+- 👉 [Parrot OS ga kirish](/parrot/introduction) — xavfsizlik va maxfiylik uchun.
+- 👉 [Ubuntu ga kirish](/ubuntu/introduction) — agar bu darsdan oldin Ubuntuni o'rganmagan bo'lsangiz.

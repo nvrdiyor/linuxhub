@@ -1,0 +1,502 @@
+---
+title: "Apache HTTP Server asoslari"
+description: "Apache HTTP Server — o'rnatish, virtual host, modules, SSL va HTTPS."
+order: 119
+level: "intermediate"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/services"
+  - "/fundamentals/networking"
+learning_objectives:
+  - "Apache arxitekturasi"
+  - "Virtual host sozlash"
+  - "Modullar bilan ishlash"
+  - "Let's Encrypt bilan HTTPS"
+tags: ["intermediate", "apache", "web-server", "http", "ssl"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Apache HTTP Server Documentation"
+    url: "https://httpd.apache.org/docs/2.4/"
+  - title: "Ubuntu Server Guide — Apache"
+    url: "https://ubuntu.com/server/docs/web-servers-apache"
+  - title: "Debian — Apache"
+    url: "https://wiki.debian.org/Apache"
+---
+
+**Apache HTTP Server** — internet'ning eng eski va eng keng tarqalgan veb-server'laridan biri (1995-yildan). Modular dizayn, ko'p platform, juda boy ekotizim. Bu darsda Apache'ni o'rnatish, virtual host'lar va HTTPS sozlashni o'rganamiz.[¹](https://httpd.apache.org/docs/2.4/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Apache o'rnatish va xizmat boshqaruvi.
+- Virtual host (bir nechta sayt bir IP'da).
+- Modullar (mod_rewrite, mod_ssl).
+- Let's Encrypt bilan HTTPS.
+- Performance va xavfsizlik.
+</Callout>
+
+## 1. O'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install apache2
+
+# Fedora/RHEL
+sudo dnf install httpd
+
+# Arch
+sudo pacman -S apache
+
+# Yoqish
+sudo systemctl enable --now apache2     # Debian/Ubuntu
+sudo systemctl enable --now httpd       # Fedora/RHEL
+```
+
+Test:
+
+```bash
+curl http://localhost
+# yoki brauzer: http://localhost
+```
+
+"Apache2 Default Page" ko'rinishi kerak.
+
+## 2. Apache fayl tuzilishi (Debian/Ubuntu)
+
+```
+/etc/apache2/
+├── apache2.conf              # asosiy
+├── ports.conf                # tinglovchi portlar
+├── envvars                   # muhit o'zgaruvchilari
+├── mods-available/           # mavjud modullar
+├── mods-enabled/             # yoqilgan modullar (symlinks)
+├── sites-available/          # mavjud saytlar
+├── sites-enabled/            # yoqilganlar (symlinks)
+└── conf-available/, conf-enabled/  # qo'shimcha sozlamalar
+```
+
+**Tipik DocumentRoot:** `/var/www/html/`
+
+### Fedora/RHEL
+
+```
+/etc/httpd/
+├── conf/httpd.conf           # asosiy
+├── conf.d/                   # qo'shimcha
+└── conf.modules.d/           # modullar
+```
+
+DocumentRoot: `/var/www/html/`
+
+## 3. Asosiy xizmat boshqaruvi
+
+```bash
+# Status
+sudo systemctl status apache2
+
+# Restart
+sudo systemctl restart apache2
+
+# Reload (config qayta o'qish, downtime'siz)
+sudo systemctl reload apache2
+
+# Sintaksis tekshirish
+sudo apache2ctl configtest    # Debian/Ubuntu
+sudo httpd -t                 # Fedora
+```
+
+## 4. Birinchi sayt — DocumentRoot
+
+```bash
+# HTML fayl yaratish
+sudo nano /var/www/html/index.html
+```
+
+```html
+<!DOCTYPE html>
+<html>
+<head><title>Mening saytim</title></head>
+<body>
+    <h1>Salom, dunyo!</h1>
+    <p>Apache'da birinchi sahifa.</p>
+</body>
+</html>
+```
+
+`http://localhost` — sahifa ko'rinishi kerak.
+
+## 5. Virtual host (Debian/Ubuntu)
+
+Bitta server'da bir nechta sayt:
+
+```bash
+# Yangi sayt config
+sudo nano /etc/apache2/sites-available/example.com.conf
+```
+
+```apache
+<VirtualHost *:80>
+    ServerName example.com
+    ServerAlias www.example.com
+    ServerAdmin admin@example.com
+    DocumentRoot /var/www/example.com/public
+
+    ErrorLog ${APACHE_LOG_DIR}/example.com-error.log
+    CustomLog ${APACHE_LOG_DIR}/example.com-access.log combined
+
+    <Directory /var/www/example.com/public>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+```
+
+```bash
+# Katalog yaratish
+sudo mkdir -p /var/www/example.com/public
+sudo chown -R www-data:www-data /var/www/example.com
+
+# Index fayl
+echo "<h1>example.com</h1>" | sudo tee /var/www/example.com/public/index.html
+
+# Sayt'ni yoqish
+sudo a2ensite example.com.conf
+
+# Default sayt'ni o'chirish (xohlasangiz)
+sudo a2dissite 000-default.conf
+
+# Apply
+sudo systemctl reload apache2
+```
+
+`a2ensite` — symlink yaratadi `sites-enabled/`'da.
+
+## 6. Hosts file orqali test (real domen yo'q)
+
+```bash
+echo "127.0.0.1 example.com" | sudo tee -a /etc/hosts
+```
+
+Endi `curl http://example.com` — sizning yangi virtual host.
+
+## 7. Modullar (mods)
+
+Apache modular. Asosiy modullar:
+
+| Modul | Maqsad |
+|---|---|
+| `mod_ssl` | HTTPS |
+| `mod_rewrite` | URL rewriting (.htaccess) |
+| `mod_proxy` | Reverse proxy |
+| `mod_php` | PHP integratsiya |
+| `mod_security` | Web Application Firewall |
+| `mod_headers` | HTTP header'lar |
+| `mod_deflate` | Gzip siqish |
+| `mod_expires` | Cache control |
+
+### Yoqish/o'chirish (Debian/Ubuntu)
+
+```bash
+# Yoqish
+sudo a2enmod rewrite ssl headers
+
+# O'chirish
+sudo a2dismod status
+
+# Joriy yoqilgan
+apache2ctl -M
+```
+
+### Fedora/RHEL
+
+`/etc/httpd/conf.modules.d/` katalogida `.conf` fayllar.
+
+## 8. `.htaccess` va `AllowOverride`
+
+`.htaccess` — katalogga xos sozlamalar (developer uchun qulay).
+
+```apache
+# Virtual host'da yoqish
+<Directory /var/www/example.com/public>
+    AllowOverride All       # .htaccess qabul qilish
+    Require all granted
+</Directory>
+```
+
+`/var/www/example.com/public/.htaccess`:
+
+```apache
+# WordPress permalinks
+RewriteEngine On
+RewriteBase /
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
+```
+
+## 9. HTTPS — Let's Encrypt
+
+Let's Encrypt — bepul SSL sertifikat.
+
+```bash
+# Debian/Ubuntu
+sudo apt install certbot python3-certbot-apache
+
+# Fedora
+sudo dnf install certbot python3-certbot-apache
+
+# Sertifikat olish va Apache sozlash
+sudo certbot --apache -d example.com -d www.example.com
+
+# Avtomatik yangilanish (cron orqali avtomatik)
+sudo certbot renew --dry-run
+```
+
+`certbot` avtomatik:
+
+- Let's Encrypt'dan sertifikat oladi.
+- Yangi `<VirtualHost *:443>` qo'shadi.
+- HTTP → HTTPS redirect sozlaydi.
+- Sertifikatlarni 90 kunda yangilaydi.
+
+## 10. Tipik HTTPS virtual host
+
+```apache
+<VirtualHost *:443>
+    ServerName example.com
+    ServerAlias www.example.com
+    DocumentRoot /var/www/example.com/public
+
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/example.com/privkey.pem
+
+    # Modern SSL
+    SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1
+    SSLCipherSuite HIGH:!aNULL:!MD5
+    SSLHonorCipherOrder on
+
+    # HSTS
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+    ErrorLog ${APACHE_LOG_DIR}/example.com-error.log
+    CustomLog ${APACHE_LOG_DIR}/example.com-access.log combined
+</VirtualHost>
+
+# HTTP → HTTPS redirect
+<VirtualHost *:80>
+    ServerName example.com
+    ServerAlias www.example.com
+    Redirect permanent / https://example.com/
+</VirtualHost>
+```
+
+## 11. Reverse proxy — backend dasturlar uchun
+
+```apache
+<VirtualHost *:80>
+    ServerName api.example.com
+
+    ProxyPreserveHost On
+    ProxyPass / http://127.0.0.1:3000/
+    ProxyPassReverse / http://127.0.0.1:3000/
+</VirtualHost>
+```
+
+Backend (Node.js, Python, Java) localhost:3000'da, Apache reverse proxy.
+
+```bash
+sudo a2enmod proxy proxy_http
+sudo systemctl reload apache2
+```
+
+## 12. Performance
+
+```apache
+# /etc/apache2/conf-available/performance.conf
+
+# KeepAlive yoqilgan
+KeepAlive On
+MaxKeepAliveRequests 100
+KeepAliveTimeout 5
+
+# Cache headers
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# Gzip
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript text/xml
+</IfModule>
+```
+
+```bash
+sudo a2enconf performance
+sudo a2enmod expires deflate
+sudo systemctl reload apache2
+```
+
+## 13. Loglar
+
+```bash
+# Access log
+sudo tail -f /var/log/apache2/access.log
+
+# Error log
+sudo tail -f /var/log/apache2/error.log
+
+# Tipik formatlar
+# combined: IP - - [time] "request" status size "referer" "user-agent"
+```
+
+`logrotate` avtomatik aylantiradi (`/etc/logrotate.d/apache2`).
+
+## 14. Xavfsizlik
+
+```apache
+# Server signature yashirish
+ServerSignature Off
+ServerTokens Prod
+
+# Directory listing o'chirish (default sozlamada bo'lsa)
+<Directory /var/www/>
+    Options -Indexes
+</Directory>
+
+# .ht* fayllarni ko'rsatmaslik
+<FilesMatch "^\.ht">
+    Require all denied
+</FilesMatch>
+
+# Trace method o'chirish
+TraceEnable off
+```
+
+### ModSecurity (WAF)
+
+```bash
+sudo apt install libapache2-mod-security2
+sudo a2enmod security2
+```
+
+OWASP Core Rule Set bilan birga.
+
+## 15. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo systemctl reload apache2` | Config qayta yuklash |
+| `sudo apache2ctl configtest` | Sintaksis test |
+| `sudo a2ensite <fayl>` | Sayt yoqish |
+| `sudo a2dissite <fayl>` | O'chirish |
+| `sudo a2enmod <modul>` | Modul yoqish |
+| `sudo a2dismod <modul>` | O'chirish |
+| `apache2ctl -M` | Yoqilgan modullar |
+| `apache2ctl -S` | Virtual host'lar |
+| `apachectl status` | Status (mod_status bilan) |
+| `sudo tail -f /var/log/apache2/error.log` | Real-time log |
+| `sudo certbot --apache` | Let's Encrypt |
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **403 Forbidden** — Linux ruxsat yoki `Require all denied`.
+- **404 Not Found** — DocumentRoot xato yoki fayl yo'q.
+- **500 Internal Server Error** — sintaksis xato (`.htaccess`, PHP).
+- **Modul yoqilmagan** — `a2enmod <modul>` qilmaslik, restart unutish.
+- **Hosts file unutish** — lokal test uchun `/etc/hosts`'ga qo'shing.
+- **Sayt yoqilmagan** — `a2ensite` qilmaslik.
+- **Reload qilmaslik** — config o'zgartirgandan keyin `reload`.
+
+## 17. Eng yaxshi amaliyot
+
+- **Har sayt uchun alohida virtual host fayli.**
+- **Let's Encrypt HTTPS** — bepul, oson, kafolatlangan.
+- **HSTS yoqing** — HTTPS'ni majburiy qilish.
+- **ServerSignature Off, ServerTokens Prod** — versiya yashirish.
+- **`mod_status` lokal'gina** — performance monitoring.
+- **logrotate** — disk to'lib qolish'dan saqlanish.
+- **ModSecurity** — WAF darajasidagi himoya.
+- **`apache2ctl configtest` har restart'dan oldin.**
+- **PHP uchun `mod_php` o'rniga `php-fpm`** — modern, tezroq.
+
+## 18. Mashqlar
+
+1. **O'rnatish:** `sudo apt install apache2` va xizmat yoqish.
+2. **Test:** `curl http://localhost` — default sahifa ko'rinadimi?
+3. **Virtual host:** `example.com` uchun yuqoridagi config bilan virtual host yarating va `/etc/hosts`'da test qiling.
+4. **Modul:** `sudo a2enmod rewrite` qiling. Reload qilib `apache2ctl -M | grep rewrite` — yoqilganmi?
+5. **HTTPS test (real domain bilan):** Let's Encrypt orqali HTTPS o'rnating (faqat real domain'da).
+6. **Log:** `tail -f /var/log/apache2/access.log` ni boshqa terminal'da, brauzerda saytni oching — kelishlar ko'rinadimi?
+
+## 19. Bilim sinovi
+
+**Savol 1.** Apache config sintaksis tekshirish:
+
+- a) `apache check`
+- b) `apache2ctl configtest` (Debian) yoki `httpd -t` (Fedora)
+- c) `apache verify`
+- d) `apache --check`
+
+<Callout type="success" title="Javob">
+**(b)** Restart'dan oldin doim test.[¹](https://httpd.apache.org/docs/2.4/)
+</Callout>
+
+**Savol 2.** Bitta server'da bir nechta sayt:
+
+- a) Bir nechta server o'rnatish kerak
+- b) Virtual host'lar (har sayt uchun alohida `<VirtualHost>`)
+- c) Faqat subdomenlar
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** Virtual host — IP'da yoki nomda asoslangan.
+</Callout>
+
+**Savol 3.** Modul yoqish (Debian/Ubuntu):
+
+- a) `modprobe`
+- b) `a2enmod <modul>`
+- c) `apache load <modul>`
+- d) Faylga qo'shish
+
+<Callout type="success" title="Javob">
+**(b)** `a2enmod` symlink yaratadi `mods-enabled/`'da.
+</Callout>
+
+**Savol 4.** Let's Encrypt sertifikat olish:
+
+- a) Sotib olish
+- b) `certbot --apache -d example.com` — bepul va avtomatik
+- c) Self-signed yaratish
+- d) Mumkin emas
+
+<Callout type="success" title="Javob">
+**(b)** Bepul, 90 kunda avtomatik yangilanadi.
+</Callout>
+
+**Savol 5.** Apache'ning eng katta raqibi:
+
+- a) IIS
+- b) Nginx
+- c) lighttpd
+- d) Caddy
+
+<Callout type="success" title="Javob">
+**(b)** Nginx — modern, performance-fokuslangan.
+</Callout>
+
+## Manbalar
+
+1. Apache HTTP Server Documentation. [https://httpd.apache.org/docs/2.4/](https://httpd.apache.org/docs/2.4/)
+2. Ubuntu Server Guide — Apache. [https://ubuntu.com/server/docs/web-servers-apache](https://ubuntu.com/server/docs/web-servers-apache)
+3. Debian — Apache. [https://wiki.debian.org/Apache](https://wiki.debian.org/Apache)
+
+## Keyingi qadam
+
+👉 [Nginx asoslari](/fundamentals/nginx-basics)

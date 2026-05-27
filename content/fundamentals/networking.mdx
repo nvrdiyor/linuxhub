@@ -1,0 +1,374 @@
+---
+title: "Tarmoq asoslari"
+description: "Linux tarmoq sozlamalari — IP, marshrutlash, DNS, portlar va `ip`, `ss`, `ping`, `dig` bilan diagnostika."
+order: 1
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/fundamentals/intro"
+learning_objectives:
+  - "IP, port va DNS tushunchalarini izohlash"
+  - "`ip` buyrug'i bilan interfeyslar va marshrutlash bilan ishlash"
+  - "Tarmoq diagnostika vositalarini ishlatish (`ping`, `dig`, `traceroute`, `ss`)"
+tags: ["intermediate", "networking", "ip", "dns", "ports"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "iproute2 — ip(8) manpage"
+    url: "https://manpages.debian.org/bookworm/iproute2/ip.8.en.html"
+  - title: "iproute2 — ss(8)"
+    url: "https://manpages.debian.org/bookworm/iproute2/ss.8.en.html"
+  - title: "ArchWiki — Network configuration"
+    url: "https://wiki.archlinux.org/title/Network_configuration"
+  - title: "Ubuntu — Networking"
+    url: "https://documentation.ubuntu.com/server/explanation/network/"
+---
+
+Tarmoq — har qanday zamonaviy tizimning poydevori. Bu darsda Linux'da tarmoq sozlamalari va diagnostikaning asosiy vositalarini o'rganamiz, manba sifatida `iproute2` rasmiy hujjatlarini ishlatamiz.[¹](https://manpages.debian.org/bookworm/iproute2/ip.8.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- IP manzili (IPv4/IPv6), maska, gateway tushunchalari.
+- DNS — host nomlarni IP'ga o'tkazish.
+- Portlar va xizmatlar.
+- `ip`, `ss`, `ping`, `dig`, `traceroute` diagnostika vositalari.
+</Callout>
+
+## 1. Asosiy tushunchalar
+
+| Tushuncha | Misol | Ma'no |
+|---|---|---|
+| **IPv4 manzil** | `192.168.1.50` | 32-bit, 4 oktet |
+| **IPv6 manzil** | `2001:db8::1` | 128-bit |
+| **CIDR / maska** | `/24` yoki `255.255.255.0` | Tarmoq qismi qancha bit |
+| **Gateway** | `192.168.1.1` | Lokal tarmoqdan tashqariga chiqish nuqtasi |
+| **DNS** | `8.8.8.8`, `1.1.1.1` | Host nomlarini IP'ga aylantiradi |
+| **Port** | `22`, `80`, `443` | Bir IP'da turli xizmatlarning eshigi |
+
+## 2. Tarmoq interfeyslari — `ip`
+
+```bash
+# Hamma interfeyslar va IP manzillari
+ip addr show
+ip a            # qisqacha
+
+# Faqat aktiv interfeyslar
+ip -brief addr
+
+# Bitta interfeys
+ip addr show dev eth0
+
+# Yangi IP qo'shish (vaqtinchalik)
+sudo ip addr add 192.168.1.100/24 dev eth0
+
+# O'chirish
+sudo ip addr del 192.168.1.100/24 dev eth0
+
+# Interfeysni yoqish/o'chirish
+sudo ip link set eth0 up
+sudo ip link set eth0 down
+```
+
+## 3. Marshrutlash jadvali
+
+```bash
+# Joriy marshrutlar
+ip route
+
+# Yoki
+ip r
+
+# Default gateway
+ip route | grep default
+```
+
+Misol:
+
+```
+default via 192.168.1.1 dev eth0 proto dhcp metric 100
+192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.50
+```
+
+Birinchi qator: "Hamma noma'lum yo'nalishlar uchun `192.168.1.1` orqali, `eth0` interfeysidan".
+
+## 4. DNS — host nomlardan IP'ga
+
+```bash
+# DNS sozlamasi
+cat /etc/resolv.conf
+
+# Joriy host nomi
+hostname
+
+# DNS qidiruv
+nslookup debian.org
+dig debian.org
+dig debian.org +short
+
+# Faqat A record (IPv4)
+dig debian.org A
+
+# Faqat MX (mail servers)
+dig debian.org MX
+
+# Reverse DNS (IP'dan domain)
+dig -x 8.8.8.8
+```
+
+## 5. `/etc/hosts` — lokal DNS
+
+DNS serverdan oldin Linux bu faylni tekshiradi:
+
+```
+127.0.0.1   localhost
+127.0.1.1   debian-laptop
+192.168.1.20 nas.local nas
+```
+
+Test va lokal serverlar uchun foydali.
+
+## 6. Portlar va ulanishlar — `ss`
+
+`ss` (Socket Statistics) — eski `netstat` ning zamonaviy almashtirgichi.[²](https://manpages.debian.org/bookworm/iproute2/ss.8.en.html)
+
+```bash
+# Hamma TCP ulanishlar
+ss -t
+
+# TCP tinglash holatidagi portlar
+ss -tln
+
+# UDP
+ss -uln
+
+# Hamma + jarayon
+sudo ss -tunlp
+
+# Aniq portga ulangan
+ss -t state established '( dport = :443 or sport = :443 )'
+
+# Joriy ulanishlar soni
+ss -t | wc -l
+```
+
+Mashhur portlar:
+
+| Port | Xizmat |
+|---|---|
+| 22 | SSH |
+| 25 | SMTP (email) |
+| 53 | DNS |
+| 80 | HTTP |
+| 443 | HTTPS |
+| 3306 | MySQL |
+| 5432 | PostgreSQL |
+| 6379 | Redis |
+| 8080 | HTTP alternative |
+
+To'liq ro'yxat: `/etc/services` faylida.
+
+## 7. Diagnostika
+
+### `ping` — ulanishni tekshirish
+
+```bash
+# 4 ta paket yuborish (Linux default — cheksiz, Ctrl+C bilan to'xtatish)
+ping -c 4 google.com
+
+# IPv6
+ping6 -c 4 google.com
+
+# Aniq interfeysdan
+ping -I eth0 -c 4 192.168.1.1
+```
+
+### `traceroute` — paket yo'lini ko'rsatish
+
+```bash
+sudo apt install traceroute
+traceroute google.com
+
+# Yoki TCP variant (firewall ICMP ni rad qilsa)
+traceroute -T google.com
+```
+
+### `mtr` — `ping + traceroute` interaktiv
+
+```bash
+sudo apt install mtr
+mtr google.com
+```
+
+### `curl` — HTTP request
+
+```bash
+# Sahifani yuklab olish
+curl https://example.com
+
+# Faqat HTTP javob kodi
+curl -o /dev/null -s -w "%{http_code}\n" https://example.com
+
+# Verbose (header'lar bilan)
+curl -v https://example.com
+
+# Faqat headerlar
+curl -I https://example.com
+```
+
+### `wget` — fayl yuklab olish
+
+```bash
+wget https://example.com/file.iso
+wget -c https://example.com/file.iso    # davom ettirish
+```
+
+## 8. Tarmoq sozlash usullari
+
+Tarmoq sozlash distributivga bog'liq:
+
+| Tizim | Vosita |
+|---|---|
+| Modern Ubuntu Desktop | NetworkManager (`nmcli`, `nm-connection-editor`) |
+| Modern Ubuntu Server | Netplan + systemd-networkd |
+| Debian klassik | `/etc/network/interfaces` |
+| Arch / NixOS | systemd-networkd yoki NetworkManager |
+
+Misol — NetworkManager bilan Wi-Fi:
+
+```bash
+# Mavjud tarmoqlar
+nmcli device wifi list
+
+# Ulanish
+sudo nmcli device wifi connect "TarmoqNomi" password "parol"
+
+# Faol ulanishlar
+nmcli connection show --active
+
+# O'chirish
+nmcli connection down "TarmoqNomi"
+```
+
+## 9. Firewall qisqacha
+
+Default Linux'da firewall yo'q (faqat `iptables`/`nftables` kerneli mavjud). Foydalanuvchi qulay vositalar:
+
+- **UFW** (Uncomplicated Firewall) — Ubuntu'da default. Alohida [Firewall](/fundamentals/firewall) darsi bor.
+- **firewalld** — Fedora/RHEL standart.
+- **nftables** — to'g'ridan-to'g'ri (eskirgan iptables ning yangi versiyasi).
+
+## 10. Amaliy misol: tarmoq tahlili
+
+```bash
+# 1. Joriy IP konfiguratsiya
+ip -brief addr
+
+# 2. Default gateway
+ip route | grep default
+
+# 3. DNS test
+dig google.com +short
+
+# 4. Tarmoq darajasidagi ulanish
+ping -c 4 8.8.8.8
+
+# 5. DNS darajasidagi ulanish
+ping -c 4 google.com
+
+# 6. Tinglovchi portlar
+sudo ss -tunlp
+```
+
+Diagnostika algoritmi:
+
+1. `ip a` — IP bormi?
+2. `ip route` — gateway bormi?
+3. `ping <gateway>` — lokal tarmoq ishlayaptimi?
+4. `ping 8.8.8.8` — internetga raw IP orqali?
+5. `dig google.com` — DNS ishlayaptimi?
+6. `curl https://google.com` — DNS + HTTPS to'liq?
+
+Har bir bosqichdagi xato muammoning manbai.
+
+## 11. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `ip a` | Interfeyslar va IP |
+| `ip r` | Marshrutlash jadvali |
+| `ss -tunlp` | Faol portlar va jarayonlar |
+| `ping <host>` | ICMP test |
+| `dig <domain>` | DNS qidiruv |
+| `traceroute <host>` | Paket yo'li |
+| `mtr <host>` | Ping + traceroute interaktiv |
+| `curl <URL>` | HTTP request |
+| `nmcli` | NetworkManager CLI |
+| `hostname` | Host nomi |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **`netstat` o'rniga `ss`** — `netstat` eskirgan; `ss` ancha tezroq.
+- **`ifconfig` o'rniga `ip`** — `net-tools` paketi eskirgan; `iproute2` standart.
+- **DNS test sifatida `ping`** — `ping google.com` muvaffaqiyatsiz bo'lsa, sabab DNS yoki tarmoqning o'zi bo'lishi mumkin. `ping 8.8.8.8` bilan ajrating.
+- **Firewall xatosi** — port "ochiq" deyilsa lekin ishlamasa, server tinglayaptimi va firewall ochiqmi — ikkalasini tekshiring.
+- **Vaqtinchalik `ip` o'zgarishlar** — `ip addr add` reboot'dan keyin yo'qoladi. Doimiy uchun config faylida.
+
+## 13. Eng yaxshi amaliyot
+
+- **Server uchun static IP** — DHCP o'zgaruvchan; production uchun `netplan` yoki `/etc/network/interfaces` da static.
+- **DNS testi `dig +short`** — chiqishni qisqaroq, skript uchun qulay.
+- **Tinglovchi portlarni cheklash** — ehtiyojga qarab `bind 127.0.0.1` ishlatish (xizmat faqat lokal'ga ochiq).
+- **Firewall'ni doim yoqilgan** — server'da `ufw` yoki `firewalld`.
+- **`mtr` paket yo'qotish uchun** — bir martalik `ping`'dan ko'ra real holatni ko'rsatadi.
+
+## 14. Bilim sinovi
+
+**Savol 1.** `192.168.1.50/24` da `/24` nimani anglatadi?
+
+- a) 24 ta IP manzil
+- b) 24 bit tarmoq qismi (subnet mask: 255.255.255.0)
+- c) 24-port
+- d) 24 sekundlik javob
+
+<Callout type="success" title="Javob">
+**(b)** CIDR notation — tarmoq qismi bit raqami. `/24` = `255.255.255.0`.
+</Callout>
+
+**Savol 2.** HTTPS standart porti qaysi?
+
+- a) 80
+- b) 443
+- c) 22
+- d) 8080
+
+<Callout type="success" title="Javob">
+**(b)** 443 — HTTPS; 80 — oddiy HTTP.
+</Callout>
+
+**Savol 3.** `ip route` chiqishida `default via 192.168.1.1` nima ma'no anglatadi?
+
+- a) DNS server `192.168.1.1`
+- b) Default gateway — noma'lum yo'nalishlar shu manzilga yuboriladi
+- c) Sizning IP'ngiz
+- d) Local network manzili
+
+<Callout type="success" title="Javob">
+**(b)** Gateway — Internet va lokal bo'lmagan har qanday tarmoqqa chiqish nuqtasi.[¹](https://manpages.debian.org/bookworm/iproute2/ip.8.en.html)
+</Callout>
+
+## 15. Mashq
+
+1. `ip -brief addr` natijasini ko'ring. Sizning IP manzilingiz va interfeys nomi nima?
+2. `dig +short google.com` — Google IP manzili nima? `ping`'ni shu IP bilan ham sinab ko'ring.
+3. `sudo ss -tunlp | head -10` — qaysi jarayonlar qaysi portlarni tinglamoqda?
+4. `traceroute google.com` — Sizning trafigingiz qancha "hop" orqali o'tadi?
+
+## Manbalar
+
+1. iproute2 — ip(8) manpage. [https://manpages.debian.org/bookworm/iproute2/ip.8.en.html](https://manpages.debian.org/bookworm/iproute2/ip.8.en.html)
+2. iproute2 — ss(8). [https://manpages.debian.org/bookworm/iproute2/ss.8.en.html](https://manpages.debian.org/bookworm/iproute2/ss.8.en.html)
+3. ArchWiki — Network configuration. [https://wiki.archlinux.org/title/Network_configuration](https://wiki.archlinux.org/title/Network_configuration)
+4. Ubuntu — Networking. [https://documentation.ubuntu.com/server/explanation/network/](https://documentation.ubuntu.com/server/explanation/network/)
+
+## Keyingi qadam
+
+👉 [SSH kalitlari](/fundamentals/ssh)

@@ -1,0 +1,193 @@
+---
+title: "LTS va relizlar tsikli"
+description: "Ubuntu reliz raqamlari, 6 oylik tsikl, LTS yordamlash muddatlari va Ubuntu Pro orqali kengaytirilgan yordam."
+order: 1
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "Ubuntu reliz raqami formatini izohlash"
+  - "LTS va interim relizlar farqini bilish"
+  - "Standart va Ubuntu Pro yordamlash muddatlarini taqqoslash"
+tags: ["ubuntu", "lts", "release", "ubuntu-pro"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu — Release cycle"
+    url: "https://ubuntu.com/about/release-cycle"
+  - title: "Ubuntu Wiki — Releases"
+    url: "https://wiki.ubuntu.com/Releases"
+  - title: "Ubuntu Pro"
+    url: "https://ubuntu.com/pro"
+---
+
+Ubuntu reliz tsikli — bu loyihaning eng aniq va oldindan rejalashtirilgan jihatlaridan biri. Bu darsda raqamlash, qo'llab-quvvatlash muddatlari va Ubuntu Pro orqali yordamni kengaytirish imkoniyatlari haqida o'rganamiz.[¹](https://ubuntu.com/about/release-cycle)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Reliz raqami formati: `YY.MM`.
+- LTS va interim relizlar farqi.
+- Standart 5 yillik yordam va Ubuntu Pro orqali 10/12 yilgacha kengaytirish.
+- Hozirgi qo'llab-quvvatlanadigan relizlar.
+</Callout>
+
+## 1. Reliz raqami formati
+
+Ubuntu reliz raqami `YY.MM` shaklida:[¹](https://ubuntu.com/about/release-cycle)
+
+- `YY` — chiqarilgan yilning oxirgi ikki raqami.
+- `MM` — chiqarilgan oy (aprel = `04`, oktyabr = `10`).
+
+Misollar:
+
+- `20.04` → 2020-yil aprel
+- `22.04` → 2022-yil aprel
+- `23.10` → 2023-yil oktyabr
+- `24.04` → 2024-yil aprel
+
+Har bir relizning yana bitta nomi bor — **kodli nom**, ikki so'zdan iborat, ikkalasi ham bir xil harfdan boshlanadi va alifbo tartibida:[²](https://wiki.ubuntu.com/Releases)
+
+- 20.04 — **Focal Fossa**
+- 22.04 — **Jammy Jellyfish**
+- 24.04 — **Noble Numbat**
+
+## 2. Reliz tsikli
+
+```
+2024 April                2024 October              2025 April
+   │                          │                         │
+   ├── 24.04 LTS              ├── 24.10 interim         ├── 25.04 interim
+   │   "Noble Numbat"         │                         │
+   │   5 yil yordam           │   9 oy yordam           │   9 oy yordam
+   │                          │                         │
+   ↓                          ↓                         ↓
+```
+
+Har **6 oyda** yangi reliz chiqadi:[¹](https://ubuntu.com/about/release-cycle)
+
+- **Aprel** — agar yil juft bo'lsa, **LTS** (uzoq muddatli) reliz.
+- **Oktyabr** — har doim interim reliz.
+
+Aniq sanalar har relizning [Ubuntu Wiki sahifasida](https://wiki.ubuntu.com/Releases) chop etiladi.
+
+## 3. LTS va interim farqi
+
+| Xususiyat | LTS | Interim |
+|---|---|---|
+| Chastotalik | Har 2 yilda | Har 6 oyda |
+| Standart yordamlash | 5 yil | 9 oy |
+| Ubuntu Pro bilan | + 5 yil (jami 10) | Yo'q |
+| Maqsadi | Barqaror ishlab chiqarish | Yangi texnologiyalar |
+| Server va bulut | LTS tavsiya etiladi | Tavsiya etilmaydi |
+
+### LTS yordamlashining ichki tuzilishi
+
+LTS yordamlash davri uchta bosqichdan iborat:[³](https://ubuntu.com/pro)
+
+| Bosqich | Mazmuni |
+|---|---|
+| **Standart yordamlash** (5 yil) | Bepul, hammaga ochiq. Asosiy paketlar uchun yangilanishlar. |
+| **Kengaytirilgan xavfsizlik yordami (ESM)** (+5 yil) | Ubuntu Pro obunasi. Asosiy va `universe` paketlari uchun xavfsizlik yamoqlari. |
+| **Legacy yordam** (12 yilgacha) | Ba'zi LTS relizlar uchun, qo'shimcha shartnoma asosida. |
+
+Shaxsiy foydalanuvchilar uchun Ubuntu Pro **bepul** — `ua attach` orqali 5 ta mashinaga kalit bog'lash mumkin. Tijoriy foydalanish uchun obuna kerak.
+
+## 4. Hozir qo'llab-quvvatlanayotgan relizlar
+
+Aniq ro'yxat har vaqt o'zgarib turadi — eng to'g'ri ma'lumot uchun:
+
+- [https://wiki.ubuntu.com/Releases](https://wiki.ubuntu.com/Releases) — barcha relizlar va ularning holati.
+- [https://ubuntu.com/about/release-cycle](https://ubuntu.com/about/release-cycle) — interaktiv tasvir.
+
+Tasdiqlangan tipik holat (2024-2025 davriga ishora):
+
+| Reliz | Kodli nom | Standart yordam tugashi | Pro/ESM tugashi |
+|---|---|---|---|
+| 20.04 LTS | Focal Fossa | 2025 | 2030 |
+| 22.04 LTS | Jammy Jellyfish | 2027 | 2032 |
+| 24.04 LTS | Noble Numbat | 2029 | 2034 |
+
+## 5. Bir relizdan boshqasiga yangilanish
+
+LTS dan keyingi LTS ga yangilanish (`do-release-upgrade`):
+
+```bash
+# 20.04 LTS → 22.04 LTS
+sudo apt update
+sudo apt full-upgrade
+sudo do-release-upgrade
+```
+
+Interim'lardan keyingi versiyaga (`-d` flag):
+
+```bash
+sudo do-release-upgrade -d
+```
+
+<Callout type="warning">
+Reliz yangilanishi — bu jiddiy operatsiya. Boshlashdan oldin **majburiy ravishda**:
+1. Ma'lumotlarni zaxiralang.
+2. Bo'sh disk joy borligini tekshiring (kamida 5 GB).
+3. Uchinchi tomon PPA'larni o'chiring.
+4. Yangilanishni terminal orqali bajaring, mahalliy konsoldan — masofaviy SSH'da sessiya uzilishi yangilanishni buzishi mumkin.
+</Callout>
+
+## 6. Qaysi relizni tanlash kerak?
+
+| Foydalanuvchi turi | Tavsiya |
+|---|---|
+| Yangi boshlovchi | Hozirgi **LTS** |
+| Uy/Ofis foydalanuvchisi | Hozirgi **LTS** |
+| Dasturchi | Hozirgi **LTS** (yoki interim — yangi tools kerak bo'lsa) |
+| Server / bulut | Faqat **LTS** |
+| Yangi texnologiyalarni sinab ko'ruvchi | Interim |
+
+## 7. Joriy relizingizni tekshirish
+
+```bash
+# Versiya va kodli nom
+lsb_release -a
+
+# /etc/os-release
+cat /etc/os-release
+```
+
+## 8. Mashqlar
+
+1. [Ubuntu Wiki — Releases](https://wiki.ubuntu.com/Releases) sahifasini oching. Hozirgi qo'llab-quvvatlanadigan LTS relizlari nechta?
+2. [Ubuntu Pro sahifasi](https://ubuntu.com/pro) dan: shaxsiy foydalanuvchilar uchun nechta mashinaga Pro obunasi bepul beriladi?
+3. (Ubuntu o'rnatilgan tizimda) `lsb_release -d` natijasini yozing.
+
+## 9. Bilim sinovi
+
+**Savol 1.** Ubuntu LTS standart yordam muddati qancha?
+
+- a) 1 yil
+- b) 2 yil
+- c) 5 yil
+- d) 10 yil
+
+<Callout type="success" title="Javob">
+**(c)** 5 yil. Ubuntu Pro orqali yana 5 yil qo'shilishi mumkin.[¹](https://ubuntu.com/about/release-cycle)
+</Callout>
+
+**Savol 2.** `22.04` reliz raqami nimani anglatadi?
+
+- a) 22 oylik versiya, 4-tahrir
+- b) 2022-yil aprel relizi
+- c) 22 GB ISO, 4 oy yordam
+- d) Bu LTS emas
+
+<Callout type="success" title="Javob">
+**(b)** `YY.MM` formatida — 2022-yil aprel.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu — Release cycle. [https://ubuntu.com/about/release-cycle](https://ubuntu.com/about/release-cycle)
+2. Ubuntu Wiki — Releases. [https://wiki.ubuntu.com/Releases](https://wiki.ubuntu.com/Releases)
+3. Ubuntu Pro. [https://ubuntu.com/pro](https://ubuntu.com/pro)
+
+## Keyingi qadam
+
+👉 [Canonical Livepatch](/ubuntu/livepatch)

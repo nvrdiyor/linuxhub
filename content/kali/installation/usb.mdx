@@ -1,0 +1,201 @@
+---
+title: "USB dan Kali"
+description: "Kali Linux'ni bootable USB orqali ishga tushirish — Live boot va Persistence (saqlash bilan)."
+order: 3
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/kali/installation/requirements"
+learning_objectives:
+  - "Kali Live USB tayyorlash"
+  - "Persistence bilan ishlatish — sessiyalar orasida ma'lumot saqlash"
+tags: ["kali", "usb", "live-boot", "persistence"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Kali Docs — USB Install"
+    url: "https://www.kali.org/docs/usb/"
+  - title: "Kali Docs — USB Persistence"
+    url: "https://www.kali.org/docs/usb/usb-persistence/"
+---
+
+Live USB — Kali'ni o'rnatishsiz sinab ko'rishning eng qulay yo'li. Yetarlicha sig'imli USB bilan **Persistence** ham yoqish mumkin — sessiyalar orasida ma'lumot saqlanadi.[¹](https://www.kali.org/docs/usb/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Kali Live ISO yuklab olish.
+- Bootable USB yaratish (Windows va Linux'da).
+- Persistence (saqlash bilan ishlash) sozlash.
+</Callout>
+
+## 1. Talablar
+
+- USB flesh-disk: 8 GB+ (Persistence kerak bo'lsa 32 GB+).
+- Kompyuter UEFI yoki BIOS bilan, USB'dan yuklanishi qo'llab-quvvatlanishi kerak.
+
+## 2. ISO yuklab olish
+
+[https://www.kali.org/get-kali/#kali-live](https://www.kali.org/get-kali/#kali-live) dan **Kali Linux Live** ISO'ni yuklab oling. Hajmi ~4 GB.
+
+SHA256 hash'ni tekshiring:
+
+```bash
+# Linux/macOS
+sha256sum kali-linux-2025.X-live-amd64.iso
+
+# Windows PowerShell
+Get-FileHash kali-linux-2025.X-live-amd64.iso -Algorithm SHA256
+```
+
+[https://www.kali.org/get-kali/#kali-live](https://www.kali.org/get-kali/#kali-live) sahifasidagi hash bilan solishtiring.
+
+## 3. Bootable USB tayyorlash
+
+### Windows — Rufus
+
+1. [rufus.ie](https://rufus.ie) dan Rufus yuklab oling.
+2. Rufus'ni oching:
+   - **Device** — USB flesh-diskingiz.
+   - **Boot selection** — **SELECT** → Kali ISO.
+   - **Partition scheme** — **GPT** (zamonaviy UEFI uchun) yoki **MBR** (eski BIOS).
+   - **START** ni bosing.
+3. "ISOHybrid" dialog chiqsa, **Write in ISO Image mode** ni tanlang.
+
+### Linux — `dd`
+
+```bash
+# USB qaysi qurilma ekanligini aniqlash
+lsblk
+
+# Misol: /dev/sdb (sizniki boshqacha bo'lishi mumkin)
+sudo dd if=kali-linux-2025.X-live-amd64.iso of=/dev/sdb bs=4M status=progress conv=fdatasync
+```
+
+<Callout type="danger">
+`dd` da xato qurilma — diskdagi hamma ma'lumot yo'qoladi. `of=` qiymatini tekshirib bajaring.
+</Callout>
+
+### macOS — `dd`
+
+```bash
+diskutil list
+diskutil unmountDisk /dev/diskN
+sudo dd if=kali-linux-2025.X-live-amd64.iso of=/dev/rdiskN bs=4m
+```
+
+## 4. USB'dan yuklanish
+
+1. Kompyuterni o'chiring, USB'ni ulang, qaytadan yoqing.
+2. Boot menyusiga kirish tugmasini bosing (`F12`, `F10`, `Esc`, `F2` — ishlab chiqaruvchiga qarab).
+3. USB'ni tanlang.
+4. Kali GRUB menyusi ko'rinadi:
+   - **Live (amd64)** — saqlashsiz sinab ko'rish.
+   - **Live system with USB persistence** — Persistence yoqilgan bo'lsa.
+   - **Live (forensic mode)** — diskka hech narsa yozmaydi (forensic tahlil uchun).
+   - **Install / Graphical Install** — diskka o'rnatish.
+
+## 5. Persistence — sessiyalar orasida saqlash
+
+Default Live USB sessiya tugagandan keyin barcha o'zgarishlar yo'qoladi. Persistence buni o'zgartiradi.[²](https://www.kali.org/docs/usb/usb-persistence/)
+
+### Persistence sozlash (Linux'da)
+
+USB bootable bo'lgandan keyin:
+
+```bash
+# USB'da yangi bo'lim yaratish
+# Faraz qilamiz: USB - /dev/sdb, asosiy bo'lim - /dev/sdb1
+
+sudo fdisk /dev/sdb
+# n → bo'sh joydan yangi partition yaratish (sdb3 yoki sdb4)
+# w — saqlash
+
+# Partition'ni ext4 ga formatlash
+sudo mkfs.ext4 -L persistence /dev/sdb3
+
+# Mount qilish
+sudo mkdir -p /mnt/usb
+sudo mount /dev/sdb3 /mnt/usb
+
+# Persistence sozlamasi
+echo "/ union" | sudo tee /mnt/usb/persistence.conf
+
+# Unmount
+sudo umount /mnt/usb
+```
+
+Endi USB'dan yuklanganda **Live USB Persistence** menyusi orqali ma'lumot saqlanadi.
+
+### Shifrlangan Persistence
+
+Maxfiy ma'lumot uchun LUKS shifrlash:
+
+```bash
+# /dev/sdb3 ni shifrlash
+sudo cryptsetup --verbose --verify-passphrase luksFormat /dev/sdb3
+sudo cryptsetup luksOpen /dev/sdb3 my_usb
+
+# Shifrlangan qatlamni formatlash
+sudo mkfs.ext4 -L persistence /dev/mapper/my_usb
+sudo mount /dev/mapper/my_usb /mnt/usb
+
+echo "/ union" | sudo tee /mnt/usb/persistence.conf
+
+sudo umount /mnt/usb
+sudo cryptsetup luksClose /dev/mapper/my_usb
+```
+
+GRUB menyusida **Live USB Encrypted Persistence** ni tanlang.
+
+## 6. Live boot afzalliklari va kamchiliklari
+
+✅ **Afzalliklari:**
+
+- Asosiy operatsion tizimga ta'sir qilmaydi.
+- Yuklab olish va sinab ko'rish — 15 daqiqa.
+- USB ni chiqarib olsa, kompyuter o'zining oddiy holatiga qaytadi.
+- Forensic mode — diskka hech narsa yozilmaydi.
+
+❌ **Kamchiliklari:**
+
+- USB tezligi diskdan past — sekinroq.
+- Drayverlar har yuklanishda qayta qidiriladi.
+- Yangilanishlar Persistence siz saqlanmaydi.
+
+## 7. Mashqlar
+
+1. [Kali Live ISO sahifasini](https://www.kali.org/get-kali/#kali-live) oching va ISO hajmini tekshiring.
+2. (Ehtiyot bilan) Bo'sh USB tayyorlang. Diskdagi hamma ma'lumot yo'qoladi — backup qiling.
+3. USB'dan yuklab Kali Live'ni sinang. `ip a` ni bajarib, tarmoq ishlayotganini tekshiring.
+
+## 8. Bilim sinovi
+
+**Savol 1.** Live USB sessiya tugagandan keyin o'zgarishlar:
+
+- a) USB ga saqlanadi
+- b) Yo'qoladi (agar Persistence yoqilmagan bo'lsa)
+- c) Asosiy diskga saqlanadi
+- d) Cloud'ga yuklanadi
+
+<Callout type="success" title="Javob">
+**(b)** Default Live USB — sessiya tugagach hamma narsa yo'qoladi. Persistence — saqlash uchun yoqilishi kerak.
+</Callout>
+
+**Savol 2.** Persistence uchun USB hajmi tavsiyasi:
+
+- a) 4 GB
+- b) 8 GB
+- c) 16+ GB (32+ GB yaxshiroq)
+- d) 128 GB
+
+<Callout type="success" title="Javob">
+**(c)** ISO 4 GB + boshqa fayllar uchun joy. Tavsiya 32 GB+.[²](https://www.kali.org/docs/usb/usb-persistence/)
+</Callout>
+
+## Manbalar
+
+1. Kali Docs — USB Install. [https://www.kali.org/docs/usb/](https://www.kali.org/docs/usb/)
+2. Kali Docs — USB Persistence. [https://www.kali.org/docs/usb/usb-persistence/](https://www.kali.org/docs/usb/usb-persistence/)
+
+## Keyingi qadam
+
+👉 [Kali WSL ostida](/kali/installation/wsl)

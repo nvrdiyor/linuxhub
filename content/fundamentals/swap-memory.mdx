@@ -1,0 +1,378 @@
+---
+title: "Swap xotira boshqaruvi"
+description: "Linux swap — partition vs file, sozlash, swappiness, ZRAM va hibernation."
+order: 113
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/monitoring"
+learning_objectives:
+  - "Swap nima va qachon ishlatiladi"
+  - "Swap partition va swap file yaratish"
+  - "swappiness sozlash"
+  - "ZRAM — siqilgan swap RAM'da"
+tags: ["intermediate", "swap", "memory", "zram", "hibernation"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — Swap"
+    url: "https://wiki.archlinux.org/title/Swap"
+  - title: "Linux Kernel — Memory Management"
+    url: "https://docs.kernel.org/admin-guide/sysctl/vm.html"
+---
+
+**Swap** — diskdagi joy bo'lib, RAM yetmaganda yadro keraksiz ma'lumotni shu yerga ko'chiradi ("swap out"). Bu darsda swap'ni samarali boshqarishni o'rganamiz.[¹](https://wiki.archlinux.org/title/Swap)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Swap nima va qachon ishlatiladi.
+- Swap partition vs swap file.
+- swappiness — kogda swap ishlatiladi.
+- ZRAM — siqilgan RAM'da swap.
+- Hibernation va swap.
+</Callout>
+
+## 1. Swap nima?
+
+RAM cheklangan. Yadro ishlamayotgan jarayon sahifalarini diskka ko'chiradi (swap out) va RAM bo'shaytiradi. Kerak bo'lganda qaytarib oladi (swap in).
+
+### Qachon foydali?
+
+- **RAM yetmasa** — OOM (out of memory) o'rniga sekinroq, lekin ishlash.
+- **Eski sahifalar uchun** — uzoq vaqt ishlatilmagan jarayon ma'lumoti.
+- **Hibernation** — kompyuter o'chganda RAM tarkibi swap'da saqlanadi.
+
+### Kamchiliklari
+
+- **Sekin** — disk RAM'dan minglab marta sekinroq.
+- **Disk yeyiladi** (SSD uchun).
+- **Latency** — swap'dan o'qish vaqti seziladi.
+
+## 2. Joriy swap holatini ko'rish
+
+```bash
+# Faol swap qurilmalar
+swapon --show
+
+# Misol:
+# NAME      TYPE      SIZE USED PRIO
+# /dev/sda3 partition  8G   0B   -2
+
+# Yoki batafsil
+free -h
+#                total    used    free   shared   buff/cache   available
+# Mem:           16Gi    5Gi     8Gi    100Mi     3Gi          10Gi
+# Swap:          2.0Gi   0B      2.0Gi
+```
+
+`free -h` chiqishidagi:
+- `total` — umumiy swap hajmi.
+- `used` — hozir ishlatilayotgan.
+- `free` — bo'sh.
+
+## 3. Swap partition yaratish
+
+```bash
+# Disk topish
+lsblk
+
+# Partition yaratish (8 GB)
+sudo parted /dev/sdb mkpart primary linux-swap 0 8GiB
+
+# Swap signature yozish
+sudo mkswap /dev/sdb1
+
+# Yoqish
+sudo swapon /dev/sdb1
+
+# Tekshirish
+swapon --show
+
+# Doimiy — fstab
+sudo blkid /dev/sdb1
+# UUID="abc-123" TYPE="swap"
+
+echo "UUID=abc-123 none swap sw 0 0" | sudo tee -a /etc/fstab
+```
+
+## 4. Swap file yaratish (oson alternativ)
+
+Partition o'rniga oddiy fayl ishlatish — qulayroq.
+
+```bash
+# 4 GB fayl yaratish
+sudo fallocate -l 4G /swapfile
+
+# Yoki dd (sekinroq, lekin har joyda ishlaydi)
+sudo dd if=/dev/zero of=/swapfile bs=1M count=4096 status=progress
+
+# Ruxsat
+sudo chmod 600 /swapfile
+
+# Swap formatlash
+sudo mkswap /swapfile
+
+# Yoqish
+sudo swapon /swapfile
+
+# Tekshirish
+swapon --show
+
+# Doimiy
+echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab
+```
+
+## 5. Swap o'chirish
+
+```bash
+# Vaqtinchalik
+sudo swapoff /swapfile
+
+# Yoki barcha swap'lar
+sudo swapoff -a
+
+# fstab dan olib tashlang ham (doimiy)
+sudo nano /etc/fstab
+# qatorni o'chiring
+
+# Fayl o'chirish (agar swapfile bo'lsa)
+sudo rm /swapfile
+```
+
+## 6. swappiness — qachon swap ishlatilishi
+
+`vm.swappiness` — 0 dan 100 gacha qiymat:
+
+| Qiymat | Xulq-atvor |
+|---|---|
+| **0** | Faqat OOM yaqin bo'lsa swap |
+| **10** | Server uchun (Red Hat tavsiyasi) |
+| **60** (default) | Balanced |
+| **100** | Tezroq swap (eski sahifalarni darrov) |
+
+```bash
+# Joriy
+cat /proc/sys/vm/swappiness
+# 60
+
+# Vaqtinchalik o'zgartirish
+sudo sysctl vm.swappiness=10
+
+# Doimiy
+echo "vm.swappiness=10" | sudo tee -a /etc/sysctl.d/99-swap.conf
+```
+
+### Qachon nima tavsiya etiladi
+
+- **Desktop kompyuter:** 10-20 (RAM ko'p bo'lsa).
+- **Server (database, ko'p RAM):** 1-10.
+- **Eski apparat (kam RAM):** 60-80.
+- **Laptop hibernation bilan:** default qoldirish.
+
+## 7. ZRAM — siqilgan RAM swap
+
+ZRAM — RAM ichida siqilgan blok qurilma sifatida swap yaratadi. Disk swap'dan **ancha tezroq**.
+
+```bash
+# Modul yuklash
+sudo modprobe zram
+
+# 4 GB zram swap
+sudo modprobe zram num_devices=1
+echo 4G | sudo tee /sys/block/zram0/disksize
+sudo mkswap /dev/zram0
+sudo swapon /dev/zram0 -p 100    # eng yuqori prioritet
+```
+
+### Avtomatlashtirish — `zram-generator` (Fedora, Arch)
+
+```bash
+sudo apt install systemd-zram-generator   # Debian
+sudo dnf install zram-generator           # Fedora
+```
+
+`/etc/systemd/zram-generator.conf`:
+
+```ini
+[zram0]
+zram-size = min(ram / 2, 4096)
+compression-algorithm = zstd
+```
+
+Reboot — avtomatik faollashadi.
+
+### Nima uchun ZRAM?
+
+- RAM yetmaganda diskka ko'chmasdan, **siqilgan RAM**da saqlash.
+- 2-3x siqish (zstd) — 4 GB ZRAM ~ 8-12 GB virtual swap.
+- Disk yeyilmaydi.
+- 100x tezroq disk swap'dan.
+
+## 8. Hibernation — swap'ga butun RAM
+
+Hibernation — RAM tarkibini swap'ga yozib, kompyuterni o'chirish. Yoqilganda — qaytariladi.
+
+**Talab:** swap hajmi ≥ RAM hajmi.
+
+```bash
+# Swap UUID
+sudo blkid /dev/sda3
+
+# GRUB qator
+sudo nano /etc/default/grub
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash resume=UUID=..."
+
+sudo update-grub
+
+# Test
+sudo systemctl hibernate
+```
+
+### Hibernation va xavfsizlik
+
+Hibernate — swap'da RAM bilan birga **parol**, **kalitlar** ham yoziladi. Encrypted swap kerak:
+
+```bash
+# fstab da swap UUID o'rniga
+/dev/mapper/cryptswap none swap sw 0 0
+```
+
+## 9. Multipl swap — prioritet
+
+Bir nechta swap qurilmalari bo'lsa, prioritet bilan boshqarish mumkin:
+
+```bash
+sudo swapon -p 100 /dev/zram0     # eng yuqori (zram)
+sudo swapon -p 10  /dev/sda3      # past (disk)
+```
+
+Yoki fstab:
+
+```
+/dev/zram0 none swap sw,pri=100 0 0
+/dev/sda3  none swap sw,pri=10  0 0
+```
+
+ZRAM birinchi to'ladi, keyin disk.
+
+## 10. Swap kerak bo'lganmi?
+
+**RAM 16 GB+ va hibernation kerak emas** — swap'siz ham OK. Lekin:
+
+- **Crash dump** uchun (`kdump`) swap bo'lsa yaxshi.
+- **OOM killer** odatda majbur bo'lib ishini buzadi — swap bilan asta-sekin yo'l qo'yiladi.
+
+**Modern tavsiya:**
+
+| RAM | Swap |
+|---|---|
+| < 4 GB | RAM hajmi × 1.5 |
+| 4-8 GB | RAM hajmi |
+| 8-32 GB | RAM hajmi yarim yoki ZRAM |
+| 32 GB+ | 4-8 GB yoki ZRAM (hibernation kerak emas bo'lsa) |
+
+## 11. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `swapon --show` | Faol swap |
+| `free -h` | RAM va swap |
+| `cat /proc/swaps` | Swap qurilmalari |
+| `fallocate -l 4G /swapfile` | Fayl yaratish |
+| `mkswap /swapfile` | Swap signature |
+| `swapon /swapfile` | Yoqish |
+| `swapoff /swapfile` | O'chirish |
+| `swapoff -a` | Hamma swap o'chirish |
+| `sysctl vm.swappiness=10` | swappiness |
+| `vmstat 1` | si/so ustunlari — swap aktivligi |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Swap file ruxsatlari** — `600` bo'lishi shart (`chmod 600`). Aks holda xavfsizlik xato.
+- **Swap file btrfs'da** — modern Linux'da qo'llab-quvvatlanadi, lekin `+C` (no-COW) bilan: `chattr +C /swapfile`.
+- **swappiness juda past (`0`)** — OOM killer faolroq, jarayonlar to'satdan o'ladi.
+- **Hibernation swap qiymati past** — `resume=UUID=...` to'g'ri bo'lmasa hibernate ishlamaydi.
+- **ZRAM va disk swap birga** — prioritet to'g'ri bo'lishi kerak (zram yuqoriroq).
+
+## 13. Eng yaxshi amaliyot
+
+- **ZRAM modern Linux'da default tavsiya** — Fedora, Pop!_OS default'da yoqilgan.
+- **`swappiness=10` server uchun.**
+- **`swappiness=60` (default) desktop uchun yetarli.**
+- **Swap file — oson partition'dan.**
+- **Hibernation kerak bo'lsa, swap ≥ RAM.**
+- **SSD'da swap minimal** — yedirilishni kamaytirish.
+- **Monitoring** — `vmstat 1 si so` ustunlari noliga teng bo'lishi kerak (yo'q bo'lsa, RAM yetishmayapti).
+
+## 14. Mashqlar
+
+1. **Swap holati:** `swapon --show` va `free -h` natijalarini ko'ring. Hozir ishlatilayaptimi?
+2. **swappiness:** `cat /proc/sys/vm/swappiness` — sizning qiymat nima?
+3. **Swap file yaratish (test):** 1 GB swap file yarating, yoqing, `swapon --show` bilan tasdiqlang. So'ng o'chiring va o'chirib tashlang.
+4. **vmstat:** `vmstat 1 5` — 5 marotaba 1 soniyada chiqarish. `si` va `so` ustunlari nol mi?
+5. **ZRAM (modern distributiv):** `swapon --show` chiqishida `/dev/zram*` ko'rinadimi?
+
+## 15. Bilim sinovi
+
+**Savol 1.** Swap nima uchun ishlatiladi?
+
+- a) Tezroq RAM
+- b) RAM yetmasa, diskka ko'chirish (overflow)
+- c) Backup
+- d) Faqat hibernation uchun
+
+<Callout type="success" title="Javob">
+**(b)** Asosiy maqsad — virtual xotira.[¹](https://wiki.archlinux.org/title/Swap)
+</Callout>
+
+**Savol 2.** Server uchun tavsiya etilgan swappiness:
+
+- a) 100
+- b) 60
+- c) 10
+- d) 0
+
+<Callout type="success" title="Javob">
+**(c)** Red Hat va boshqalar 1-10 tavsiya — RAM'dan ko'p foydalanish, swap kamroq.
+</Callout>
+
+**Savol 3.** ZRAM nima?
+
+- a) Tezroq disk swap
+- b) RAM ichida siqilgan virtual blok qurilma (swap uchun)
+- c) Disk encryption
+- d) Cache
+
+<Callout type="success" title="Javob">
+**(b)** Siqilgan RAM swap — disk swap'dan ancha tezroq.
+</Callout>
+
+**Savol 4.** Hibernation uchun swap hajmi:
+
+- a) 1 GB yetarli
+- b) RAM hajmi yoki ko'proq
+- c) RAM yarim
+- d) Hech qancha
+
+<Callout type="success" title="Javob">
+**(b)** Butun RAM tarkibi swap'ga yoziladi.
+</Callout>
+
+**Savol 5.** Swap file ruxsatlari:
+
+- a) 755
+- b) 600
+- c) 777
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** `chmod 600` — root oqi/yoz, boshqalar yo'q.
+</Callout>
+
+## Manbalar
+
+1. ArchWiki — Swap. [https://wiki.archlinux.org/title/Swap](https://wiki.archlinux.org/title/Swap)
+2. Linux Kernel — Memory Management. [https://docs.kernel.org/admin-guide/sysctl/vm.html](https://docs.kernel.org/admin-guide/sysctl/vm.html)
+
+## Keyingi qadam
+
+👉 [iptables va nftables — tarmoq firewall](/fundamentals/iptables-nftables)

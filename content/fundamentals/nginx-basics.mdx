@@ -1,0 +1,543 @@
+---
+title: "Nginx asoslari"
+description: "Nginx — modern, tezkor veb-server va reverse proxy — server block, upstream, SSL."
+order: 120
+level: "intermediate"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/services"
+  - "/fundamentals/networking"
+learning_objectives:
+  - "Nginx arxitekturasi (event-driven)"
+  - "server block (virtual host)"
+  - "Reverse proxy va load balancing"
+  - "Let's Encrypt bilan HTTPS"
+tags: ["intermediate", "nginx", "web-server", "reverse-proxy", "ssl"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nginx documentation"
+    url: "https://nginx.org/en/docs/"
+  - title: "Ubuntu Server Guide — Nginx"
+    url: "https://ubuntu.com/server/docs/web-servers-nginx"
+  - title: "ArchWiki — nginx"
+    url: "https://wiki.archlinux.org/title/Nginx"
+---
+
+**Nginx** (Engine X) — 2004-yildan rivojlanayotgan, **event-driven** arxitektura asosidagi veb-server. Apache'dan ancha kam RAM ishlatadi va o'n minglab parallel ulanishni ko'tara oladi. Modern web stack'ning standart komponenti.[¹](https://nginx.org/en/docs/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Nginx arxitekturasi (Apache bilan farqi).
+- `server` block — virtual host.
+- Reverse proxy va load balancing.
+- Let's Encrypt bilan HTTPS.
+- Performance optimallashtirish.
+</Callout>
+
+## 1. Apache vs Nginx
+
+| | Apache | Nginx |
+|---|---|---|
+| Arxitektura | Process/thread per request | Event-driven (async) |
+| RAM | Yuqori | Past |
+| Concurrent connections | 1000-5000 | 10000+ |
+| `.htaccess` qo'llab-quvvatlash | Ha | Yo'q |
+| Modullar | Runtime yoki compile-time | Compile-time |
+| Default config kompleksligi | O'rta | Kichik |
+| Konfiguratsiya stili | XML-like | Programmatic |
+
+Modern web: ko'pincha **Nginx frontend + Apache/PHP-FPM backend** yoki **Nginx + Node.js/Python backend**.
+
+## 2. O'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install nginx
+
+# Fedora/RHEL
+sudo dnf install nginx
+
+# Arch
+sudo pacman -S nginx
+
+# Yoqish
+sudo systemctl enable --now nginx
+```
+
+Test:
+
+```bash
+curl http://localhost
+# "Welcome to nginx!"
+```
+
+## 3. Nginx fayl tuzilishi (Debian/Ubuntu)
+
+```
+/etc/nginx/
+├── nginx.conf              # asosiy
+├── conf.d/                 # qo'shimcha
+├── sites-available/        # mavjud server'lar
+├── sites-enabled/          # yoqilganlar (symlinks)
+└── snippets/               # qayta foydalanish uchun
+```
+
+DocumentRoot: `/var/www/html/`
+
+## 4. Asosiy xizmat boshqaruvi
+
+```bash
+# Status
+sudo systemctl status nginx
+
+# Restart
+sudo systemctl restart nginx
+
+# Reload (downtime'siz)
+sudo systemctl reload nginx
+
+# Sintaksis tekshirish
+sudo nginx -t
+```
+
+## 5. `nginx.conf` strukturasi
+
+```nginx
+# /etc/nginx/nginx.conf
+
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 768;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Logging
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # Gzip
+    gzip on;
+
+    # Server'lar
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+```
+
+## 6. Birinchi server block (virtual host)
+
+```bash
+sudo nano /etc/nginx/sites-available/example.com
+```
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com www.example.com;
+
+    root /var/www/example.com/public;
+    index index.html index.htm;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    access_log /var/log/nginx/example.com-access.log;
+    error_log /var/log/nginx/example.com-error.log;
+}
+```
+
+```bash
+# Katalog
+sudo mkdir -p /var/www/example.com/public
+echo "<h1>example.com</h1>" | sudo tee /var/www/example.com/public/index.html
+sudo chown -R www-data:www-data /var/www/example.com
+
+# Yoqish
+sudo ln -s /etc/nginx/sites-available/example.com /etc/nginx/sites-enabled/
+
+# Default'ni o'chirish (xohlasangiz)
+sudo rm /etc/nginx/sites-enabled/default
+
+# Test va reload
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Test:
+
+```bash
+echo "127.0.0.1 example.com" | sudo tee -a /etc/hosts
+curl http://example.com
+```
+
+## 7. `location` block'lar — URL routing
+
+```nginx
+server {
+    server_name example.com;
+    root /var/www/example.com;
+
+    # Exact match
+    location = /favicon.ico {
+        log_not_found off;
+        access_log off;
+    }
+
+    # Prefix match
+    location /images/ {
+        expires 30d;
+    }
+
+    # Regex (case-insensitive)
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Exact regex (priority)
+    location ~ ^/admin/ {
+        auth_basic "Admin area";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+    }
+
+    # Default
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+### Tartib muhim!
+
+Nginx `location` ni quyidagi tartibda sinaydi:
+
+1. Exact match (`=`).
+2. Prefix match (eng uzun mos).
+3. Regex (`~` case-sensitive, `~*` case-insensitive).
+
+## 8. Reverse proxy
+
+Node.js, Python, Java backend'i `localhost:3000`'da. Nginx public'ga:
+
+```nginx
+server {
+    listen 80;
+    server_name api.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+`X-Forwarded-For` — backend uchun real klient IP'ni bilish.
+
+## 9. Load balancing — `upstream`
+
+```nginx
+upstream backend {
+    server 10.0.0.1:3000;
+    server 10.0.0.2:3000;
+    server 10.0.0.3:3000;
+
+    # Yoki strategiyalar
+    # least_conn;
+    # ip_hash;
+}
+
+server {
+    listen 80;
+    server_name api.example.com;
+
+    location / {
+        proxy_pass http://backend;
+    }
+}
+```
+
+Strategiyalar:
+
+- **Default** — round-robin.
+- **`least_conn`** — eng kam ulanishlar.
+- **`ip_hash`** — bir IP doim bir backend'ga (sessiya).
+- **`hash $request_uri`** — URL bo'yicha.
+
+## 10. HTTPS — Let's Encrypt
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+
+sudo certbot --nginx -d example.com -d www.example.com
+```
+
+`certbot` avtomatik:
+
+- Sertifikat oladi.
+- HTTPS server block yaratadi.
+- HTTP → HTTPS redirect qo'shadi.
+- 90 kunda yangilaydi (cron).
+
+Tipik natijaviy config:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name example.com www.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # HSTS
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+
+    root /var/www/example.com/public;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+
+server {
+    listen 80;
+    server_name example.com www.example.com;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+## 11. Cache — performance
+
+```nginx
+# Static fayllar uchun
+location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff2)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    access_log off;
+}
+
+# HTML uchun kichikroq cache
+location ~* \.html$ {
+    expires 1h;
+    add_header Cache-Control "public";
+}
+```
+
+### Reverse proxy cache
+
+```nginx
+http {
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=1g inactive=60m;
+
+    server {
+        location / {
+            proxy_pass http://backend;
+            proxy_cache my_cache;
+            proxy_cache_valid 200 10m;
+            add_header X-Cache-Status $upstream_cache_status;
+        }
+    }
+}
+```
+
+## 12. Gzip va Brotli
+
+```nginx
+# Gzip (default keladi)
+gzip on;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
+gzip_min_length 1000;
+gzip_comp_level 6;
+```
+
+Brotli — Gzip'dan ham yaxshi (alohida modul, `libnginx-mod-brotli`).
+
+## 13. Rate limiting
+
+DDoS yoki brute-force'dan himoya:
+
+```nginx
+http {
+    # 10 request/second/IP
+    limit_req_zone $binary_remote_addr zone=mylimit:10m rate=10r/s;
+
+    server {
+        location /api/ {
+            limit_req zone=mylimit burst=20 nodelay;
+            proxy_pass http://backend;
+        }
+    }
+}
+```
+
+## 14. Auth — Basic Authentication
+
+```bash
+sudo apt install apache2-utils
+
+# Parol fayl yaratish
+sudo htpasswd -c /etc/nginx/.htpasswd alice
+# Bob qo'shish (-c siz)
+sudo htpasswd /etc/nginx/.htpasswd bob
+```
+
+```nginx
+location /admin/ {
+    auth_basic "Restricted Area";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+}
+```
+
+## 15. Loglar
+
+```bash
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
+```
+
+### Custom log format
+
+```nginx
+http {
+    log_format main '$remote_addr - $remote_user [$time_local] '
+                    '"$request" $status $body_bytes_sent '
+                    '"$http_referer" "$http_user_agent" '
+                    'rt=$request_time uct="$upstream_connect_time"';
+
+    access_log /var/log/nginx/access.log main;
+}
+```
+
+## 16. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo systemctl reload nginx` | Config qayta yuklash |
+| `sudo nginx -t` | Sintaksis test |
+| `sudo nginx -T` | Hammasini ko'rsatish |
+| `sudo nginx -s reload` | Alternativ reload |
+| `sudo tail -f /var/log/nginx/access.log` | Real-time log |
+| `sudo certbot --nginx` | Let's Encrypt |
+| `sudo htpasswd /etc/nginx/.htpasswd user` | Basic auth user |
+
+## 17. Eng tez-tez uchraydigan xatolar
+
+- **Symlink yaratmaslik** — `sites-available/foo`'ni `sites-enabled/`'ga `ln -s`.
+- **`reload`'ni unutish** — config o'zgarsa darrov ishlamaydi.
+- **404 yoki "directory listing"** — `index` direktivasi yo'q yoki fayl mavjud emas.
+- **502 Bad Gateway** — backend (proxy_pass target) ishlamayapti.
+- **`proxy_pass` slash** — `proxy_pass http://backend;` vs `proxy_pass http://backend/;` — sintaksis muhim, URI'ga ta'sir qiladi.
+- **Permission denied** — `www-data` user fayllarga kira olmaydi.
+- **`worker_connections`** kichkina — high traffic'da bottleneck.
+
+## 18. Eng yaxshi amaliyot
+
+- **Har sayt alohida `sites-available/` fayl.**
+- **Default sayt o'chirilgan** (production'da).
+- **HTTPS Let's Encrypt** — bepul va oson.
+- **HSTS yoqilgan** — HTTPS majburiy.
+- **`http2`** yoqilgan — bir ulanishda ko'p so'rov.
+- **Gzip + cache headers** — performance.
+- **Rate limiting** — DDoS himoyasi.
+- **Loglar `logrotate` bilan.**
+- **`worker_processes auto`** — CPU yadrolari soniga teng.
+- **`nginx -t` har reload'dan oldin.**
+
+## 19. Mashqlar
+
+1. **O'rnatish:** Nginx'ni o'rnating va default sahifani ko'ring.
+2. **Server block:** `example.com` uchun virtual host yarating.
+3. **Test:** `/etc/hosts` orqali sinab, `curl` qiling.
+4. **Reverse proxy:** Python `python3 -m http.server 3000` ishga tushiring. Nginx orqali proxy qiling.
+5. **Rate limit:** `limit_req` qo'shing va `ab -n 100 -c 10 http://example.com/` bilan test qiling.
+6. **Loglar:** `tail -f /var/log/nginx/access.log` ni boshqa terminal'da kuzating.
+
+## 20. Bilim sinovi
+
+**Savol 1.** Nginx Apache'dan asosiy farqi:
+
+- a) Tezroq
+- b) Event-driven arxitektura (asinxron, kam RAM, ko'p concurrent connections)
+- c) Faqat statik fayllar uchun
+- d) Bepul emas
+
+<Callout type="success" title="Javob">
+**(b)** Async I/O — 10000+ ulanishlar.[¹](https://nginx.org/en/docs/)
+</Callout>
+
+**Savol 2.** Nginx config sintaksisni tekshirish:
+
+- a) `nginx --check`
+- b) `nginx -t`
+- c) `nginxctl test`
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** `nginx -t` — har reload'dan oldin.
+</Callout>
+
+**Savol 3.** `proxy_pass` nima uchun:
+
+- a) Statik fayllar
+- b) Reverse proxy (so'rovni backend'ga uzatish)
+- c) Cache
+- d) Tunnel
+
+<Callout type="success" title="Javob">
+**(b)** Backend ilovaga (Node.js, Python, Java) so'rov uzatish.
+</Callout>
+
+**Savol 4.** Let's Encrypt sertifikat:
+
+- a) Sotib olish
+- b) `certbot --nginx -d example.com` — bepul va avtomatik
+- c) Faqat Pro versiya
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** Bepul, 90 kunda avtomatik yangilanish.
+</Callout>
+
+**Savol 5.** `upstream` block nima uchun:
+
+- a) Klient
+- b) Load balancing — bir nechta backend orasida so'rovlarni tarqatish
+- c) Cache
+- d) HTTPS
+
+<Callout type="success" title="Javob">
+**(b)** Round-robin, least_conn, ip_hash strategiyalari.
+</Callout>
+
+## Manbalar
+
+1. nginx documentation. [https://nginx.org/en/docs/](https://nginx.org/en/docs/)
+2. Ubuntu Server Guide — Nginx. [https://ubuntu.com/server/docs/web-servers-nginx](https://ubuntu.com/server/docs/web-servers-nginx)
+3. ArchWiki — nginx. [https://wiki.archlinux.org/title/Nginx](https://wiki.archlinux.org/title/Nginx)
+
+## Keyingi qadam
+
+👉 [PostgreSQL asoslari](/fundamentals/postgresql-basics)

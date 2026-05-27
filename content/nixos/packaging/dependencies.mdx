@@ -1,0 +1,110 @@
+---
+title: "Bog'liqliklar bilan paket"
+description: "buildInputs, nativeBuildInputs va propagatedBuildInputs — Nix paketda bog'liqliklarni boshqarish."
+order: 3
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/packaging/first-package"
+learning_objectives:
+  - "buildInputs vs nativeBuildInputs"
+  - "propagatedBuildInputs nima"
+tags: ["nixos", "packaging", "dependencies"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nixpkgs Manual — Build inputs"
+    url: "https://nixos.org/manual/nixpkgs/stable/#ssec-stdenv-dependencies-reference"
+---
+
+Paket boshqa paketlarga bog'liq bo'lishi mumkin. Nix bog'liqlik turlarini farqlaydi.[¹](https://nixos.org/manual/nixpkgs/stable/#ssec-stdenv-dependencies-reference)
+
+## 1. Asosiy turlar
+
+| Tur | Maqsad | Misol |
+|---|---|---|
+| `nativeBuildInputs` | Build vaqtida kerak, runtime'da emas | `cmake`, `pkg-config`, `make` |
+| `buildInputs` | Build vaqtida + linklash | `openssl`, `zlib` |
+| `propagatedBuildInputs` | Build + paketning foydalanuvchilariga ham uzatiladi | `python` libraries |
+| `checkInputs` | Testlar uchun (faqat `doCheck = true`) | `pytest` |
+
+## 2. Misol
+
+```nix
+{ stdenv, fetchurl, cmake, pkg-config, openssl, zlib }:
+
+stdenv.mkDerivation {
+  pname = "myapp";
+  version = "1.0";
+
+  src = fetchurl { /* ... */ };
+
+  nativeBuildInputs = [ cmake pkg-config ];
+  buildInputs = [ openssl zlib ];
+}
+```
+
+- `cmake` build vaqtida — natija binary'siga kerak emas.
+- `openssl` linklanadi — runtime'da kerak.
+
+## 3. Native vs build
+
+**Cross-compilation** uchun farq muhim:
+
+- `nativeBuildInputs` — **build mashinasida** (host architecture).
+- `buildInputs` — **target mashinasida** (cross-compile uchun).
+
+Standart build'da farq sezilmaydi.
+
+## 4. propagatedBuildInputs
+
+Agar siz Python kutubxonasi paket qilsangiz va u boshqa kutubxonalarga muhtoj bo'lsa — `propagatedBuildInputs` orqali ular sizning paketingizdan foydalanuvchilariga ham uzatiladi:
+
+```nix
+python3Packages.buildPythonPackage {
+  pname = "mylib";
+  version = "1.0";
+
+  propagatedBuildInputs = with python3Packages; [
+    requests numpy
+  ];
+}
+```
+
+## 5. Mashq
+
+`hello` paketni `openssl` bilan birga build qiling (sun'iy misol):
+
+```nix
+{ stdenv, fetchurl, openssl }:
+
+stdenv.mkDerivation {
+  pname = "myhello";
+  version = "1.0";
+  src = ./.;
+  buildInputs = [ openssl ];
+  buildPhase = "echo 'using openssl'";
+  installPhase = "mkdir -p $out && echo done > $out/done";
+}
+```
+
+## 6. Bilim sinovi
+
+**Savol 1.** `pkg-config` qaysi guruhga?
+
+- a) `buildInputs`
+- b) `nativeBuildInputs`
+- c) `propagatedBuildInputs`
+- d) `checkInputs`
+
+<Callout type="success" title="Javob">
+**(b)** `pkg-config` build vaqtida ishlatiladigan vositadir, runtime'da emas.[¹](https://nixos.org/manual/nixpkgs/stable/#ssec-stdenv-dependencies-reference)
+</Callout>
+
+## Manbalar
+
+1. Nixpkgs Manual — Build inputs. [https://nixos.org/manual/nixpkgs/stable/#ssec-stdenv-dependencies-reference](https://nixos.org/manual/nixpkgs/stable/#ssec-stdenv-dependencies-reference)
+
+## Keyingi qadam
+
+👉 [Paketlarni topish](/nixos/packaging/finding-packages)

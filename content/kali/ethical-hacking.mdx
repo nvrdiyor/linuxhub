@@ -1,0 +1,228 @@
+---
+title: "Etik hacking asoslari"
+description: "Penetration testing va xavfsizlik tahlilining qonuniy va axloqiy chegaralari — rasmiy ruxsat, hisobot va Uzbekistan qonuni."
+order: 2
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/kali/introduction"
+learning_objectives:
+  - "Etik hacking va noqonuniy harakat farqini bilish"
+  - "Penetration testing jarayonining axloqiy va qonuniy talablarini izohlash"
+  - "Test boshlashdan oldin nima kerakligini bilish"
+tags: ["kali", "ethics", "law", "pentesting"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Kali Docs — Policy"
+    url: "https://www.kali.org/docs/policy/"
+  - title: "EC-Council — Code of Ethics"
+    url: "https://www.eccouncil.org/code-of-ethics/"
+  - title: "PTES — Penetration Testing Execution Standard"
+    url: "http://www.pentest-standard.org/"
+---
+
+<Callout type="danger" title="Eng muhim qoida">
+Sizga **yozma ruxsat** berilmagan har qanday tizimga kirish — qonun bo'yicha jinoiy harakat. Bu Uzbekistan Jinoyat kodeksi va boshqa hamma davlatlarning qonunlarida nazarda tutilgan.
+
+Kali Linux'dagi har bir vosita — bu **professional vosita**. Uni shaxsiy maqsadda, ruxsatsiz ishlatish — texnik vositaning ostida turgan jamiyat shartnomasini buzish.
+</Callout>
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Etik hacking ta'rifi va shartlari.
+- Yozma ruxsat (Statement of Work).
+- Test doirasi (scope).
+- Hisobot va javobgarlik.
+</Callout>
+
+## 1. Etik hacking nima?
+
+Etik hacking (penetration testing, pentest) — **mijozning yozma ruxsati bilan** ularning tizimida zaifliklarni topish va xabar berish jarayoni. Maqsad — zaifliklarni hujumchilarga **qadar** topish va tuzatish.
+
+Asosiy shartlar:
+
+1. **Yozma ruxsat (kontract)** — har qanday test boshlashdan oldin.
+2. **Aniq doira (scope)** — qaysi tizimlar, qachon, qaysi metodlar.
+3. **Hech qanday zarar yetkazmaslik** — production tizimga jiddiy ta'sir qilmaslik.
+4. **Topilgan zaifliklarni xabar berish** — mijozga to'liq hisobot.
+5. **Maxfiylik** — natijalar maxfiy.
+
+## 2. Penetration testing standartlari
+
+Industriyada keng tan olingan standartlar:
+
+- **PTES** (Penetration Testing Execution Standard) — [pentest-standard.org](http://www.pentest-standard.org/)
+- **OWASP Testing Guide** — [owasp.org](https://owasp.org/www-project-web-security-testing-guide/)
+- **OSSTMM** (Open Source Security Testing Methodology Manual)
+- **NIST SP 800-115** (Technical Guide to Information Security Testing)
+
+## 3. Pentest jarayoni — PTES bosqichlari
+
+```
+1. Pre-engagement — kontract, doira, ruxsat
+2. Intelligence Gathering — ochiq ma'lumotlardan tadqiq
+3. Threat Modeling — hujum stsenariylarini ishlab chiqish
+4. Vulnerability Analysis — zaifliklarni topish
+5. Exploitation — zaiflikni amalda sinash
+6. Post Exploitation — ta'sir doirasini baholash
+7. Reporting — to'liq hisobot va tavsiyalar
+```
+
+## 4. Yozma ruxsat (SoW — Statement of Work)
+
+Hech qachon yozma ruxsatsiz ishni boshlamang. Hujjat quyidagilarni o'z ichiga olishi kerak:
+
+- **Atroflicha tasdiqlangan tizimlar ro'yxati** — IP'lar, domain'lar, ilovalar.
+- **Test vaqti oralig'i** — kunlar va soatlar.
+- **Ruxsat etilgan metodlar** — masalan, "DoS ruxsat etilmaydi", "Faqat test muhitida".
+- **Aloqa nuqtasi** — agar muammo yuzaga kelsa, kim bilan bog'lanish.
+- **Hisobot formati va muddat** — qachon va qanday yetkazish.
+- **Konfidensiyallik bandi** (NDA).
+- **Imzo** — mijoz va pentester.
+
+<Callout type="warning">
+Ruxsatni elektron pochta orqali yoki messenger orqali olish **yetarli emas**. Imzolangan rasmiy hujjat kerak.
+</Callout>
+
+## 5. Doira (Scope)
+
+Test doirasi aniq belgilanishi kerak. Misol:
+
+```
+IN-SCOPE:
+- example.com va uning sub-domainlari (*.example.com)
+- Test muhitidagi IP diapazoni: 10.0.5.0/24
+- Mobil ilova: ExampleApp v2.5
+
+OUT-OF-SCOPE:
+- Production ma'lumot bazasi
+- Mijozlar IP manzillari
+- Uchinchi tomon xizmatlari (Stripe, AWS)
+
+METODLAR:
+- Allowed: vulnerability scanning, manual testing, social engineering (faqat ichki email orqali)
+- Not allowed: DoS/DDoS, ransomware sinov, ish vaqtida (9-17)
+```
+
+## 6. Qonuniy javobgarlik
+
+### Uzbekistan
+
+O'zbekiston Jinoyat kodeksining tegishli moddalari kompyuter axborotlariga noqonuniy kirish, tarqatish va o'zgartirishni jazolaydi.
+
+### Xalqaro
+
+- **AQSh:** Computer Fraud and Abuse Act (CFAA).
+- **Yevropa:** Cybercrime Convention va GDPR.
+- **Birlashgan Qirollik:** Computer Misuse Act 1990.
+
+**Yozma ruxsatsiz har qanday test — jinoiy javobgarlik.** Hatto "men yaxshilik niyatida qildim" deyish himoya bo'lmaydi.
+
+## 7. Hisobot
+
+Pentest hisoboti odatda quyidagi bo'limlarni o'z ichiga oladi:
+
+1. **Executive Summary** — mijoz rahbariyati uchun, texnik bo'lmagan til.
+2. **Methodology** — qaysi standart va vositalar ishlatildi.
+3. **Findings** — har bir zaiflik, jiddiylik darajasi (Critical, High, Medium, Low), texnik tafsilot va isbot.
+4. **Risk Assessment** — biznes uchun ta'sir.
+5. **Recommendations** — qanday tuzatish kerak.
+6. **Appendix** — qo'shimcha texnik ma'lumot.
+
+### Jiddiylik darajalari (CVSS asosida)
+
+| Daraja | Misol |
+|---|---|
+| **Critical** (9-10) | Remote code execution, ma'lumot bazasi to'liq buzilishi |
+| **High** (7-8.9) | Privilege escalation, asosiy ma'lumotning oshkor bo'lishi |
+| **Medium** (4-6.9) | XSS, IDOR, weak authentication |
+| **Low** (0.1-3.9) | Information disclosure, weak ciphers |
+
+## 8. Axloqiy kodeks
+
+Etik haker quyidagilarga sodiq bo'lishi kerak:
+
+1. **Yozma ruxsatsiz hech qachon test qilmaslik.**
+2. **Topilgan zaifliklarni faqat mijozga xabar berish** — public disclosure faqat mijoz roziligi va tuzatishdan keyin.
+3. **Mijoz ma'lumotini chetdan o'tkazmaslik** — production ma'lumot bilan ko'chmaslik.
+4. **Test natijalarini sotmaslik / shantaj uchun ishlatmaslik.**
+5. **Uchinchi tomonlarga zarar yetkazmaslik** — test mijoz tizimida bo'lishi va ularning mijozlariga ta'sir qilmasligi kerak.
+
+Profesional sertifikatlar (OSCP, CEH, CISSP) — kodeksni qabul qilishni talab qiladi.
+
+## 9. Bug bounty — etik hacking'ning ochiq formati
+
+Ko'p kompaniyalar **bug bounty** dasturlari yuritadi: ochiq taklif — siz ularning tizimida zaifliklarni topib hisobot bersangiz, mukofot olasiz.
+
+Platformalar:
+
+- **HackerOne** ([hackerone.com](https://www.hackerone.com/))
+- **Bugcrowd** ([bugcrowd.com](https://www.bugcrowd.com/))
+- **Intigriti**
+- **YesWeHack**
+
+Bug bounty — etik hackingning rasmiy va qonuniy yo'li. Har bir dasturning o'z qoidalari bor (in-scope/out-of-scope).
+
+## 10. Amaliy yo'l
+
+Etik haker bo'lmoqchi bo'lganlar uchun ehtiyotkor yo'l:
+
+1. **Asosiy Linux va tarmoqlarni o'rganing** — Ubuntu, Debian, networking, ssh.
+2. **Web texnologiyalarini tushuning** — HTTP, HTML, JavaScript, SQL.
+3. **OWASP Top 10** — eng tez-tez uchraydigan veb-zaifliklar.
+4. **Public CTF (Capture The Flag) o'yinlari** — [HackTheBox](https://www.hackthebox.com/), [TryHackMe](https://tryhackme.com/), [PicoCTF](https://picoctf.org/) — qonuniy va xavfsiz muhitda mashq.
+5. **O'z lab'ingiz** — virtual mashinalar bilan o'z tarmog'ingizda mashq.
+6. **Sertifikat:** OSCP, eJPT, PNPT.
+7. **Bug bounty** — kichik dasturlardan boshlash.
+
+## 11. Bilim sinovi
+
+**Savol 1.** Kompyuter tizimida zaiflikni topish uchun nima kerak?
+
+- a) Hech narsa, agar siz "yaxshi niyat" bilan qilsangiz
+- b) Yozma ruxsat
+- c) Faqat mijozga keyinroq xabar berish
+- d) Faqat sertifikat
+
+<Callout type="success" title="Javob">
+**(b)** Yozma ruxsat — boshqacha hamma narsa qonunan jinoiy harakat.
+</Callout>
+
+**Savol 2.** Bug bounty nima?
+
+- a) Noqonuniy hacking
+- b) Kompaniyaning rasmiy taklifi — zaifliklarni topib mukofot olish
+- c) Pentest sinovi
+- d) Sertifikat
+
+<Callout type="success" title="Javob">
+**(b)** HackerOne, Bugcrowd kabi platformalar orqali kompaniyalar ochiq taklif beradi.
+</Callout>
+
+**Savol 3.** Pentest jarayonining birinchi bosqichi qaysi?
+
+- a) Exploitation
+- b) Pre-engagement (ruxsat, doira)
+- c) Vulnerability scanning
+- d) Reporting
+
+<Callout type="success" title="Javob">
+**(b)** PTES bo'yicha — Pre-engagement.[³](http://www.pentest-standard.org/)
+</Callout>
+
+## 12. Mashq
+
+1. [PTES](http://www.pentest-standard.org/) sahifasini oching. 7 ta bosqichdan qaysilari sizga eng tushunarli, qaysilarini ko'proq o'rganish kerak?
+2. [HackTheBox Academy](https://academy.hackthebox.com/) yoki [TryHackMe](https://tryhackme.com/) ga ro'yxatdan o'ting. Ulardagi bepul kursni boshlang.
+3. Bug bounty platformalardan birini ko'ring ([HackerOne](https://www.hackerone.com/)). 1-2 ta dasturning scope sahifasini o'qing. Qaysi metodlar ruxsat berilgan?
+
+## Manbalar
+
+1. Kali Docs — Policy. [https://www.kali.org/docs/policy/](https://www.kali.org/docs/policy/)
+2. EC-Council — Code of Ethics. [https://www.eccouncil.org/code-of-ethics/](https://www.eccouncil.org/code-of-ethics/)
+3. PTES. [http://www.pentest-standard.org/](http://www.pentest-standard.org/)
+4. OWASP Testing Guide. [https://owasp.org/www-project-web-security-testing-guide/](https://owasp.org/www-project-web-security-testing-guide/)
+
+## Keyingi qadam
+
+👉 [Kali tizim talablari](/kali/installation/requirements)

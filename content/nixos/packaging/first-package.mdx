@@ -1,0 +1,107 @@
+---
+title: "Birinchi paketingiz"
+description: "Nixpkgs'ga qo'shish uchun mos bo'lgan minimal Nix paket yozish."
+order: 2
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/packaging/existing-software"
+learning_objectives:
+  - "Minimal paket strukturasi"
+  - "pname, version, src, install"
+tags: ["nixos", "packaging"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Packaging your first package"
+    url: "https://nix.dev/tutorials/packaging-existing-software.html"
+  - title: "Nixpkgs contributing guide"
+    url: "https://github.com/NixOS/nixpkgs/blob/master/CONTRIBUTING.md"
+---
+
+Bu darsda klassik "Hello, World!" misol asosida birinchi Nix paketingizni yozamiz. Misol — `GNU Hello`.[¹](https://nix.dev/tutorials/packaging-existing-software.html)
+
+## 1. Paket fayli
+
+`hello.nix`:
+
+```nix
+{ stdenv, fetchurl }:
+
+stdenv.mkDerivation rec {
+  pname = "hello";
+  version = "2.12.1";
+
+  src = fetchurl {
+    url = "mirror://gnu/hello/hello-${version}.tar.gz";
+    sha256 = "sha256-jZkUKv2SV28wsM18tCqNxoCZmLxdYH2Idh9RLibH2yA=";
+  };
+
+  meta = {
+    description = "GNU Hello, a classic example program";
+    homepage = "https://www.gnu.org/software/hello/";
+    license = stdenv.lib.licenses.gpl3Plus;
+  };
+}
+```
+
+`stdenv.mkDerivation` standart C dasturi uchun `./configure && make && make install` ni avtomatik bajaradi.
+
+## 2. Build qilish
+
+```bash
+nix-build -E 'with import <nixpkgs> {}; callPackage ./hello.nix {}'
+```
+
+So'ng:
+
+```bash
+./result/bin/hello
+# Hello, world!
+```
+
+## 3. `meta` maydoni
+
+| Maydon | Maqsad |
+|---|---|
+| `description` | Qisqa tavsif |
+| `longDescription` | To'liq tavsif |
+| `homepage` | Sayt |
+| `license` | Litsenziya (`stdenv.lib.licenses.<...>`) |
+| `maintainers` | Qo'llab-quvvatlovchilar |
+| `platforms` | Qaysi platformalar |
+
+## 4. Nixpkgs'ga qo'shish
+
+1. [github.com/NixOS/nixpkgs](https://github.com/NixOS/nixpkgs) ni fork.
+2. `pkgs/applications/<kategoriya>/<paket>/default.nix` da yozish.
+3. `pkgs/top-level/all-packages.nix` ga ro'yxatga olish.
+4. PR yuborish.
+
+Batafsil — [Nixpkgs CONTRIBUTING.md](https://github.com/NixOS/nixpkgs/blob/master/CONTRIBUTING.md).
+
+## 5. Mashq
+
+`hello.nix` ni yarating va build qiling. Natija `./result/bin/hello` ishlaydimi?
+
+## 6. Bilim sinovi
+
+**Savol 1.** `stdenv.mkDerivation` default'da qaysi phases'ni biladi?
+
+- a) Faqat install
+- b) unpackPhase, configurePhase, buildPhase, installPhase
+- c) Faqat build
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** Standart C/C++ autoconf/make ish jarayoni avtomatik bajariladi.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Packaging. [https://nix.dev/tutorials/packaging-existing-software.html](https://nix.dev/tutorials/packaging-existing-software.html)
+2. Nixpkgs contributing. [https://github.com/NixOS/nixpkgs/blob/master/CONTRIBUTING.md](https://github.com/NixOS/nixpkgs/blob/master/CONTRIBUTING.md)
+
+## Keyingi qadam
+
+👉 [Bog'liqliklar bilan paket](/nixos/packaging/dependencies)

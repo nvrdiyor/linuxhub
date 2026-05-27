@@ -1,0 +1,107 @@
+---
+title: "Modul tizimiga kirish"
+description: "NixOS modul tizimi — opsiyalar, sozlamalar va aralashtirish."
+order: 1
+level: "advanced"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/nix-language/derivations"
+learning_objectives:
+  - "Module tushunchasi"
+  - "`options` va `config`"
+  - "Modullar qanday birlashadi"
+tags: ["nixos", "modules"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Module system"
+    url: "https://nix.dev/tutorials/module-system/"
+  - title: "NixOS Manual — Writing modules"
+    url: "https://nixos.org/manual/nixos/stable/#sec-writing-modules"
+---
+
+NixOS modul tizimi — `configuration.nix` ning ostida turuvchi mexanizm. Har bir modul — `{ options, config }` taqdim etadi va boshqalar bilan **avtomatik birlashadi**.[¹](https://nix.dev/tutorials/module-system/)
+
+## 1. Modul nima?
+
+Module — Nix funksiyasi:
+
+```nix
+{ config, lib, pkgs, ... }:
+
+{
+  options = {
+    # Bu modul qaysi opsiyalarni qo'shadi
+  };
+
+  config = {
+    # Bu modul opsiyalarni qanday qiymatlar bilan to'ldiradi
+  };
+}
+```
+
+## 2. Eng oddiy misol
+
+```nix
+{ config, lib, pkgs, ... }:
+
+{
+  options.services.myapp = {
+    enable = lib.mkEnableOption "myapp service";
+    port = lib.mkOption {
+      type = lib.types.port;
+      default = 8080;
+      description = "Port to listen on";
+    };
+  };
+
+  config = lib.mkIf config.services.myapp.enable {
+    systemd.services.myapp = {
+      description = "My App";
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig.ExecStart = "${pkgs.myapp}/bin/myapp --port ${toString config.services.myapp.port}";
+    };
+  };
+}
+```
+
+So'ng `configuration.nix` da:
+
+```nix
+services.myapp = {
+  enable = true;
+  port = 9000;
+};
+```
+
+## 3. Modullar birlashishi
+
+NixOS bir nechta modulni birlashtiradi:
+
+- Default — `/etc/nixos/configuration.nix`.
+- `imports = [ ./modul1.nix ./modul2.nix ];` — qo'shimcha.
+- Nixpkgs modullari (`nixos/modules/`) — barcha standart.
+
+Ulardagi `config` o'zaro birlashadi (`mkIf`, `mkDefault`, `mkForce` orqali).
+
+## 4. Bilim sinovi
+
+**Savol 1.** Modulning ikki asosiy qismi:
+
+- a) `imports` va `exports`
+- b) `options` va `config`
+- c) `enable` va `disable`
+- d) `input` va `output`
+
+<Callout type="success" title="Javob">
+**(b)** `options` — modul qo'shadigan; `config` — qiymatlar.[¹](https://nix.dev/tutorials/module-system/)
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Module system. [https://nix.dev/tutorials/module-system/](https://nix.dev/tutorials/module-system/)
+2. NixOS Manual — Writing modules. [https://nixos.org/manual/nixos/stable/#sec-writing-modules](https://nixos.org/manual/nixos/stable/#sec-writing-modules)
+
+## Keyingi qadam
+
+👉 [Modullar yozish](/nixos/module-system/writing-modules)

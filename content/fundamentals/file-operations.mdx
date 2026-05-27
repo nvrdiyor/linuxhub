@@ -1,0 +1,374 @@
+---
+title: "Fayl operatsiyalari"
+description: "Fayl va kataloglarni yaratish, nusxalash, ko'chirish, o'chirish, qidirish va arxivlash — kundalik Linux ishi uchun zarur amaliy buyruqlar."
+order: 3
+level: "beginner"
+estimated_minutes: 7
+prerequisites:
+  - "/fundamentals/terminal"
+  - "/fundamentals/basic-commands"
+learning_objectives:
+  - "Fayllarni yaratish, ko'chirish, nusxalash va o'chirish"
+  - "Qidirish: `find` va `locate` farqi"
+  - "Arxivlash: tar, gzip, zip bilan ishlash"
+  - "Havolalar: hard va symbolic linklar"
+tags: ["beginner", "files", "find", "tar", "gnu-coreutils"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU coreutils manual"
+    url: "https://www.gnu.org/software/coreutils/manual/coreutils.html"
+  - title: "GNU findutils — find(1)"
+    url: "https://www.gnu.org/software/findutils/manual/html_mono/find.html"
+  - title: "GNU tar manual"
+    url: "https://www.gnu.org/software/tar/manual/tar.html"
+---
+
+Linuxda kundalik ishning katta qismi fayl operatsiyalari — yaratish, ko'chirish, qidirish, arxivlash. Bu darsda eng zarur buyruqlarni o'rganamiz, manba sifatida GNU coreutils va findutils rasmiy hujjatlarini ishlatamiz.[¹](https://www.gnu.org/software/coreutils/manual/coreutils.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Fayl yaratish, nusxalash, ko'chirish, o'chirish (`touch`, `cp`, `mv`, `rm`).
+- Katalog operatsiyalari: `mkdir`, `rmdir`.
+- Qidirish: `find` va `locate`.
+- Arxivlash: `tar`, `gzip`, `zip`.
+- Havolalar: hard va symbolic linklar.
+</Callout>
+
+## 1. Fayl yaratish
+
+```bash
+# Bo'sh fayl yaratish (yoki vaqt belgisini yangilash)
+touch fayl.txt
+
+# Bir nechta fayl bir yo'la
+touch fayl1.txt fayl2.txt fayl3.txt
+
+# `echo` orqali matn bilan
+echo "Salom dunyo" > salom.txt
+
+# Yopiq qator (append)
+echo "Yangi qator" >> salom.txt
+```
+
+## 2. Nusxalash — `cp`
+
+```bash
+# Faylni nusxalash
+cp fayl.txt nusxa.txt
+
+# Boshqa katalogga
+cp fayl.txt /tmp/
+
+# Yangi nom bilan boshqa katalogda
+cp fayl.txt /tmp/yangi.txt
+
+# Katalogni rekursiv nusxalash (-r)
+cp -r papka1/ papka2/
+
+# Saqlash bilan — atributlarni saqlash (sana, ruxsatlar)
+cp -p fayl.txt nusxa.txt
+
+# Verbose — har bir nusxani ko'rsatish
+cp -v fayl.txt nusxa.txt
+
+# Mavjud faylni qayta yozishdan oldin so'rash
+cp -i fayl.txt nusxa.txt
+```
+
+## 3. Ko'chirish va nomini o'zgartirish — `mv`
+
+`mv` ham ko'chirish, ham nomini o'zgartirish uchun:
+
+```bash
+# Nomini o'zgartirish
+mv eski.txt yangi.txt
+
+# Boshqa katalogga ko'chirish
+mv fayl.txt /tmp/
+
+# Bir nechta faylni ko'chirish
+mv fayl1.txt fayl2.txt /tmp/
+
+# Ehtiyot bo'lib (-i, interactive)
+mv -i fayl.txt /tmp/
+```
+
+## 4. O'chirish — `rm`
+
+<Callout type="warning">
+`rm` — chiqarib bo'lmaydigan operatsiya. Trash/Recycle Bin'ga emas, **butunlay o'chiriladi.**
+</Callout>
+
+```bash
+# Bitta fayl
+rm fayl.txt
+
+# Bir nechta
+rm fayl1.txt fayl2.txt
+
+# Interaktiv (har birini so'rash)
+rm -i *.tmp
+
+# Bo'sh katalog
+rmdir bo'sh-papka
+
+# Katalog ichidagi hammasi bilan (-r)
+rm -r papka/
+
+# Majburiy (savolsiz) + rekursiv
+rm -rf papka/
+```
+
+<Callout type="danger">
+**Hech qachon `sudo rm -rf /` yoki `rm -rf ./*` ni ehtiyot bo'lmasdan ishlatmang.** Birinchisi tizimni butunlay yo'q qiladi, ikkinchisi joriy katalogni tozalaydi.
+</Callout>
+
+## 5. Katalog operatsiyalari — `mkdir`, `rmdir`
+
+```bash
+# Yangi katalog
+mkdir yangi
+
+# Bir nechta darajali ko'p katalog yaratish (-p)
+mkdir -p loyihalar/2026/yanvar
+
+# Bo'sh katalogni o'chirish
+rmdir bo'sh
+
+# Toza bo'lmagan katalog uchun
+rm -r katalog
+```
+
+## 6. Qidirish — `find`
+
+`find` real vaqtda fayl tizimini kezadi. Eng kuchli vosita.[²](https://www.gnu.org/software/findutils/manual/html_mono/find.html)
+
+```bash
+# Joriy katalogda nomga ko'ra
+find . -name "*.txt"
+
+# Aniq joydan
+find /var/log -name "*.log"
+
+# Faqat fayllar (-type f) yoki kataloglar (-type d)
+find /home -type d -name "loyiha*"
+
+# Hajm bo'yicha (10 MBdan katta)
+find / -size +10M -type f
+
+# Egasiga ko'ra
+find /home -user ali
+
+# Oxirgi 7 kun ichida o'zgartirilgan
+find . -mtime -7
+
+# Topilgan fayllar uchun amaliyot
+find . -name "*.tmp" -delete
+
+# Yoki har biri uchun buyruq bajarish
+find . -name "*.log" -exec gzip {} \;
+```
+
+## 7. Qidirish — `locate` (tezroq, lekin DB asosida)
+
+```bash
+# O'rnatish
+sudo apt install plocate     # yoki: mlocate
+
+# Ma'lumotlar bazasini yangilash
+sudo updatedb
+
+# Qidirish
+locate firefox
+locate -i config            # case-insensitive
+```
+
+`locate` `find`'dan **ancha tez**, lekin u oldindan tayyorlangan ma'lumotlar bazasidan o'qiydi (har kun `updatedb` orqali yangilanadi). Yangi fayllarni topmasligi mumkin.
+
+## 8. Arxivlash — `tar`
+
+`tar` (Tape ARchive) — bir nechta faylni bitta arxivga to'plash. Siqish odatda `gzip` yoki `xz` bilan kombinatsiya qilinadi.[³](https://www.gnu.org/software/tar/manual/tar.html)
+
+```bash
+# Arxiv yaratish (faqat to'plash, siqishsiz)
+tar -cf arxiv.tar papka/
+
+# .tar.gz (gzip bilan siqilgan)
+tar -czf arxiv.tar.gz papka/
+
+# .tar.xz (xz bilan — kichikroq)
+tar -cJf arxiv.tar.xz papka/
+
+# Ochish
+tar -xf arxiv.tar
+tar -xzf arxiv.tar.gz
+tar -xJf arxiv.tar.xz
+
+# Boshqa katalogga ochish
+tar -xzf arxiv.tar.gz -C /tmp/
+
+# Arxiv ichini ko'rish (ochmasdan)
+tar -tzf arxiv.tar.gz
+
+# Verbose (har bir faylni ko'rsatish)
+tar -czvf arxiv.tar.gz papka/
+```
+
+**`tar` flag'lari:**
+
+| Flag | Ma'no |
+|---|---|
+| `-c` | **C**reate — yaratish |
+| `-x` | E**x**tract — ochish |
+| `-t` | **T**est/list — ro'yxat |
+| `-f` | **F**ile — fayl nomi keladi |
+| `-z` | g**z**ip bilan siqish |
+| `-j` | b**z**ip2 bilan siqish |
+| `-J` | xz bilan siqish |
+| `-v` | **V**erbose — chiqishni ko'rsatish |
+
+## 9. ZIP — Windows uyg'unligi
+
+```bash
+# O'rnatish
+sudo apt install zip unzip
+
+# Arxiv yaratish
+zip -r arxiv.zip papka/
+
+# Ochish
+unzip arxiv.zip
+
+# Ichini ko'rish
+unzip -l arxiv.zip
+```
+
+## 10. Havolalar — Hard va Symbolic Link
+
+```bash
+# Symbolic link (-s) — Windows shortcut kabi
+ln -s /etc/hosts ~/hosts-link
+
+# Hard link — bir xil faylga ikkinchi nom
+ln /etc/hosts ~/hosts-hard-link
+
+# Havola ekanligini ko'rish
+ls -la ~/hosts-link
+# lrwxrwxrwx 1 ali ali 10 May 26 12:00 hosts-link -> /etc/hosts
+```
+
+| | Symbolic link | Hard link |
+|---|---|---|
+| Original o'chirilsa | Buziladi | Ishlaydi (chunki bir xil ma'lumot) |
+| Katalog uchun ishlaydimi | Ha | Yo'q (faqat fayl) |
+| Boshqa diskka | Ha | Yo'q (faqat bir xil fayl tizimida) |
+| Eng ko'p ishlatiladi | Sozlama fayllari | Backup tizimlari |
+
+## 11. Amaliy misol
+
+Loyiha katalogini yaratish, fayllar bilan to'ldirish, arxivlash:
+
+```bash
+# Yaratish
+mkdir -p ~/loyihalar/saytim/{html,css,js}
+
+# Faqat fayllar
+touch ~/loyihalar/saytim/html/index.html
+touch ~/loyihalar/saytim/css/style.css
+touch ~/loyihalar/saytim/js/app.js
+
+# Tekshirish
+tree ~/loyihalar/saytim     # `tree` paketni avval o'rnating
+
+# Arxivlash
+cd ~/loyihalar
+tar -czvf saytim-backup-$(date +%Y%m%d).tar.gz saytim/
+
+# Tekshirish
+tar -tzf saytim-backup-*.tar.gz
+```
+
+## 12. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `touch <fayl>` | Fayl yaratish yoki vaqt belgisini yangilash |
+| `cp <src> <dst>` | Nusxalash |
+| `mv <src> <dst>` | Ko'chirish/nomini o'zgartirish |
+| `rm <fayl>` | O'chirish |
+| `mkdir <kat>` | Katalog yaratish |
+| `rmdir <kat>` | Bo'sh katalogni o'chirish |
+| `find <yo'l> -name <namuna>` | Qidirish |
+| `locate <namuna>` | Tezkor qidirish (DB) |
+| `tar -czf <arxiv> <fayllar>` | tar.gz yaratish |
+| `tar -xzf <arxiv>` | tar.gz ochish |
+| `ln -s <target> <link>` | Symbolic link |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`rm -rf`** ehtiyotsizlik bilan ishlatish — tuzatib bo'lmaydigan o'chirish.
+- **Bo'sh joyli fayl nomlari** — `rm fayl yangi.txt` "fayl" va "yangi.txt" ni alohida hisoblaydi. To'g'risi: `rm "fayl yangi.txt"`.
+- **`mv` overwrites** — `mv` mavjud faylni so'rashsiz qayta yozadi (`-i` bilan oldini olish).
+- **`tar -xzf` o'rniga `unzip`** — `.tar.gz` `.zip` emas. Buyruq mos kelmasligi xatoga olib keladi.
+- **`find` va `locate` farq** — `locate` eski ma'lumotlardan foydalanadi; yangi fayl uchun `find` ishlating.
+
+## 14. Eng yaxshi amaliyot
+
+- **`-i` flag'ni o'rganib qoling** — yangi boshlovchilar uchun `cp -i`, `mv -i`, `rm -i` xavfsizroq.
+- **Backup uchun `cp -a`** — barcha atributlarni (sana, ruxsatlar, havolalar) saqlaydi.
+- **`tar` har doim siqish bilan** — diskda joy va tarmoq tezligi uchun afzal.
+- **Katta fayl o'chirishdan oldin `du -sh`** — hajmni tekshirib oling.
+- **Skriptlarda `find -print0 | xargs -0`** — bo'sh joy va maxsus belgili fayl nomlari uchun xavfsizroq.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Katalogni rekursiv nusxalash uchun qaysi flag?
+
+- a) `-c`
+- b) `-r`
+- c) `-d`
+- d) `-a`
+
+<Callout type="success" title="Javob">
+**(b)** `cp -r <src> <dst>` — rekursiv nusxalash.
+</Callout>
+
+**Savol 2.** Topilgan har bir `.log` faylni o'chirish uchun:
+
+- a) `find . -name "*.log" -rm`
+- b) `find . -name "*.log" -delete`
+- c) `find . -name "*.log" | rm`
+- d) `rm $(find . -name "*.log")`
+
+<Callout type="success" title="Javob">
+**(b)** `find ... -delete` xavfsizroq usul. `(d)` ham ishlaydi lekin bo'sh joyli fayl nomlari uchun muvaffaqiyatsiz bo'ladi.[²](https://www.gnu.org/software/findutils/manual/html_mono/find.html)
+</Callout>
+
+**Savol 3.** `tar -czf arxiv.tar.gz papka/` nima qiladi?
+
+- a) `papka/` ni ochadi
+- b) `papka/` ni gzip bilan siqib arxiv yaratadi
+- c) `papka/` ichidagi fayllarni ko'rsatadi
+- d) `papka/` ni o'chiradi
+
+<Callout type="success" title="Javob">
+**(b)** `-c` create, `-z` gzip, `-f` fayl nomi.[³](https://www.gnu.org/software/tar/manual/tar.html)
+</Callout>
+
+## 16. Mashq
+
+1. `~/test-dir` katalogini yarating va ichida 3 ta `.txt` fayl yarating.
+2. `find ~/test-dir -name "*.txt"` ni bajaring — barcha fayllar ko'rinadimi?
+3. Katalogni `~/test-dir.tar.gz` ga arxivlang.
+4. Arxivni `/tmp/` ga oching va tekshiring.
+5. `ln -s ~/test-dir ~/Desktop/test-link` orqali symbolic link yarating. `ls -la ~/Desktop/test-link` natijasini yozing.
+
+## Manbalar
+
+1. GNU coreutils manual. [https://www.gnu.org/software/coreutils/manual/coreutils.html](https://www.gnu.org/software/coreutils/manual/coreutils.html)
+2. GNU findutils — find(1). [https://www.gnu.org/software/findutils/manual/html_mono/find.html](https://www.gnu.org/software/findutils/manual/html_mono/find.html)
+3. GNU tar manual. [https://www.gnu.org/software/tar/manual/tar.html](https://www.gnu.org/software/tar/manual/tar.html)
+
+## Keyingi qadam
+
+👉 [Matnni qayta ishlash](/fundamentals/text-processing)

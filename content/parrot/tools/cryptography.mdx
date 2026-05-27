@@ -1,0 +1,310 @@
+---
+title: "Kriptografiya asboblari"
+description: "Parrot OS'da fayllarni shifrlash, GPG kalitlari va imzolash, parol boshqaruvi."
+order: 2
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/parrot/introduction"
+learning_objectives:
+  - "GPG kalit yaratish va boshqarish"
+  - "Fayl va xat shifrlash"
+  - "VeraCrypt, KeePassXC asoslari"
+tags: ["parrot", "gpg", "encryption", "veracrypt", "keepass"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GnuPG documentation"
+    url: "https://gnupg.org/documentation/"
+  - title: "VeraCrypt documentation"
+    url: "https://www.veracrypt.fr/en/Documentation.html"
+  - title: "KeePassXC documentation"
+    url: "https://keepassxc.org/docs/"
+---
+
+Kriptografiya — maxfiylik va yaxlitlikni ta'minlashning matematik asosida. Bu darsda Parrot'da kundalik kriptografiya vositalarini ko'rib chiqamiz: GPG, VeraCrypt, KeePassXC.[¹](https://gnupg.org/documentation/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- GPG (GnuPG) bilan kalit boshqaruvi.
+- Fayl va xat shifrlash + imzolash.
+- VeraCrypt — shifrlangan konteynerlar.
+- KeePassXC — parol menejer.
+</Callout>
+
+## 1. GPG (GnuPG) — kalit boshqaruv
+
+GPG — OpenPGP standarti reference implementatsiyasi. Email, fayllar va imzo uchun.
+
+### Kalit yaratish
+
+```bash
+gpg --full-generate-key
+```
+
+So'rovlar:
+
+```
+What kind of key — (1) RSA and RSA (default)
+Key size — 4096
+Key valid for — 2y (2 yil; 0 — never)
+Real name — Ali Valiyev
+Email — ali@example.com
+Passphrase — kuchli parol
+```
+
+### Kalitlar ro'yxati
+
+```bash
+# Public kalitlar
+gpg --list-keys
+
+# Private kalitlar
+gpg --list-secret-keys
+```
+
+### Public kalitni export
+
+```bash
+# Matn formatda
+gpg --armor --export ali@example.com > my-key.asc
+
+# Boshqalarga jo'natish uchun bu fayl xavfsiz
+```
+
+### Boshqaning kalitini import
+
+```bash
+gpg --import their-key.asc
+```
+
+Yoki kalit serverdan:
+
+```bash
+gpg --keyserver hkps://keys.openpgp.org --search-keys someone@example.com
+```
+
+## 2. Fayl shifrlash
+
+### Boshqaning public kalit bilan (asymmetric)
+
+```bash
+# Faylni boshqaga shifrlangan ko'rinishda yuborish
+gpg --encrypt --armor --recipient ali@example.com message.txt
+# message.txt.asc fayli yaratiladi
+```
+
+Faqat ali (uning private kaliti bilan) ochib o'qiy oladi:
+
+```bash
+gpg --decrypt message.txt.asc > message.txt
+```
+
+### Faqat parol bilan (symmetric)
+
+```bash
+gpg --symmetric --armor message.txt
+# Parol so'raladi
+```
+
+Ochish:
+
+```bash
+gpg --decrypt message.txt.asc > message.txt
+# O'sha parol kerak
+```
+
+## 3. Imzolash
+
+Imzo — bu **siz** xabar muallifi ekanligingizning matematik isboti.
+
+```bash
+# Faqat imzo (matn ko'rinmaydi)
+gpg --sign --output message.sig message.txt
+
+# Clear sign (matn + imzo bir faylda, matn o'qiladigan)
+gpg --clearsign message.txt
+# message.txt.asc yaratiladi
+
+# Detached signature (alohida fayl)
+gpg --detach-sign --armor message.txt
+# message.txt.asc — alohida fayl
+```
+
+### Imzoni tekshirish
+
+```bash
+gpg --verify message.txt.asc
+# Yoki detached uchun
+gpg --verify message.txt.asc message.txt
+```
+
+## 4. Email shifrlash
+
+GnuPG bilan birga keladi, lekin email klient kerak:
+
+- **Thunderbird** — Mozilla, OpenPGP qo'llab-quvvatlash default.
+- **Mailvelope** — brauzer plagin (Gmail uchun).
+- **Mutt** — terminal email klient.
+
+Thunderbird:
+
+1. Account Settings → End-To-End Encryption.
+2. Add Key — sizning GPG kalitingiz.
+3. Yangi xat → "Encrypt" tugmasi yoki signature.
+
+## 5. VeraCrypt — shifrlangan konteynerlar
+
+VeraCrypt fayl yoki disk bo'limini shifrlangan **konteyner** sifatida saqlaydi. AES, Twofish, Serpent va boshqa algoritmlar.[²](https://www.veracrypt.fr/en/Documentation.html)
+
+```bash
+# Parrot'da
+sudo apt install veracrypt
+
+# GUI ishga tushirish
+veracrypt
+```
+
+### Yangi konteyner yaratish
+
+1. **Create Volume → Create an encrypted file container.**
+2. **Standard VeraCrypt volume.**
+3. Fayl yo'lini ko'rsating (`~/secret.vc`).
+4. Algoritm: AES (default).
+5. Hajm: 1 GB (yoki kerakcha).
+6. Kuchli parol.
+7. Filesystem: FAT yoki ext4.
+8. **Format** — bir necha daqiqa.
+
+### Mount qilish
+
+1. VeraCrypt'da slot tanlang.
+2. **Select File** → `~/secret.vc`.
+3. **Mount** — parol so'raydi.
+4. `/media/veracrypt1/` ostida ochiladi.
+5. Faylllar bilan ishlang.
+6. **Dismount** — yopiq, shifrlangan.
+
+## 6. KeePassXC — parol menejer
+
+[KeePassXC](https://keepassxc.org/) — cross-platform, offline parol menejer.[³](https://keepassxc.org/docs/)
+
+```bash
+sudo apt install keepassxc
+```
+
+### Database yaratish
+
+1. KeePassXC oching.
+2. **Create new database.**
+3. Master parol — bu yagona eslab qolishingiz kerak bo'lgan parol.
+4. Database fayl: `~/passwords.kdbx`.
+
+### Foydalanish
+
+- Har xizmat uchun yangi entry yarating.
+- Avtomatik kuchli parol generator (`Ctrl+G`).
+- Browser integratsiyasi (Firefox/Chrome plagin).
+- Cloud sync — `Dropbox` yoki `Syncthing` orqali `.kdbx` faylni sinxronlash.
+
+## 7. Disk shifrlash — LUKS
+
+Parrot OS o'rnatish vaqtida "Encrypt system" tanlasangiz, LUKS avtomatik sozlanadi. Mavjud diskni shifrlash:
+
+```bash
+# LUKS bilan formatlash (DISKDAGI HAMMA MA'LUMOT YO'QOLADI)
+sudo cryptsetup luksFormat /dev/sdb1
+
+# Ochish
+sudo cryptsetup luksOpen /dev/sdb1 mysecure
+
+# Filesystem yaratish
+sudo mkfs.ext4 /dev/mapper/mysecure
+
+# Mount
+sudo mount /dev/mapper/mysecure /mnt/secure
+
+# Unmount va yopish
+sudo umount /mnt/secure
+sudo cryptsetup luksClose mysecure
+```
+
+## 8. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `gpg --full-generate-key` | Kalit yaratish |
+| `gpg --list-keys` | Public kalitlar |
+| `gpg --export --armor <email>` | Public kalitni eksport |
+| `gpg --import <fayl>` | Kalitni import |
+| `gpg --encrypt -r <email> <fayl>` | Faylni shifrlash |
+| `gpg --decrypt <fayl>` | Ochish |
+| `gpg --clearsign <fayl>` | Matn + imzo |
+| `gpg --verify <fayl>.asc` | Imzo tekshirish |
+| `veracrypt` | Konteyner GUI |
+| `keepassxc` | Parol menejer GUI |
+| `sudo cryptsetup luksFormat <qurilma>` | LUKS shifrlash |
+
+## 9. Eng tez-tez uchraydigan xatolar
+
+- **Private kalitni nusxalash** — hech kim bilan baham ko'rmang. Faqat sizda bo'lishi kerak.
+- **Passphrase'ni unutish** — kalit yo'qotiladi. Backup oling.
+- **Public kalitni oddiy joyda saqlamaslik** — yo'qotsangiz, boshqalar sizga shifrlangan xat yubora olmaydi.
+- **LUKS shifrlash diskdagi ma'lumotni saqlamaydi** — formatlashdan oldin backup oling.
+- **VeraCrypt parol — qisqa** — brute-force xavfi. 20+ belgi tavsiya.
+
+## 10. Eng yaxshi amaliyot
+
+- **Kalit hajmi 4096 bit** (RSA) yoki Ed25519.
+- **Kalit muddati** — 2-3 yil. Eski kalitni `revoke` qilish va yangisini yaratish.
+- **Kalit serverlarga upload** — `keys.openpgp.org` (zamonaviy, GDPR-uyg'unlashtirilgan).
+- **Backup kalitlarini xavfsiz joyda** — shifrlangan USB, sef.
+- **Master parol — barcha parollarning eng kuchlisi** — 20+ belgi, har joyda boshqa.
+- **MFA + parol menejer** — eng yaxshi himoya.
+
+## 11. Bilim sinovi
+
+**Savol 1.** GPG public va private kalit farqi:
+
+- a) Hech qanday
+- b) Public — boshqalarga, shifrlash uchun; Private — sizda, ochish uchun
+- c) Public faqat Linux'da, Private — Windows'da
+- d) Public bepul, Private pullik
+
+<Callout type="success" title="Javob">
+**(b)** Asymmetric kriptografiya — ikki kalit jufti. Public boshqalarga, Private faqat sizga.[¹](https://gnupg.org/documentation/)
+</Callout>
+
+**Savol 2.** Faylni boshqaga shifrlangan ko'rinishda yuborish uchun:
+
+- a) Sizning private kalitingiz
+- b) Sizning public kalitingiz
+- c) Qabul qiluvchining public kalitiga
+- d) Qabul qiluvchining private kalitiga
+
+<Callout type="success" title="Javob">
+**(c)** Qabul qiluvchining public kaliti bilan shifrlanadi — faqat ularning private kaliti ocha oladi.
+</Callout>
+
+## 12. Mashq
+
+1. `gpg --full-generate-key` orqali test kalit yarating (test email bilan).
+2. Public kalitni eksport qiling: `gpg --armor --export <email> > my-key.asc`.
+3. O'zingizga shifrlangan xat yozing:
+
+   ```bash
+   echo "Bu maxfiy xabar" > secret.txt
+   gpg --encrypt --armor -r <email> secret.txt
+   gpg --decrypt secret.txt.asc
+   ```
+
+4. (Ixtiyoriy) KeePassXC'ni o'rnating va boshlang'ich database yarating. 3-5 ta parol kiriting.
+
+## Manbalar
+
+1. GnuPG documentation. [https://gnupg.org/documentation/](https://gnupg.org/documentation/)
+2. VeraCrypt documentation. [https://www.veracrypt.fr/en/Documentation.html](https://www.veracrypt.fr/en/Documentation.html)
+3. KeePassXC documentation. [https://keepassxc.org/docs/](https://keepassxc.org/docs/)
+
+## Keyingi qadam
+
+👉 [Forensics asboblari](/parrot/tools/forensics)

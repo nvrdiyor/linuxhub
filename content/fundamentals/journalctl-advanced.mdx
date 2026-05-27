@@ -1,0 +1,479 @@
+---
+title: "journalctl ilg'or"
+description: "systemd-journal chuqurroq — filtrlar, formatlar, remote journal va boshqalar."
+order: 133
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/logs"
+learning_objectives:
+  - "Ilg'or journalctl filtrlari"
+  - "Output formatlar (json, cat, short-iso)"
+  - "Remote journal"
+  - "Journal namespace'lar"
+tags: ["intermediate", "journalctl", "systemd", "logs"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "journalctl(1)"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/journalctl.html"
+  - title: "systemd-journald.service(8)"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html"
+---
+
+`journalctl` — systemd-journal'ga interfeys. Avvalgi darslarda asoslarini ko'rdik. Bu darsda chuqurroq — kuchli filtrlar, formatlar, va remote logging.[¹](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Ilg'or qidiruv filtrlari.
+- Output formatlar — JSON, cat va boshqalar.
+- Field bo'yicha qidiruv.
+- Remote journal — markazlashtirilgan logging.
+- Journal namespace'lar.
+</Callout>
+
+## 1. Filtrlash uslublari
+
+### Kombinatsiyalar
+
+```bash
+# Kombinator — AND mantig'i
+journalctl -u nginx --since "1 hour ago" -p err
+
+# Service + boot
+journalctl -u nginx -b
+
+# Aniq boot
+journalctl -u nginx -b -1     # oldingi boot
+journalctl --list-boots       # mavjud bootlar
+
+# Kombinator — OR (bir nechta unit)
+journalctl -u nginx -u php-fpm
+
+# Yoki facility (kernel)
+journalctl -k                 # = --dmesg
+```
+
+### Field filterlari
+
+```bash
+# Aniq foydalanuvchi
+journalctl _UID=1000
+
+# Aniq PID
+journalctl _PID=1234
+
+# Hostname
+journalctl _HOSTNAME=server1
+
+# Aniq binary
+journalctl /usr/bin/sshd
+journalctl _EXE=/usr/bin/sshd
+
+# COMM
+journalctl _COMM=sshd
+
+# Birga
+journalctl _COMM=sshd _PID=1234
+```
+
+Hamma field'lar: `man systemd.journal-fields`.
+
+### Time formatlari
+
+```bash
+journalctl --since today
+journalctl --since "1 hour ago"
+journalctl --since "2026-05-26"
+journalctl --since "2026-05-26 10:00:00"
+journalctl --since yesterday --until "2026-05-26"
+
+# Maxsus
+journalctl --since "30 min ago"
+journalctl --since "2 weeks ago"
+
+# UTC
+journalctl --utc --since "2026-05-26 10:00:00"
+```
+
+### Priority
+
+```bash
+journalctl -p emerg            # 0
+journalctl -p alert            # 1
+journalctl -p crit             # 2
+journalctl -p err              # 3 (va undan yuqori)
+journalctl -p warning          # 4
+journalctl -p notice           # 5
+journalctl -p info             # 6
+journalctl -p debug            # 7
+
+# Diapazon
+journalctl -p warning..err
+```
+
+## 2. Output formatlari
+
+```bash
+# Default
+journalctl -n 10
+
+# Short variant
+journalctl -n 10 -o short              # default
+journalctl -n 10 -o short-iso          # ISO sana
+journalctl -n 10 -o short-iso-precise  # microsecond aniqlikda
+journalctl -n 10 -o short-precise
+journalctl -n 10 -o short-full         # to'liq
+
+# JSON
+journalctl -n 10 -o json
+journalctl -n 10 -o json-pretty
+journalctl -n 10 -o json-sse           # Server-Sent Events
+
+# Faqat xabar
+journalctl -n 10 -o cat
+
+# Verbose (hamma field'lar)
+journalctl -n 10 -o verbose
+
+# Export (export format)
+journalctl -n 10 -o export
+```
+
+### JSON misol — skript uchun
+
+```bash
+journalctl -u nginx --since today -o json | jq '.MESSAGE' | head
+```
+
+## 3. Pager va scripting
+
+```bash
+# Pager'ni o'chirish (skript uchun)
+journalctl --no-pager
+
+# Follow (tail -f)
+journalctl -f
+journalctl -fu nginx
+
+# Output ranglar
+journalctl --no-pager --output=cat
+
+# Skript misol
+journalctl --since "1 hour ago" -p err -o cat | wc -l
+```
+
+## 4. Persistent vs volatile journal
+
+```bash
+# Joriy holat
+journalctl --disk-usage
+
+# Persistent yoqish
+sudo mkdir -p /var/log/journal
+sudo systemd-tmpfiles --create --prefix /var/log/journal
+sudo systemctl restart systemd-journald
+
+# Default — agar /var/log/journal mavjud bo'lsa, persistent
+```
+
+Konfiguratsiya `/etc/systemd/journald.conf`:
+
+```ini
+[Journal]
+Storage=persistent              # persistent / volatile / auto
+SystemMaxUse=2G                 # max disk
+SystemKeepFree=500M             # bo'sh joy
+SystemMaxFileSize=128M          # bitta fayl
+MaxRetentionSec=1month          # eski limit
+Compress=yes
+Seal=yes                        # tamper detection
+ForwardToSyslog=no              # rsyslog'ga ham yubormaslik
+ForwardToKMsg=no
+ForwardToConsole=no
+RateLimitInterval=30s
+RateLimitBurst=1000
+```
+
+```bash
+sudo systemctl restart systemd-journald
+```
+
+## 5. Boot'lar tarixi
+
+```bash
+# Mavjud boot'lar
+journalctl --list-boots
+# IDX BOOT ID                          FIRST ENTRY                  LAST ENTRY
+#  -2 abc...                           2026-05-24 10:00:00          2026-05-25 09:30:00
+#  -1 def...                           2026-05-25 10:00:00          2026-05-26 08:00:00
+#   0 ghi...                           2026-05-26 09:00:00          2026-05-26 12:00:00 (current)
+
+# Aniq boot
+journalctl -b -1                # oldingi
+journalctl -b -2                # ikkita oldingi
+journalctl -b abc-123...        # boot ID bilan
+journalctl -b 0                 # joriy (default)
+```
+
+## 6. Tozalash
+
+```bash
+# Vaqt bo'yicha
+sudo journalctl --vacuum-time=30d
+
+# Hajm bo'yicha
+sudo journalctl --vacuum-size=500M
+
+# Fayl bo'yicha
+sudo journalctl --vacuum-files=10
+
+# Hozirgi holat
+journalctl --disk-usage
+
+# Eski qisqartiriladigan log'lar tartibi
+journalctl --rotate              # log'larni "rotate" — eski faylga ko'chirish
+```
+
+## 7. Journal yaxlitligi va Seal
+
+`Seal=yes` — log'lar uchun cryptographic key bilan tamper detection.
+
+```bash
+sudo journalctl --setup-keys
+# Sealing key yaratiladi
+```
+
+Tashqi audit:
+
+```bash
+sudo journalctl --verify
+# PASS — yaxlitlik OK
+# FAIL — kimdir o'zgartirgan
+```
+
+## 8. Remote journal — markazlashtirish
+
+Ko'p server'dan loglarni markazlashtirish.
+
+### Server (markaziy log saqlash)
+
+```bash
+sudo apt install systemd-journal-remote
+
+# Sozlash
+sudo nano /etc/systemd/journal-remote.conf
+```
+
+```ini
+[Remote]
+ServerKeyFile=/etc/ssl/private/journal-remote.key
+ServerCertificateFile=/etc/ssl/certs/journal-remote.cert
+TrustedCertificateFile=/etc/ssl/ca/trusted.cert
+```
+
+```bash
+sudo systemctl enable --now systemd-journal-remote.socket
+```
+
+### Klient (yuboruvchi)
+
+```bash
+sudo apt install systemd-journal-remote
+
+# Konfiguratsiya
+sudo nano /etc/systemd/journal-upload.conf
+```
+
+```ini
+[Upload]
+URL=https://central-log.example.com:19532
+```
+
+```bash
+sudo systemctl enable --now systemd-journal-upload
+```
+
+## 9. Sender / forwarder
+
+### Syslog forwarder
+
+```ini
+# /etc/systemd/journald.conf
+[Journal]
+ForwardToSyslog=yes
+```
+
+So'ng `rsyslog` (`/var/log/syslog`) yoki boshqa daemon.
+
+### Network syslog
+
+`rsyslog` yoki `syslog-ng` bilan birga ishlatilsin.
+
+## 10. Skript misol — har soat'da log report
+
+```bash
+#!/bin/bash
+# /usr/local/bin/log-report.sh
+
+REPORT_FILE="/var/log/hourly-report.log"
+NOW=$(date)
+
+{
+    echo "=== Log Report: $NOW ==="
+    echo ""
+    echo "--- Errors in last hour ---"
+    journalctl -p err --since "1 hour ago" --no-pager | head -20
+
+    echo ""
+    echo "--- Failed services ---"
+    systemctl --failed --no-pager --no-legend
+
+    echo ""
+    echo "--- Top SSH failed attempts ---"
+    journalctl -u ssh --since "1 hour ago" --no-pager | \
+        grep "Failed password" | \
+        awk '{print $(NF-3)}' | \
+        sort | uniq -c | sort -rn | head -5
+
+    echo "---"
+    echo ""
+} >> "$REPORT_FILE"
+```
+
+systemd-timer bilan har soat'da bajarish.
+
+## 11. Field-based search — `_*`
+
+systemd journal field'lar — `_` (system) va boshqalar.
+
+| Field | Misol |
+|---|---|
+| `_PID` | Process ID |
+| `_UID`, `_GID` | User/Group ID |
+| `_COMM` | Process command |
+| `_EXE` | Executable |
+| `_HOSTNAME` | Hostname |
+| `_BOOT_ID` | Boot ID |
+| `_TRANSPORT` | journal, syslog, kernel, stdout |
+| `_SYSTEMD_UNIT` | systemd unit |
+| `PRIORITY` | Priority |
+| `MESSAGE` | Log xabar |
+| `SYSLOG_FACILITY` | Syslog facility |
+| `SYSLOG_IDENTIFIER` | Tag |
+
+```bash
+# Bir nechta condition
+journalctl _UID=1000 PRIORITY=3 --since today
+
+# Wildcard
+journalctl _SYSTEMD_UNIT=nginx*.service
+```
+
+## 12. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `journalctl -u <unit>` | Aniq unit |
+| `journalctl -f` | Real-time |
+| `journalctl -b [N]` | Boot bo'yicha |
+| `journalctl -p err` | Priority filter |
+| `journalctl --since "1h ago"` | Vaqt filter |
+| `journalctl -o json-pretty` | JSON output |
+| `journalctl _PID=N` | Process bo'yicha |
+| `journalctl --disk-usage` | Hajm |
+| `journalctl --vacuum-time=30d` | Eskilarni o'chirish |
+| `journalctl --list-boots` | Boot tarixi |
+| `journalctl --verify` | Yaxlitlik tekshirish |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`--no-pager`** unutish skriptlarda — `less` ochiladi.
+- **Persistent yoqilmagan** — reboot'dan keyin journal yo'qoladi.
+- **`SystemMaxUse=` yo'q** — journal disk to'ldirib qo'yadi.
+- **Field filter sintaksis** — `_PID=1234` (=) emas `_PID:1234`.
+- **`-u` va `_SYSTEMD_UNIT=`** ikkalasi bir xil — birini ishlatilsin.
+
+## 14. Eng yaxshi amaliyot
+
+- **Persistent yoqing** — debug uchun majburiy.
+- **`SystemMaxUse=`** sozlang — disk to'lib qolish'dan saqlanish.
+- **`--no-pager`** skriptlarda.
+- **JSON output** skript-asoslangan tahlil uchun.
+- **Markazlashtirilgan logging** ko'p server'da.
+- **Seal=yes** xavfsizlik audit uchun.
+- **Periodic vacuum** — `journalctl --vacuum-time=30d`.
+
+## 15. Mashqlar
+
+1. **Disk hajm:** `journalctl --disk-usage` — sizdagi journal hajmi?
+2. **Boots:** `journalctl --list-boots` — nechta boot tarixi?
+3. **Error count:** `journalctl --since today -p err --no-pager | wc -l` — bugun nechta xato?
+4. **JSON:** `journalctl -u ssh -n 5 -o json-pretty` — JSON struktura'siga e'tibor bering.
+5. **Specific user:** `journalctl _UID=$(id -u) --since "1 hour ago"` — sizning user log'laringiz.
+6. **Vacuum test:** `sudo journalctl --vacuum-time=7d` — necha MB tozalandi?
+
+## 16. Bilim sinovi
+
+**Savol 1.** `journalctl -b -1` nima?
+
+- a) Joriy boot
+- b) Oldingi boot (1 ortga)
+- c) Birinchi boot
+- d) Hamma boot
+
+<Callout type="success" title="Javob">
+**(b)** `-b 0` joriy (default), `-1` oldingi.[¹](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
+</Callout>
+
+**Savol 2.** Scripting uchun eng oson format:
+
+- a) Default `short`
+- b) `json` yoki `json-pretty`
+- c) `verbose`
+- d) `cat`
+
+<Callout type="success" title="Javob">
+**(b)** `jq` bilan structured tahlil.
+</Callout>
+
+**Savol 3.** Persistent journal qaysi katalogda?
+
+- a) `/run/log/journal/`
+- b) `/var/log/journal/`
+- c) `/etc/log/`
+- d) `/tmp/journal/`
+
+<Callout type="success" title="Javob">
+**(b)** `/var/log/journal/` mavjud bo'lsa — persistent.
+</Callout>
+
+**Savol 4.** Aniq PID log'larini ko'rish:
+
+- a) `journalctl -p 1234`
+- b) `journalctl _PID=1234`
+- c) `journalctl --pid=1234`
+- d) `journalctl 1234`
+
+<Callout type="success" title="Javob">
+**(b)** Field filter `_PID=`.
+</Callout>
+
+**Savol 5.** Journal hajmni cheklash:
+
+- a) Imkonsiz
+- b) `/etc/systemd/journald.conf` da `SystemMaxUse=`
+- c) `journalctl --max-size`
+- d) Tashqi vosita
+
+<Callout type="success" title="Javob">
+**(b)** Built-in konfiguratsiya.
+</Callout>
+
+## Manbalar
+
+1. journalctl(1). [https://www.freedesktop.org/software/systemd/man/latest/journalctl.html](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
+2. systemd-journald.service(8). [https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html](https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html)
+
+## Keyingi qadam
+
+👉 [Linux distribution package building (deb/rpm)](/fundamentals/package-building)

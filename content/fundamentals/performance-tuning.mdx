@@ -1,0 +1,531 @@
+---
+title: "Performance tuning va kernel sysctl"
+description: "Linux'ni tezlashtirish — sysctl, I/O scheduler, CPU governor, tcp parametrlari va benchmarking."
+order: 124
+level: "advanced"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/monitoring"
+learning_objectives:
+  - "Performance bottleneck topish"
+  - "sysctl orqali yadro parametrlari"
+  - "Network tuning (TCP)"
+  - "I/O va CPU optimizatsiya"
+tags: ["advanced", "performance", "sysctl", "tuning", "kernel"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Linux Kernel sysctl"
+    url: "https://docs.kernel.org/admin-guide/sysctl/"
+  - title: "Brendan Gregg — Linux Performance"
+    url: "https://www.brendangregg.com/linuxperf.html"
+  - title: "Red Hat — Performance Tuning Guide"
+    url: "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/monitoring_and_managing_system_status_and_performance/index"
+---
+
+Performance tuning — sun'iy emas, **o'lchov asosida**. Avval bottleneck'ni topish, keyin to'g'rilash. Bu darsda Linux performance'ni o'rganamiz va asosiy tuning'larni ko'rib chiqamiz.[¹](https://docs.kernel.org/admin-guide/sysctl/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Performance metrikalari va vositalar.
+- `sysctl` bilan yadro parametrlari.
+- TCP tuning.
+- I/O scheduler.
+- CPU governor.
+</Callout>
+
+## 1. Performance metrikalari
+
+USE methodology (Brendan Gregg)[²](https://www.brendangregg.com/linuxperf.html):
+
+- **U** (Utilization) — qancha vaqt band.
+- **S** (Saturation) — overload (queue).
+- **E** (Errors) — xatolar.
+
+Asosiy resurslar:
+
+- CPU
+- Memory
+- Disk I/O
+- Network
+
+## 2. Asosiy vositalar
+
+```bash
+# CPU + jarayonlar
+top
+htop
+atop
+
+# I/O
+iostat -dx 2
+iotop
+
+# Memory
+free -h
+vmstat 1
+
+# Tarmoq
+ss -s            # statistika
+iftop            # bandwidth
+nload
+
+# Sistema umumiy
+sar              # tarixiy (sysstat)
+dstat            # multi-resource
+glances          # GUI-like
+
+# Per-process
+pidstat 1
+strace -p <PID>
+perf stat -p <PID>
+```
+
+## 3. Load average — tushunchasi
+
+```bash
+uptime
+# load average: 0.50, 0.75, 1.10
+```
+
+- 1 min, 5 min, 15 min o'rtacha.
+- Run queue + uninterruptible I/O wait.
+- 1.0 = CPU yadroga teng yuk.
+- 8 yadroli mashinada `load=8.0` — 100% yuk.
+
+`load > CPU_count` — bottleneck.
+
+## 4. `sysctl` — yadro parametrlari
+
+```bash
+# Hozirgi qiymat
+sysctl kernel.hostname
+sysctl vm.swappiness
+
+# Hammasi
+sysctl -a
+
+# Vaqtinchalik o'zgartirish
+sudo sysctl vm.swappiness=10
+
+# Doimiy
+sudo nano /etc/sysctl.d/99-tuning.conf
+```
+
+```
+vm.swappiness=10
+net.ipv4.tcp_fastopen=3
+fs.file-max=2097152
+```
+
+```bash
+# Qo'llash
+sudo sysctl --system
+```
+
+## 5. Memory tuning
+
+```bash
+# Swappiness — qachon swap ishlatish (0=oxirgi chora, 100=tez-tez)
+vm.swappiness=10
+
+# Page cache dirty data limit
+vm.dirty_ratio=20
+vm.dirty_background_ratio=10
+
+# Cache pressure (inodes/dentries vs page cache)
+vm.vfs_cache_pressure=50
+
+# OOM killer xulq-atvori
+vm.overcommit_memory=2     # 0=heuristic, 1=always, 2=strict
+vm.overcommit_ratio=80
+```
+
+## 6. TCP / tarmoq tuning
+
+```
+# Buffer hajmlari (high-throughput uchun)
+net.core.rmem_max=16777216
+net.core.wmem_max=16777216
+net.ipv4.tcp_rmem=4096 87380 16777216
+net.ipv4.tcp_wmem=4096 87380 16777216
+
+# TCP fastopen (3-way handshake'ni tezlatish)
+net.ipv4.tcp_fastopen=3
+
+# BBR congestion control (Google, 2016)
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+
+# Connection tracking
+net.netfilter.nf_conntrack_max=524288
+
+# TIME_WAIT optimallashtirish
+net.ipv4.tcp_tw_reuse=1
+
+# SYN flood himoyasi
+net.ipv4.tcp_syncookies=1
+net.ipv4.tcp_max_syn_backlog=4096
+
+# IP forwarding (router uchun)
+net.ipv4.ip_forward=1
+```
+
+### BBR yoqilganmi tekshirish
+
+```bash
+sysctl net.ipv4.tcp_congestion_control
+# net.ipv4.tcp_congestion_control = cubic   ← default
+
+# BBR yoqish
+echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.d/99-bbr.conf
+echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.d/99-bbr.conf
+sudo sysctl -p /etc/sysctl.d/99-bbr.conf
+```
+
+## 7. File descriptor limit
+
+```bash
+# Joriy
+ulimit -n
+# 1024
+
+# Boshqa user uchun
+sudo -u www-data bash -c 'ulimit -n'
+
+# Tizim limit
+cat /proc/sys/fs/file-max
+sysctl fs.file-max
+
+# Per-user (login session)
+ulimit -n 65536       # vaqtinchalik
+```
+
+Doimiy:
+
+```
+# /etc/security/limits.conf
+*  soft  nofile  65536
+*  hard  nofile  65536
+```
+
+Yoki systemd xizmat:
+
+```ini
+[Service]
+LimitNOFILE=65536
+```
+
+## 8. I/O scheduler
+
+Linux'da disk uchun scheduler:
+
+| Scheduler | Maqsad |
+|---|---|
+| `none` | Multi-queue (NVMe uchun ideal) |
+| `mq-deadline` | Latency-balanced (HDD, SSD uchun yaxshi default) |
+| `bfq` | Desktop interactive (Budget Fair Queueing) |
+| `kyber` | Modern, kichik latency |
+
+```bash
+# Joriy
+cat /sys/block/sda/queue/scheduler
+# noop deadline [cfq]   ← `[ ]` ichida joriy
+
+# O'zgartirish
+echo mq-deadline | sudo tee /sys/block/sda/queue/scheduler
+
+# Doimiy — udev rule
+sudo nano /etc/udev/rules.d/60-ioscheduler.rules
+```
+
+```
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/scheduler}="none"
+```
+
+## 9. CPU governor
+
+```bash
+# Joriy
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# powersave   yoki   performance   yoki   schedutil
+```
+
+Governorlar:
+
+| Governor | Tavsif |
+|---|---|
+| `performance` | Doim max frekansiya |
+| `powersave` | Doim min |
+| `ondemand` | Ehtiyojga qarab |
+| `schedutil` | Scheduler bilan integratsiya (modern default) |
+| `conservative` | Yumshoq ondemand |
+
+```bash
+# CPU governor o'rnatish (vaqtinchalik)
+sudo cpupower frequency-set -g performance
+
+# Doimiy — distributivga bog'liq
+# Debian/Ubuntu — /etc/default/cpufrequtils
+GOVERNOR="performance"
+```
+
+### Laptop'da batareya saqlash
+
+`auto-cpufreq` yoki `TLP` o'rnatish:
+
+```bash
+sudo apt install tlp
+sudo systemctl enable --now tlp
+```
+
+## 10. Disk performance
+
+### `fstrim` — SSD TRIM
+
+```bash
+# Bir martalik
+sudo fstrim -av
+
+# Avtomatik haftalik (systemd timer)
+sudo systemctl enable --now fstrim.timer
+```
+
+### Filesystem mount opsiyalari
+
+```
+# /etc/fstab — SSD uchun
+UUID=...  /  ext4  defaults,noatime,discard,commit=60  0 1
+```
+
+| Opsiya | Maqsad |
+|---|---|
+| `noatime` | Access time yangilamaslik (yozish kamayadi) |
+| `discard` | TRIM avtomatik |
+| `commit=N` | N soniyada metadata commit (default 5) |
+
+## 11. Benchmarking
+
+### CPU
+
+```bash
+sudo apt install sysbench
+
+# CPU prime hisoblash
+sysbench cpu --threads=4 run
+```
+
+### Disk
+
+```bash
+# Sequential write
+sysbench fileio --file-total-size=2G prepare
+sysbench fileio --file-total-size=2G --file-test-mode=seqwr run
+sysbench fileio --file-total-size=2G cleanup
+
+# Yoki dd
+dd if=/dev/zero of=/tmp/test bs=1M count=1024 conv=fdatasync
+# Speed natija
+```
+
+### Network
+
+```bash
+# Server'da
+iperf3 -s
+
+# Klient'da
+iperf3 -c <server-ip>
+```
+
+## 12. Profiling — `perf`
+
+```bash
+sudo apt install linux-tools-common linux-tools-$(uname -r)
+
+# Tizim umumiy
+sudo perf top
+
+# Aniq jarayon
+sudo perf record -p <PID> sleep 30
+sudo perf report
+
+# Top functions
+sudo perf top -p <PID>
+```
+
+## 13. systemd va resurs cheklash
+
+```ini
+[Service]
+ExecStart=/usr/bin/myapp
+
+# CPU
+CPUQuota=50%
+CPUWeight=100
+
+# Memory
+MemoryMax=512M
+MemoryHigh=400M
+
+# I/O
+IOWeight=100
+
+# Limits
+LimitNOFILE=65536
+LimitNPROC=8192
+```
+
+```bash
+systemctl daemon-reload
+systemctl restart myapp
+```
+
+## 14. Tipik tuning misol — high-traffic web server
+
+`/etc/sysctl.d/99-webserver.conf`:
+
+```
+# Tarmoq
+net.core.somaxconn=65535
+net.core.netdev_max_backlog=65535
+net.ipv4.tcp_max_syn_backlog=65535
+net.ipv4.ip_local_port_range=1024 65535
+net.ipv4.tcp_fin_timeout=15
+net.ipv4.tcp_tw_reuse=1
+net.ipv4.tcp_keepalive_time=120
+net.ipv4.tcp_keepalive_intvl=15
+net.ipv4.tcp_keepalive_probes=5
+
+# BBR
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+
+# File descriptors
+fs.file-max=2097152
+
+# Memory
+vm.swappiness=10
+```
+
+`/etc/security/limits.conf`:
+
+```
+www-data  soft  nofile  65536
+www-data  hard  nofile  65536
+```
+
+```bash
+sudo sysctl --system
+```
+
+## 15. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sysctl <param>` | Yadro parametri |
+| `sysctl -w <param>=<value>` | O'zgartirish (vaqtinchalik) |
+| `sysctl --system` | `/etc/sysctl.d/*` qayta yuklash |
+| `ulimit -n` | File descriptor limit |
+| `cpupower frequency-info` | CPU frekansiya |
+| `cat /sys/block/sda/queue/scheduler` | I/O scheduler |
+| `sysbench cpu run` | CPU benchmark |
+| `iperf3 -c <host>` | Tarmoq tezligi |
+| `perf top` | Real-time profiling |
+| `fstrim -av` | SSD TRIM |
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **Tuning'ni o'lchovsiz qilish** — avval `perf`, `sar`, `vmstat` bilan bottleneck'ni toping.
+- **`/etc/sysctl.conf` o'rniga eski fayl** — modern Linux'da `/etc/sysctl.d/*.conf`.
+- **`ulimit` shell darajasida** — systemd xizmatlar uchun `LimitNOFILE=`.
+- **BBR yoqilmagan** — TCP tuning bekor.
+- **SSD'da `discard` bilan birga `fstrim.timer`** — ikkalasi kerak emas.
+- **CPU governor `powersave` server'da** — kechikishni oshiradi.
+
+## 17. Eng yaxshi amaliyot
+
+- **Baseline o'lchov** — tuning'dan oldin.
+- **Bittadan o'zgartirish** — natijani aniq bilish uchun.
+- **Documentation** — har o'zgarish uchun nima va nima uchun.
+- **Production'da test** — staging'da avval.
+- **Monitoring** — Grafana + Prometheus yoki Netdata.
+- **`/etc/sysctl.d/99-custom.conf`** — distributiv yangilanishlardan saqlanish.
+- **`tuned` yoki `ananicy`** — predefined profillar.
+
+## 18. Mashqlar
+
+1. **Joriy holatni o'lchang:** `uptime`, `vmstat 1 5`, `iostat -dx 1 5` — qaysi resurs bo'sh, qaysi band?
+2. **swappiness:** `sysctl vm.swappiness`. Qiymatingiz nima?
+3. **TCP:** `sysctl net.ipv4.tcp_congestion_control` — qaysi algoritm? BBR'ga o'tkazib ko'ring (test bo'lganida).
+4. **I/O scheduler:** `cat /sys/block/<disk>/queue/scheduler` — joriy nima?
+5. **Benchmark:** `sysbench cpu --threads=4 run`. CPU natijasi nima?
+6. **fstrim:** `sudo fstrim -av` — natija bormi?
+
+## 19. Bilim sinovi
+
+**Savol 1.** `sysctl vm.swappiness=10` — bu o'zgarish:
+
+- a) Doimiy
+- b) Vaqtinchalik (reboot'gacha)
+- c) Faqat root uchun
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** Doimiy uchun `/etc/sysctl.d/*.conf`.[¹](https://docs.kernel.org/admin-guide/sysctl/)
+</Callout>
+
+**Savol 2.** BBR — bu...
+
+- a) Browser
+- b) TCP congestion control algoritmi (Google, 2016)
+- c) Backup tizim
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Bottleneck Bandwidth and RTT — yangi va effektiv.
+</Callout>
+
+**Savol 3.** NVMe disk uchun I/O scheduler:
+
+- a) `cfq`
+- b) `none` (multi-queue)
+- c) `bfq`
+- d) `deadline`
+
+<Callout type="success" title="Javob">
+**(b)** NVMe parallel — scheduler oversiy.
+</Callout>
+
+**Savol 4.** `ulimit -n` — bu...
+
+- a) Network limit
+- b) File descriptor (ochiq fayllar) limiti
+- c) Process count
+- d) Memory limit
+
+<Callout type="success" title="Javob">
+**(b)** Bir jarayon ocha oladigan fayl raqami.
+</Callout>
+
+**Savol 5.** CPU governor `performance` qachon:
+
+- a) Hech qachon
+- b) Server uchun (max frekansiya)
+- c) Faqat laptop
+- d) Batareya saqlash
+
+<Callout type="success" title="Javob">
+**(b)** Latency-critical server. Laptop uchun `schedutil` yoki `powersave`.
+</Callout>
+
+## Manbalar
+
+1. Linux Kernel sysctl. [https://docs.kernel.org/admin-guide/sysctl/](https://docs.kernel.org/admin-guide/sysctl/)
+2. Brendan Gregg — Linux Performance. [https://www.brendangregg.com/linuxperf.html](https://www.brendangregg.com/linuxperf.html)
+3. Red Hat — Performance Tuning Guide. [https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/monitoring_and_managing_system_status_and_performance/index](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/monitoring_and_managing_system_status_and_performance/index)
+
+## Keyingi qadam
+
+👉 [SELinux va AppArmor — MAC](/fundamentals/selinux-apparmor)

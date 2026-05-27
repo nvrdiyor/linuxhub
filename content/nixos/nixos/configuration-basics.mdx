@@ -1,0 +1,137 @@
+---
+title: "Konfiguratsiya asoslari"
+description: "/etc/nixos/configuration.nix — NixOS'ning yuragi. Asosiy opsiyalar va `nixos-rebuild`."
+order: 2
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/nixos/introduction"
+learning_objectives:
+  - "configuration.nix tarkibi"
+  - "Tizim paketlari, foydalanuvchilar, xizmatlar"
+  - "`nixos-rebuild` va generatsiyalar"
+tags: ["nixos", "configuration"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Manual — Configuration"
+    url: "https://nixos.org/manual/nixos/stable/#ch-configuration"
+---
+
+`/etc/nixos/configuration.nix` — NixOS'ning butun tizim sozlamasini bayon qiluvchi fayl. Har bir o'zgarish — `nixos-rebuild switch` orqali qo'llaniladi.[¹](https://nixos.org/manual/nixos/stable/#ch-configuration)
+
+## 1. Tipik `configuration.nix`
+
+```nix
+{ config, pkgs, ... }:
+
+{
+  imports = [
+    ./hardware-configuration.nix
+  ];
+
+  # Boot
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  # Tarmoq
+  networking.hostName = "my-nixos";
+  networking.networkmanager.enable = true;
+
+  # Vaqt va lokal
+  time.timeZone = "Asia/Tashkent";
+  i18n.defaultLocale = "en_US.UTF-8";
+
+  # Foydalanuvchilar
+  users.users.ali = {
+    isNormalUser = true;
+    description = "Ali";
+    extraGroups = [ "wheel" "networkmanager" ];
+    packages = with pkgs; [ firefox ];
+  };
+
+  # Tizim paketlari
+  environment.systemPackages = with pkgs; [
+    vim
+    wget
+    git
+  ];
+
+  # Xizmatlar
+  services.openssh.enable = true;
+  services.xserver.enable = true;
+  services.xserver.displayManager.gdm.enable = true;
+  services.xserver.desktopManager.gnome.enable = true;
+
+  # State versiyasi (DEGMANG)
+  system.stateVersion = "24.05";
+}
+```
+
+## 2. `nixos-rebuild` buyruqlari
+
+```bash
+# Yangi konfiguratsiya qurish va boot'ga qo'shish, lekin hozir ishlamaslik
+sudo nixos-rebuild boot
+
+# Hozir + boot'ga qo'shish
+sudo nixos-rebuild switch
+
+# Test — boot'ga qo'shilmaydi
+sudo nixos-rebuild test
+
+# Tekshirish — build qiladi, lekin o'zgartirmaydi
+sudo nixos-rebuild build
+
+# Eski generatsiyaga qaytish (rollback)
+sudo nixos-rebuild switch --rollback
+```
+
+## 3. Generatsiyalar
+
+Har `nixos-rebuild switch` — yangi **generatsiya** yaratadi. Eski generatsiyalar:
+
+```bash
+sudo nix-env -p /nix/var/nix/profiles/system --list-generations
+```
+
+GRUB menyusida ham eski generatsiyalarni tanlash mumkin — bu rollback'ning eng kuchli tomoni.
+
+## 4. Eski generatsiyalarni tozalash
+
+```bash
+# 30 kundan eskilarini o'chirish
+sudo nix-collect-garbage --delete-older-than 30d
+
+# Hammasini eski o'chirish (faqat joriy qoldirish)
+sudo nix-collect-garbage -d
+sudo nixos-rebuild boot
+```
+
+## 5. Mashq
+
+1. `/etc/nixos/configuration.nix` ni oching va ko'ring. Qaysi xizmatlar yoqilgan?
+2. `vim` o'rniga `htop` ni `environment.systemPackages` ga qo'shing.
+3. `sudo nixos-rebuild switch` — qo'shildimi?
+4. `which htop` orqali tasdiqlang.
+
+## 6. Bilim sinovi
+
+**Savol 1.** O'zgarishni qo'llab boot'ga qo'shish:
+
+- a) `nixos-rebuild test`
+- b) `nixos-rebuild build`
+- c) `nixos-rebuild switch`
+- d) `nixos-rebuild check`
+
+<Callout type="success" title="Javob">
+**(c)** `switch` — qo'llaydi va boot'ga qo'shadi.[¹](https://nixos.org/manual/nixos/stable/#ch-configuration)
+</Callout>
+
+## Manbalar
+
+1. NixOS Manual — Configuration. [https://nixos.org/manual/nixos/stable/#ch-configuration](https://nixos.org/manual/nixos/stable/#ch-configuration)
+
+## Keyingi qadam
+
+👉 [Xizmatlarni boshqarish](/nixos/nixos/services)

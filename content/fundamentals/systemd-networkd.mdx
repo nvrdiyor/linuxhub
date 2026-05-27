@@ -1,0 +1,515 @@
+---
+title: "systemd-networkd va Netplan"
+description: "Modern Linux'da tarmoq sozlash — systemd-networkd, Netplan, NetworkManager."
+order: 149
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/networking"
+learning_objectives:
+  - "Tarmoq boshqaruv tizimlari"
+  - "systemd-networkd .network fayllari"
+  - "Netplan YAML konfiguratsiya"
+  - "NetworkManager nmcli"
+tags: ["intermediate", "systemd-networkd", "netplan", "networking"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "systemd-networkd"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd.network.html"
+  - title: "Netplan"
+    url: "https://netplan.io/"
+  - title: "NetworkManager"
+    url: "https://networkmanager.dev/"
+---
+
+Linux'da tarmoq sozlash 4 ta yondashuv: klassik `ifupdown`, **NetworkManager**, **systemd-networkd**, **Netplan** (Ubuntu). Bu darsda modern variantlarni o'rganamiz.[¹](https://www.freedesktop.org/software/systemd/man/latest/systemd.network.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- 4 ta tarmoq boshqaruv tizimi.
+- systemd-networkd .network sintaksisi.
+- Netplan YAML.
+- NetworkManager nmcli.
+- Qaysi qachon ishlatish.
+</Callout>
+
+## 1. Solishtirish
+
+| | NetworkManager | systemd-networkd | Netplan | ifupdown |
+|---|---|---|---|---|
+| Default | Desktop | Server (Arch va boshqalar) | Ubuntu 18.04+ | Eski Debian |
+| GUI | Ha | Yo'q | Yo'q | Yo'q |
+| Sintaksis | nmcli/keyfile | .network | YAML | interfaces |
+| Wi-Fi roaming | Yaxshi | Cheklangan | Backend orqali | Yaxshi |
+| Container/server | OK | Optimal | Optimal | Eski |
+
+**Modern Linux'da:**
+
+- **Desktop** — NetworkManager.
+- **Server** — systemd-networkd (yoki Netplan Ubuntu'da).
+
+## 2. systemd-networkd
+
+```bash
+# Yoqish
+sudo systemctl enable --now systemd-networkd
+sudo systemctl enable --now systemd-resolved
+
+# Status
+networkctl status
+networkctl list
+```
+
+### `/etc/systemd/network/` — config fayllar
+
+Static IP misol — `/etc/systemd/network/20-wired.network`:
+
+```ini
+[Match]
+Name=eth0
+
+[Network]
+Address=192.168.1.50/24
+Gateway=192.168.1.1
+DNS=1.1.1.1
+DNS=8.8.8.8
+Domains=home.local
+```
+
+DHCP:
+
+```ini
+[Match]
+Name=eth0
+
+[Network]
+DHCP=yes
+```
+
+```bash
+sudo systemctl restart systemd-networkd
+networkctl status eth0
+```
+
+### Bridge va bond
+
+`bridge.netdev`:
+
+```ini
+[NetDev]
+Name=br0
+Kind=bridge
+```
+
+`bridge.network`:
+
+```ini
+[Match]
+Name=br0
+
+[Network]
+Address=192.168.1.50/24
+Gateway=192.168.1.1
+```
+
+`eth-bridge.network`:
+
+```ini
+[Match]
+Name=eth0
+
+[Network]
+Bridge=br0
+```
+
+```bash
+sudo systemctl restart systemd-networkd
+```
+
+## 3. Netplan — Ubuntu standart
+
+Netplan — YAML sintaksisi, backend NetworkManager yoki systemd-networkd.
+
+```bash
+ls /etc/netplan/
+# 01-network-manager-all.yaml — desktop default
+# 00-installer-config.yaml — server installer
+```
+
+### Static IP
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      addresses:
+        - 192.168.1.50/24
+      gateway4: 192.168.1.1
+      nameservers:
+        addresses: [1.1.1.1, 8.8.8.8]
+        search: [home.local]
+```
+
+```bash
+# Apply (xavfli — uzilishga sabab bo'lishi mumkin)
+sudo netplan apply
+
+# Test mode (60s'da revert)
+sudo netplan try
+```
+
+### DHCP
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: true
+      dhcp6: true
+```
+
+### Wi-Fi
+
+```yaml
+network:
+  version: 2
+  renderer: NetworkManager
+  wifis:
+    wlp2s0:
+      dhcp4: true
+      access-points:
+        "MyHomeWiFi":
+          password: "mypassword"
+```
+
+### Bond
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: no
+    eth1:
+      dhcp4: no
+  bonds:
+    bond0:
+      interfaces: [eth0, eth1]
+      addresses: [192.168.1.50/24]
+      gateway4: 192.168.1.1
+      parameters:
+        mode: active-backup
+        primary: eth0
+        mii-monitor-interval: 100
+```
+
+### Bridge
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: no
+  bridges:
+    br0:
+      interfaces: [eth0]
+      addresses: [192.168.1.50/24]
+      gateway4: 192.168.1.1
+```
+
+### VLAN
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: no
+  vlans:
+    vlan10:
+      id: 10
+      link: eth0
+      addresses: [10.10.0.1/24]
+```
+
+## 4. NetworkManager — desktop standart
+
+GUI bilan oson (GNOME, KDE settings). CLI — `nmcli`.
+
+```bash
+# Status
+nmcli general status
+nmcli device status
+
+# Wi-Fi
+nmcli device wifi list
+nmcli device wifi connect "MyWiFi" password "secret"
+
+# Hamma ulanishlar
+nmcli connection show
+
+# Faollashtirish
+nmcli connection up "MyWiFi"
+nmcli connection down "MyWiFi"
+
+# Yangi static IP ulanish
+nmcli connection add type ethernet \
+    con-name "office-eth" \
+    ifname eth0 \
+    ipv4.method manual \
+    ipv4.addresses 192.168.1.50/24 \
+    ipv4.gateway 192.168.1.1 \
+    ipv4.dns "1.1.1.1,8.8.8.8"
+
+# Bond
+nmcli connection add type bond ifname bond0 mode active-backup
+
+# Slave qo'shish
+nmcli connection add type ethernet ifname eth0 master bond0
+nmcli connection add type ethernet ifname eth1 master bond0
+
+# Properties o'zgartirish
+nmcli connection modify "MyWiFi" ipv4.method auto
+nmcli connection modify "office-eth" ipv4.dns "9.9.9.9"
+```
+
+### `nmtui` — text UI
+
+```bash
+sudo nmtui
+```
+
+Boshlovchilar uchun qulay.
+
+### Keyfile config
+
+`/etc/NetworkManager/system-connections/MyWiFi.nmconnection`:
+
+```ini
+[connection]
+id=MyWiFi
+uuid=...
+type=wifi
+
+[wifi]
+ssid=MyWiFi
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=secret
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+```
+
+```bash
+sudo chmod 600 /etc/NetworkManager/system-connections/*
+
+# Reload
+sudo nmcli connection reload
+```
+
+## 5. Klassik `/etc/network/interfaces` (eski Debian)
+
+```
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 192.168.1.50
+    netmask 255.255.255.0
+    gateway 192.168.1.1
+    dns-nameservers 1.1.1.1 8.8.8.8
+
+# Yoki DHCP
+auto eth1
+iface eth1 inet dhcp
+```
+
+```bash
+sudo ifup eth0
+sudo ifdown eth0
+```
+
+Modern Debian'da NetworkManager yoki systemd-networkd afzal.
+
+## 6. Qaysi qachon?
+
+| Vaziyat | Tavsiya |
+|---|---|
+| Desktop, Wi-Fi roaming | NetworkManager |
+| Ubuntu Server | Netplan (default) |
+| Arch, Debian Server | systemd-networkd |
+| Container/IoT | systemd-networkd |
+| Cloud VM | Cloud-init + provider tool |
+| Eski Debian | ifupdown |
+
+## 7. DNS — systemd-resolved bilan birga
+
+systemd-networkd va Netplan — systemd-resolved bilan integratsiyalashgan.
+
+```bash
+# Joriy DNS
+resolvectl status
+
+# Per-interface
+resolvectl dns eth0 1.1.1.1
+```
+
+To'liq DNS darsiga qarang.
+
+## 8. Misol — to'liq Netplan server config
+
+`/etc/netplan/01-server.yaml`:
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: no
+      dhcp6: no
+    eth1:
+      dhcp4: no
+      dhcp6: no
+  bonds:
+    bond0:
+      interfaces: [eth0, eth1]
+      parameters:
+        mode: 802.3ad
+        lacp-rate: fast
+        mii-monitor-interval: 100
+  vlans:
+    bond0.10:
+      id: 10
+      link: bond0
+  bridges:
+    br10:
+      interfaces: [bond0.10]
+      addresses: [10.10.0.1/24]
+      nameservers:
+        addresses: [1.1.1.1, 8.8.8.8]
+```
+
+```bash
+sudo netplan try
+sudo netplan apply
+```
+
+## 9. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `networkctl status` | systemd-networkd holat |
+| `networkctl reload` | Config reload |
+| `nmcli device status` | NetworkManager qurilmalar |
+| `nmcli connection show` | Ulanishlar |
+| `nmcli connection up/down` | On/off |
+| `sudo nmtui` | TUI |
+| `netplan apply` | Netplan qo'llash |
+| `netplan try` | Test (60s revert) |
+| `netplan generate` | YAML'dan backend config'larni yaratish |
+| `ip a` | Joriy interfeyslar |
+| `ip route` | Marshrutlash |
+
+## 10. Eng tez-tez uchraydigan xatolar
+
+- **Netplan apply'dan SSH uziladi** — `netplan try` bilan test.
+- **Bir vaqtda NetworkManager va systemd-networkd** — chalkashlik.
+- **`/etc/network/interfaces` modern Ubuntu'da** — Netplan ishlatadi.
+- **NM keyfile permissions noto'g'ri** — Wi-Fi parol fayli `chmod 600`.
+- **Bond/bridge `slave` interfeysiga IP** — master'ga berish kerak.
+
+## 11. Eng yaxshi amaliyot
+
+- **Bitta backend** ishlatilsin (NetworkManager **yoki** systemd-networkd, ikkalasi emas).
+- **Netplan'dan oldin `try`** — SSH uzilish'dan saqlanish.
+- **`/etc/netplan/*.yaml` indentation** — YAML'ning eng tez-tez muammosi.
+- **DHCP yoki static — har vaqt aniqlash** — server uchun static.
+- **VLAN tag — switch trunk port'da** — switch sozlash bilan birga.
+- **MAC manzili default** — VM'larda fiksatsiya yaxshi.
+
+## 12. Mashqlar
+
+1. **Joriy backend:** `networkctl list` (systemd-networkd) yoki `nmcli device status` (NM)?
+2. **Netplan test** (Ubuntu): `cat /etc/netplan/*.yaml`. Struktura'ni o'rganing.
+3. **NM keyfile (NetworkManager):** `ls /etc/NetworkManager/system-connections/`.
+4. **systemd-networkd test (VM):** Yangi `.network` fayli yarating va `systemctl restart systemd-networkd` qiling.
+5. **Netplan try:** `sudo netplan try` — 60 soniya ichida nima sodir bo'ladi?
+
+## 13. Bilim sinovi
+
+**Savol 1.** Ubuntu Server'da tarmoq sozlash uchun standart:
+
+- a) ifupdown
+- b) Netplan (backend networkd)
+- c) NetworkManager
+- d) systemd-resolved
+
+<Callout type="success" title="Javob">
+**(b)** Ubuntu 18.04+ — Netplan standart.[²](https://netplan.io/)
+</Callout>
+
+**Savol 2.** systemd-networkd config fayl katalog:
+
+- a) `/etc/systemd/network/`
+- b) `/etc/networkd/`
+- c) `/etc/network/`
+- d) `/etc/systemd/`
+
+<Callout type="success" title="Javob">
+**(a)** `/etc/systemd/network/*.network`, `*.netdev`, `*.link`.
+</Callout>
+
+**Savol 3.** Wi-Fi roaming uchun eng yaxshi:
+
+- a) systemd-networkd
+- b) NetworkManager
+- c) Netplan
+- d) ifupdown
+
+<Callout type="success" title="Javob">
+**(b)** NetworkManager — desktop, Wi-Fi management standart.[³](https://networkmanager.dev/)
+</Callout>
+
+**Savol 4.** `netplan try` nima qiladi?
+
+- a) Hech narsa
+- b) Yangi config qo'llash, 60 soniyada accept bo'lmasa avtomatik revert
+- c) Test sintaksis faqat
+- d) Reboot
+
+<Callout type="success" title="Javob">
+**(b)** SSH server uchun majburiy.
+</Callout>
+
+**Savol 5.** Bir vaqtda NetworkManager va systemd-networkd:
+
+- a) Yaxshi
+- b) Chalkashlik — bittasi tanlash kerak
+- c) Faqat root uchun
+- d) Hech qanday muammo
+
+<Callout type="success" title="Javob">
+**(b)** Ikkalasi bir interfeysni boshqarsa, conflict.
+</Callout>
+
+## Manbalar
+
+1. systemd-networkd. [https://www.freedesktop.org/software/systemd/man/latest/systemd.network.html](https://www.freedesktop.org/software/systemd/man/latest/systemd.network.html)
+2. Netplan. [https://netplan.io/](https://netplan.io/)
+3. NetworkManager. [https://networkmanager.dev/](https://networkmanager.dev/)
+
+## Keyingi qadam
+
+👉 [Linux ish stoli muhitlari chuqurroq](/fundamentals/desktop-environments)

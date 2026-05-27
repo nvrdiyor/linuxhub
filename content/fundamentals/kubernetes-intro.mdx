@@ -1,0 +1,672 @@
+---
+title: "Kubernetes kirish"
+description: "Kubernetes asoslari — pod, deployment, service, ingress, k3s va minikube."
+order: 137
+level: "advanced"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/docker-basics"
+learning_objectives:
+  - "Kubernetes arxitekturasi"
+  - "Pod, Deployment, Service tushunchasi"
+  - "kubectl bilan ishlash"
+  - "k3s yoki minikube bilan lokal cluster"
+tags: ["advanced", "kubernetes", "k8s", "orchestration"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Kubernetes Documentation"
+    url: "https://kubernetes.io/docs/"
+  - title: "k3s"
+    url: "https://k3s.io/"
+  - title: "minikube"
+    url: "https://minikube.sigs.k8s.io/docs/"
+---
+
+**Kubernetes** (k8s) — Google'da yaratilgan, hozirda CNCF'ning loyihasi. Ko'p container'ni ko'p server'da orkestrlash uchun **de facto standart**. Bu darsda asoslarini va lokal sinov muhitlarini ko'ramiz.[¹](https://kubernetes.io/docs/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Kubernetes arxitekturasi.
+- Pod, Deployment, Service, Ingress.
+- kubectl asosiy buyruqlari.
+- k3s yoki minikube bilan lokal cluster.
+- Birinchi ilova deploy.
+</Callout>
+
+## 1. Arxitektura
+
+```
+┌──────────────────── Cluster ────────────────────┐
+│                                                  │
+│  ┌────── Control Plane ──────┐                  │
+│  │  kube-apiserver           │                  │
+│  │  etcd (DB)                │                  │
+│  │  kube-scheduler           │                  │
+│  │  kube-controller-manager  │                  │
+│  └───────────────────────────┘                  │
+│                                                  │
+│  ┌────── Worker Nodes ──────┐                   │
+│  │  kubelet                 │                   │
+│  │  kube-proxy              │                   │
+│  │  Container runtime       │                   │
+│  │   ├── Pod 1              │                   │
+│  │   ├── Pod 2              │                   │
+│  │   └── Pod N              │                   │
+│  └──────────────────────────┘                   │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Control plane** — boshqaruv. **Worker nodes** — pod ishga tushiradi.
+
+## 2. Asosiy obyektlar
+
+| Obyekt | Tavsif |
+|---|---|
+| **Pod** | Eng kichik unit — bir yoki bir nechta container, bir network namespace |
+| **Deployment** | Pod replication boshqaruvi (rolling update bilan) |
+| **Service** | Pod'larga barqaror IP/DNS |
+| **Ingress** | HTTP/HTTPS gateway (reverse proxy) |
+| **ConfigMap** | Konfiguratsiya |
+| **Secret** | Sirlar (parol, token) |
+| **PersistentVolume** | Saqlash |
+| **Namespace** | Mantiqiy izolyatsiya |
+| **Job** | Bir martalik vazifa |
+| **CronJob** | Vaqt asoslangan |
+
+## 3. Lokal cluster — variantlar
+
+| Vosita | Maqsad |
+|---|---|
+| **minikube** | VM ichida tek-node cluster (development) |
+| **kind** | Docker container ichida cluster (CI/CD) |
+| **k3s** | Yengil, production-ready cluster (edge, IoT) |
+| **microk8s** | Canonical, snap-based |
+| **Docker Desktop** | Built-in (Mac, Windows) |
+
+Bu darsda **k3s** ishlatamiz — eng yengil va real production-mos.
+
+## 4. k3s o'rnatish
+
+```bash
+# Server (master)
+curl -sfL https://get.k3s.io | sh -
+
+# Tekshirish
+sudo systemctl status k3s
+sudo k3s kubectl get nodes
+```
+
+`kubectl`'ga oddiy foydalanuvchidan kirish:
+
+```bash
+mkdir -p ~/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $(id -u):$(id -g) ~/.kube/config
+
+kubectl get nodes
+```
+
+### minikube alternativi
+
+```bash
+# minikube o'rnatish
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+# Cluster yoqish
+minikube start --driver=docker
+
+# kubectl avtomatik o'rnatiladi
+kubectl get nodes
+```
+
+## 5. `kubectl` asosiy buyruqlari
+
+```bash
+# Cluster info
+kubectl cluster-info
+kubectl get nodes
+
+# Hamma namespaces
+kubectl get all --all-namespaces
+# yoki qisqacha
+kubectl get all -A
+
+# Aniq namespace
+kubectl get pods -n kube-system
+```
+
+## 6. Birinchi Pod
+
+YAML — Kubernetes'ning tili. Imperative emas, deklarativ.
+
+`nginx-pod.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+```
+
+```bash
+# Apply
+kubectl apply -f nginx-pod.yaml
+
+# Status
+kubectl get pods
+kubectl describe pod nginx-pod
+
+# Logs
+kubectl logs nginx-pod
+
+# Exec
+kubectl exec -it nginx-pod -- bash
+
+# Delete
+kubectl delete pod nginx-pod
+# yoki
+kubectl delete -f nginx-pod.yaml
+```
+
+## 7. Deployment — replication
+
+Pod o'lganda yana yaratish, ko'p pod birga, rolling update — bularning hammasi **Deployment**.
+
+`nginx-deployment.yaml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+```
+
+```bash
+kubectl apply -f nginx-deployment.yaml
+
+# Statuses
+kubectl get deployments
+kubectl get pods
+# 3 ta nginx-XXXX-YYYY pod ko'rinadi
+
+# Scale
+kubectl scale deployment nginx --replicas=5
+
+# Image yangilash (rolling update)
+kubectl set image deployment/nginx nginx=nginx:1.25
+
+# Rollout status
+kubectl rollout status deployment/nginx
+
+# Tarix
+kubectl rollout history deployment/nginx
+
+# Rollback
+kubectl rollout undo deployment/nginx
+```
+
+## 8. Service — barqaror IP
+
+Pod'lar o'zgaruvchi (IP almashinadi). **Service** — barqaror DNS nomi va IP.
+
+`nginx-service.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP    # default
+```
+
+```bash
+kubectl apply -f nginx-service.yaml
+
+kubectl get services
+# nginx   ClusterIP   10.43.1.100   <none>   80/TCP
+
+# Test
+kubectl run test --image=busybox --rm -it -- wget -qO- nginx:80
+```
+
+### Service turlari
+
+| Tur | Maqsad |
+|---|---|
+| `ClusterIP` (default) | Faqat cluster ichida |
+| `NodePort` | Har node port'da ochiq (30000-32767) |
+| `LoadBalancer` | Cloud provider tomonidan |
+| `ExternalName` | DNS CNAME alias |
+
+### `NodePort` misol
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-nodeport
+spec:
+  type: NodePort
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+```
+
+```bash
+kubectl apply -f nginx-nodeport.yaml
+
+# Tashqaridan
+curl http://<node-ip>:30080
+```
+
+## 9. Ingress — HTTP gateway
+
+Ingress — reverse proxy. URL bo'yicha turli service'larga yo'naltirish.
+
+K3s default'da **Traefik** ingress controller bilan keladi.
+
+`nginx-ingress.yaml`:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress
+spec:
+  rules:
+    - host: nginx.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+```
+
+```bash
+kubectl apply -f nginx-ingress.yaml
+
+# /etc/hosts ga qo'shing
+echo "<node-ip> nginx.local" | sudo tee -a /etc/hosts
+
+# Test
+curl http://nginx.local
+```
+
+## 10. ConfigMap va Secret
+
+```yaml
+# config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  database_url: "postgres://db:5432/myapp"
+  log_level: "info"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+type: Opaque
+stringData:
+  api_key: "secret-token-here"
+  db_password: "supersecret"
+```
+
+```bash
+kubectl apply -f config.yaml
+```
+
+Pod'da ishlatish:
+
+```yaml
+spec:
+  containers:
+    - name: app
+      image: myapp
+      env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: database_url
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: api_key
+```
+
+## 11. Persistent Volume
+
+Pod ephemeral — ma'lumot saqlash uchun PV kerak.
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "secret"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc
+```
+
+## 12. Namespace
+
+```bash
+# Yangi namespace
+kubectl create namespace dev
+
+# Aniq namespace'da ish
+kubectl apply -f deployment.yaml -n dev
+
+# Default namespace o'zgartirish
+kubectl config set-context --current --namespace=dev
+
+# Hamma namespace'da
+kubectl get pods -A
+```
+
+## 13. To'liq misol — 3-tier ilova
+
+`fullapp.yaml`:
+
+```yaml
+# Database
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: db }
+  template:
+    metadata:
+      labels: { app: db }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          env:
+            - name: POSTGRES_PASSWORD
+              value: secret
+            - name: POSTGRES_DB
+              value: myapp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector: { app: db }
+  ports:
+    - port: 5432
+---
+# Backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: api }
+  template:
+    metadata:
+      labels: { app: api }
+    spec:
+      containers:
+        - name: api
+          image: myapp/api:1.0
+          env:
+            - name: DATABASE_URL
+              value: "postgres://postgres:secret@db:5432/myapp"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  selector: { app: api }
+  ports:
+    - port: 3000
+---
+# Frontend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      containers:
+        - name: web
+          image: myapp/web:1.0
+          env:
+            - name: API_URL
+              value: "http://api:3000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector: { app: web }
+  ports:
+    - port: 80
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp
+spec:
+  rules:
+    - host: myapp.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: web, port: { number: 80 } }
+```
+
+```bash
+kubectl apply -f fullapp.yaml
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `kubectl get <resource>` | Ro'yxat |
+| `kubectl describe <resource> <name>` | Batafsil |
+| `kubectl apply -f <file>` | YAML qo'llash |
+| `kubectl delete -f <file>` | O'chirish |
+| `kubectl logs <pod>` | Loglar |
+| `kubectl exec -it <pod> -- bash` | Ichiga kirish |
+| `kubectl scale deployment <name> --replicas=N` | Scale |
+| `kubectl rollout status deployment/<name>` | Update status |
+| `kubectl rollout undo deployment/<name>` | Rollback |
+| `kubectl port-forward <pod> 8080:80` | Lokal port forward |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **YAML indentation** — 2 bo'sh joy, tab emas.
+- **`spec` `matchLabels` `template.metadata.labels` mos kelishi** kerak.
+- **Pod failed** — `kubectl describe pod` va `kubectl logs` orqali sabab.
+- **Image pull error** — registry credentials yo'q (Secret).
+- **Service ulanmayapti** — `selector` Pod label'lari bilan mos kelmaydi.
+- **`ImagePullBackOff`** — image mavjud emas yoki kredentsial yo'q.
+
+## 16. Eng yaxshi amaliyot
+
+- **Resource limits** — har Pod uchun.
+- **Liveness va readiness probes** — health check.
+- **Namespace bilan tashkillash** — `prod`, `staging`, `dev`.
+- **Helm charts** — application packaging.
+- **GitOps** (ArgoCD, Flux) — declarative deployment.
+- **Network Policies** — pod-to-pod traffic restrictions.
+- **RBAC** — kim nima qila olishini cheklash.
+- **Backup** — `velero` bilan cluster backup.
+
+## 17. Mashqlar
+
+1. **k3s yoki minikube o'rnatish:** Yuqoridagi ko'rsatma bo'yicha lokal cluster yarating.
+2. **`kubectl get nodes`** — node ko'rinadi-mi?
+3. **Birinchi pod:** `nginx-pod.yaml` yarating va apply qiling. `kubectl get pods` orqali ko'ring.
+4. **Deployment:** 3-replica nginx deployment. `kubectl scale` orqali 5'ga oshiring.
+5. **Service:** NodePort orqali nginx'ni ochib `curl <node-ip>:30080` bilan tekshiring.
+6. **Ingress:** Hostname bilan nginx'ni ochish.
+
+## 18. Bilim sinovi
+
+**Savol 1.** Kubernetes'ning eng kichik unit:
+
+- a) Container
+- b) Pod (bir yoki bir nechta container birga)
+- c) Node
+- d) Cluster
+
+<Callout type="success" title="Javob">
+**(b)** Pod — Kubernetes'ning atomic unit.[¹](https://kubernetes.io/docs/)
+</Callout>
+
+**Savol 2.** Pod replication va rolling update uchun:
+
+- a) Pod
+- b) Deployment
+- c) Service
+- d) Ingress
+
+<Callout type="success" title="Javob">
+**(b)** Deployment.
+</Callout>
+
+**Savol 3.** Pod'larga barqaror IP berish uchun:
+
+- a) Deployment
+- b) Service
+- c) Pod
+- d) Namespace
+
+<Callout type="success" title="Javob">
+**(b)** Service — stable network endpoint.
+</Callout>
+
+**Savol 4.** YAML'ni apply qilish:
+
+- a) `kubectl create -f file.yaml`
+- b) `kubectl apply -f file.yaml` (idempotent)
+- c) `kubectl run file.yaml`
+- d) `kubernetes apply`
+
+<Callout type="success" title="Javob">
+**(b)** `apply` — qaytariladigan, holatga moslashuvchi.
+</Callout>
+
+**Savol 5.** Lokal Kubernetes uchun eng yengil:
+
+- a) Full k8s
+- b) k3s yoki minikube
+- c) OpenShift
+- d) Faqat cloud
+
+<Callout type="success" title="Javob">
+**(b)** k3s — production-ready, oz resource. minikube — development.[²](https://k3s.io/)
+</Callout>
+
+## Manbalar
+
+1. Kubernetes Documentation. [https://kubernetes.io/docs/](https://kubernetes.io/docs/)
+2. k3s. [https://k3s.io/](https://k3s.io/)
+3. minikube. [https://minikube.sigs.k8s.io/docs/](https://minikube.sigs.k8s.io/docs/)
+
+## Keyingi qadam
+
+👉 [SQLite — embedded database](/fundamentals/sqlite-basics)

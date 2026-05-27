@@ -1,0 +1,565 @@
+---
+title: "Dotfiles boshqaruvi"
+description: "Konfiguratsiya fayllarini Git orqali boshqarish — bare repo, GNU stow, chezmoi va boshqalar."
+order: 135
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/dotfiles"
+  - "/fundamentals/git-fundamentals"
+learning_objectives:
+  - "Dotfiles muammosi va yechimlari"
+  - "Bare git repo texnikasi"
+  - "GNU stow bilan symlink boshqaruv"
+  - "chezmoi va boshqa modern vositalar"
+tags: ["intermediate", "dotfiles", "git", "stow", "chezmoi"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "dotfiles.github.io"
+    url: "https://dotfiles.github.io/"
+  - title: "GNU Stow Manual"
+    url: "https://www.gnu.org/software/stow/manual/stow.html"
+  - title: "chezmoi"
+    url: "https://www.chezmoi.io/"
+---
+
+**Dotfiles** — konfiguratsiya fayllari (`.bashrc`, `.vimrc`, `.gitconfig`). Yangi kompyuter olganingizda yoki bir nechta mashinada ishlasangiz — har birida sozlamalarni qaytarish noqulay. Bu darsda dotfiles boshqaruvi yechimlarini ko'ramiz.[¹](https://dotfiles.github.io/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Dotfiles boshqaruv yondashuvlari.
+- Bare git repo (eng oson).
+- GNU stow bilan symlink.
+- chezmoi — modern, template'lar bilan.
+- Migratsiya va backup.
+</Callout>
+
+## 1. Muammo
+
+Konfiguratsiya fayllari `~`'da:
+
+```
+~/.bashrc
+~/.vimrc
+~/.gitconfig
+~/.config/nvim/init.vim
+~/.tmux.conf
+~/.ssh/config
+...
+```
+
+Yangi mashinada — qaytadan sozlash. Yo'qotish — yo'qotish. Yechim — **Git orqali version control**.
+
+## 2. Yondashuvlar
+
+| Usul | Sodda | Kuch |
+|---|---|---|
+| **Bare git repo** | ✅ | O'rta |
+| **GNU stow** | O'rta | Yaxshi |
+| **chezmoi** | Murakkab | Eng kuchli |
+| **dotbot** | O'rta | Yaxshi |
+| **ansible** | Murakkab | Cheksiz |
+
+## 3. Yondashuv 1 — Bare git repo
+
+Eng oddiy va elegant — Git'ning **bare repository** xususiyati. `$HOME` ni o'zi git repo qiladi, lekin `.git/` katalogi alohida joyda.
+
+### O'rnatish
+
+```bash
+# Bare repo yaratish
+git init --bare $HOME/.dotfiles
+
+# Alias
+echo 'alias dot="git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME"' >> ~/.bashrc
+source ~/.bashrc
+
+# Untracked'larni ko'rsatmaslik
+dot config --local status.showUntrackedFiles no
+
+# Yangi fayllarni qo'shish
+dot add ~/.bashrc ~/.vimrc ~/.tmux.conf
+dot commit -m "Initial dotfiles"
+
+# Remote
+dot remote add origin git@github.com:username/dotfiles.git
+dot push -u origin main
+```
+
+### Boshqa mashinada
+
+```bash
+# Clone qilmaymiz — bare init va remote add
+git init --bare $HOME/.dotfiles
+alias dot="git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME"
+dot config --local status.showUntrackedFiles no
+dot remote add origin git@github.com:username/dotfiles.git
+dot fetch
+dot checkout main
+```
+
+### Avtomatlashtirilgan o'rnatish skript
+
+`bootstrap.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+git init --bare "$HOME/.dotfiles"
+alias dot="git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME"
+dot config --local status.showUntrackedFiles no
+dot remote add origin git@github.com:username/dotfiles.git
+dot fetch
+
+# Mavjud konfiguratsiya backup
+mkdir -p "$HOME/.dotfiles-backup"
+dot checkout 2>&1 | grep -E "\s+\." | awk {'print $1'} | \
+    xargs -I{} mv "$HOME/{}" "$HOME/.dotfiles-backup/{}"
+
+dot checkout main
+echo "Dotfiles installed"
+```
+
+Yangi mashinada:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/.../bootstrap.sh | bash
+```
+
+## 4. Yondashuv 2 — GNU stow
+
+`stow` — symlink boshqaruvchi.[²](https://www.gnu.org/software/stow/manual/stow.html)
+
+### Struktura
+
+```
+~/dotfiles/
+├── bash/
+│   └── .bashrc
+├── vim/
+│   └── .vimrc
+├── tmux/
+│   └── .tmux.conf
+└── git/
+    └── .gitconfig
+```
+
+### Stow ishlatish
+
+```bash
+cd ~/dotfiles
+
+# `bash/` ichidagi fayllarni `~/` ga symlink
+stow bash
+
+# Natija:
+# ~/.bashrc → ~/dotfiles/bash/.bashrc
+
+# Hammasi
+stow */
+
+# Olib tashlash
+stow -D bash
+
+# Test (haqiqatda symlink yaratmaslik)
+stow -n bash
+```
+
+### Afzalliklari
+
+- Kategoriya bo'yicha tashkillash (bash, vim, git).
+- Selektiv install/uninstall.
+- Symlink — asl fayl bir joyda.
+
+## 5. Yondashuv 3 — chezmoi
+
+[chezmoi](https://www.chezmoi.io/) — modern, template va sirlar bilan.[³](https://www.chezmoi.io/)
+
+### O'rnatish
+
+```bash
+sh -c "$(curl -fsLS get.chezmoi.io)"
+
+# Yoki
+sudo apt install chezmoi
+```
+
+### Boshlash
+
+```bash
+chezmoi init
+
+# Fayl qo'shish
+chezmoi add ~/.bashrc
+
+# Tahrirlash (chezmoi tomonidan)
+chezmoi edit ~/.bashrc
+
+# Diff (apply qilmasdan)
+chezmoi diff
+
+# Apply
+chezmoi apply
+
+# Remote
+chezmoi init --apply --verbose git@github.com:username/dotfiles.git
+```
+
+### Template — har mashina uchun har xil
+
+`~/.local/share/chezmoi/dot_gitconfig.tmpl`:
+
+```
+[user]
+    name = Ali Valiyev
+    email = {{ .email }}
+
+[core]
+    editor = vim
+```
+
+`~/.config/chezmoi/chezmoi.toml`:
+
+```toml
+[data]
+    email = "ali@example.com"
+```
+
+Boshqa mashinada boshqa email.
+
+### Sirlar
+
+```bash
+# 1Password yoki Bitwarden bilan
+chezmoi managed | head
+```
+
+Template ichida:
+
+```
+password = {{ (onepassword "github-token").credential }}
+```
+
+## 6. Yondashuv 4 — dotbot
+
+Python skript + YAML.
+
+```yaml
+# install.conf.yaml
+- clean: ['~']
+
+- link:
+    ~/.bashrc: bashrc
+    ~/.vimrc: vimrc
+    ~/.tmux.conf: tmux.conf
+    ~/.config/nvim:
+      path: nvim
+      create: true
+
+- shell:
+    - command: vim +PlugInstall +qall
+      description: Install vim plugins
+```
+
+```bash
+./install
+```
+
+## 7. Yondashuv 5 — Ansible
+
+Eng kuchli, eng murakkab. Faqat ko'p mashinada yoki to'liq system'ni boshqarayotgan bo'lsangiz.
+
+```yaml
+# playbook.yml
+- hosts: localhost
+  tasks:
+    - name: Install packages
+      apt:
+        name:
+          - vim
+          - tmux
+          - git
+        state: present
+
+    - name: Link dotfiles
+      file:
+        src: "{{ dotfiles_dir }}/{{ item }}"
+        dest: "~/.{{ item }}"
+        state: link
+      loop:
+        - bashrc
+        - vimrc
+        - tmux.conf
+```
+
+## 8. Eng yaxshi amaliyot
+
+### `.gitignore`
+
+```
+# Sensitive
+.bash_history
+.python_history
+.lesshst
+.viminfo
+.cache/
+.ssh/known_hosts
+.ssh/authorized_keys
+.gnupg/
+
+# Lokal
+.local/share/
+.local/state/
+
+# Editor
+*.swp
+*.swo
+*~
+```
+
+### Per-machine xususiyatlar
+
+`.bashrc`'da:
+
+```bash
+# Hammaga umumiy
+export EDITOR=vim
+export PATH="$HOME/bin:$PATH"
+
+# Mashinaga xos (gitignore'da)
+[ -f ~/.bashrc.local ] && source ~/.bashrc.local
+```
+
+`.bashrc.local` (har mashinada alohida):
+
+```bash
+# Bu mashinaga xos
+export WORK_PROJECT_DIR="$HOME/work/myproject"
+alias deploy='cd $WORK_PROJECT_DIR && ./deploy.sh'
+```
+
+### Sirlarni saqlamaslik
+
+API kalitlari, SSH keys — **dotfiles repo'ga qo'shmang**. Alohida shifrlangan vault:
+
+- `pass` (password-store)
+- `age` shifrlash
+- 1Password CLI
+- Bitwarden CLI
+
+## 9. Misol — to'liq personal dotfiles
+
+`https://github.com/username/dotfiles`:
+
+```
+dotfiles/
+├── README.md
+├── bootstrap.sh
+├── bash/
+│   ├── .bashrc
+│   ├── .bash_profile
+│   └── .bash_aliases
+├── vim/
+│   ├── .vimrc
+│   └── .vim/colors/
+├── tmux/
+│   └── .tmux.conf
+├── git/
+│   ├── .gitconfig
+│   └── .gitignore_global
+├── ssh/
+│   └── .ssh/config        # public yo'l (kalitlarsiz)
+└── scripts/
+    ├── install-vim-plugins.sh
+    └── install-zsh.sh
+```
+
+`bootstrap.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+DOTFILES="$HOME/dotfiles"
+
+# Clone (bilan, lekin git repo'sga emas — symlink mode)
+git clone https://github.com/username/dotfiles.git "$DOTFILES"
+
+cd "$DOTFILES"
+
+# Stow ishlatish
+for dir in bash vim tmux git; do
+    stow -t "$HOME" "$dir"
+done
+
+# Vim plugins
+sh scripts/install-vim-plugins.sh
+
+# Zsh (xohlasangiz)
+sh scripts/install-zsh.sh
+```
+
+## 10. Backup va restore
+
+```bash
+# Eski dotfiles backup
+mkdir -p ~/dotfiles-backup-$(date +%F)
+mv ~/.bashrc ~/.vimrc ~/.tmux.conf ~/dotfiles-backup-$(date +%F)/
+
+# Yangi dotfiles install
+bash bootstrap.sh
+```
+
+## 11. Misol — minimal personal `~/.bashrc`
+
+```bash
+# Source distribution default
+[ -f /etc/bash.bashrc ] && source /etc/bash.bashrc
+
+# History
+HISTSIZE=10000
+HISTFILESIZE=20000
+HISTCONTROL=ignoreboth:erasedups
+shopt -s histappend
+
+# Globbing
+shopt -s extglob globstar
+
+# PATH
+export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
+
+# Editor
+export EDITOR=vim
+export VISUAL=vim
+export PAGER=less
+
+# Locale
+export LANG=en_US.UTF-8
+
+# Aliases
+alias ll='ls -lah --color=auto'
+alias la='ls -A --color=auto'
+alias grep='grep --color=auto'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias g='git'
+alias gs='git status'
+alias gd='git diff'
+alias glog='git log --oneline --graph --all'
+
+# Prompt
+PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+
+# Functions
+mkcd() { mkdir -p "$1" && cd "$1"; }
+
+# Per-machine
+[ -f ~/.bashrc.local ] && source ~/.bashrc.local
+```
+
+## 12. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `git init --bare ~/.dotfiles` | Bare repo |
+| `dot add <fayl>` | (alias) Fayl qo'shish |
+| `stow bash` | `bash/` katalogni symlink |
+| `stow -D bash` | Olib tashlash |
+| `chezmoi add ~/.bashrc` | chezmoi'da boshqarish |
+| `chezmoi apply` | O'zgarishlarni qo'llash |
+| `chezmoi diff` | Avval ko'rish |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **Sirlarni commit qilish** — API kalit, SSH private key — yo'qotish. `.gitignore` va xavfli fayllarni hech qachon.
+- **`.ssh/config`** ko'p hollarda OK, lekin authorized_keys yoki private kalitlar yo'q.
+- **Per-machine config'larni share qilish** — `*.local` ishlatish.
+- **Stow konflikt** — mavjud fayllar bo'lsa. Avval backup oling.
+- **Bare repo da `add .`** — sukunata holatda hamma narsa cheklanmaydi.
+
+## 14. Eng yaxshi amaliyot
+
+- **Boshlovchilar — bare git repo** — eng oddiy.
+- **O'rta — GNU stow** — kategoriya bilan.
+- **Kuchli — chezmoi** — template + sirlar.
+- **`README.md` boostrap ko'rsatma bilan.**
+- **`status.showUntrackedFiles no`** — bare repo'da chiqarishni cheklash.
+- **`.gitignore`** sensitive fayllar uchun.
+- **Per-machine `.bashrc.local`** — har mashinada o'zgaruvchanlik.
+- **Vim plugin'lar avtomatik** — bootstrap skriptida.
+
+## 15. Mashqlar
+
+1. **Joriy dotfiles inventarizatsiya:** `ls -la ~ | grep "^\."` — sizdagi dotfile'lar nima?
+2. **Bare repo:** Yuqoridagi misol bo'yicha bare repo yarating va `~/.bashrc`'ni qo'shing.
+3. **Stow test:** `mkdir ~/dotfiles && mkdir ~/dotfiles/test && touch ~/dotfiles/test/.testfile`. `cd ~/dotfiles && stow test`. `~/.testfile` symlink bo'ldi mi?
+4. **chezmoi (ixtiyoriy):** `chezmoi init` qiling va `~/.bashrc`'ni qo'shing.
+5. **GitHub repo:** Dotfiles repo'sini GitHub'ga push qiling.
+
+## 16. Bilim sinovi
+
+**Savol 1.** Bare git repo dotfiles uchun nima beradi?
+
+- a) Tezroq
+- b) `$HOME` ni Git repo qiladi, lekin `.git/` alohida
+- c) Faqat root uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Working tree `$HOME`, git dir alohida — `.git` papka uy katalogini "iflos" qilmaydi.
+</Callout>
+
+**Savol 2.** GNU stow nimani boshqaradi?
+
+- a) Paketlar
+- b) Symlinks — bir katalogdan ko'p joyga link yaratadi
+- c) Database
+- d) Servislar
+
+<Callout type="success" title="Javob">
+**(b)** Symlink farm manager.[²](https://www.gnu.org/software/stow/manual/stow.html)
+</Callout>
+
+**Savol 3.** chezmoi nima qiladi (boshqalardan farqli)?
+
+- a) Faqat backup
+- b) Template'lar + sirlar boshqaruvi (har mashinada turli qiymat)
+- c) Faqat web uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Modern dotfiles manager.[³](https://www.chezmoi.io/)
+</Callout>
+
+**Savol 4.** API kalitni dotfiles repo'ga commit qilish:
+
+- a) Yaxshi
+- b) Yomon — xavfsizlik xavfi. Alohida vault (pass, age, 1Password) ishlatilsin
+- c) Faqat private repo'da
+- d) Faqat shifrlangan
+
+<Callout type="success" title="Javob">
+**(b)** Hech qachon. Public yoki private — Git tarixi qoladi.
+</Callout>
+
+**Savol 5.** Per-machine farq qilish uchun:
+
+- a) Branch
+- b) `*.local` fayli (gitignore'da) — global config'dan source
+- c) Tag
+- d) Submodule
+
+<Callout type="success" title="Javob">
+**(b)** Modular yondashuv — base + lokal qo'shimcha.
+</Callout>
+
+## Manbalar
+
+1. dotfiles.github.io. [https://dotfiles.github.io/](https://dotfiles.github.io/)
+2. GNU Stow Manual. [https://www.gnu.org/software/stow/manual/stow.html](https://www.gnu.org/software/stow/manual/stow.html)
+3. chezmoi. [https://www.chezmoi.io/](https://www.chezmoi.io/)
+
+## Keyingi qadam
+
+👉 [Container va Podman](/fundamentals/podman)

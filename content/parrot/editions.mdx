@@ -1,0 +1,135 @@
+---
+title: "Parrot versiyalari"
+description: "Parrot Security, Home, Architect va boshqa rasmiy versiyalar — qaysi biri kim uchun mos."
+order: 2
+level: "beginner"
+estimated_minutes: 4
+prerequisites:
+  - "/parrot/introduction"
+learning_objectives:
+  - "Parrot OS rasmiy versiyalarini sanab o'tish"
+  - "Har bir versiyaning maqsadini bilish"
+  - "O'z foydalanish stsenariyingiz uchun mos versiyani tanlash"
+tags: ["parrot", "editions", "security", "home"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Parrot — Download"
+    url: "https://parrotsec.org/download/"
+  - title: "Parrot Documentation — Editions"
+    url: "https://docs.parrotsec.org/"
+---
+
+Parrot OS bir nechta rasmiy versiyada chiqadi — har biri o'z maqsadi uchun. Tanlash sizning foydalanish ssenariyingizga bog'liq.[¹](https://parrotsec.org/download/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Security, Home, Architect va boshqa versiyalar.
+- Har biri uchun mos auditoriya.
+- ARM va Cloud variantlar.
+</Callout>
+
+## 1. Asosiy versiyalar
+
+### Parrot Security Edition
+
+- **Maqsad:** To'liq xavfsizlik to'plami.
+- **Tarkib:** 600+ asboblar (Nmap, Metasploit, Burp, Wireshark va boshqalar).
+- **Anonimlik:** Tor + AnonSurf default.
+- **Kim uchun:** Penetration testerlar, security mutaxassislari, sertifikat tayyorgarligi.
+
+### Parrot Home Edition
+
+- **Maqsad:** Kundalik foydalanish + maxfiylik.
+- **Tarkib:** Hech qanday "ofensiv" vositalar. Faqat maxfiylik va kundalik ilovalar (browser, office, multimedia).
+- **Anonimlik:** Tor + AnonSurf mavjud.
+- **Kim uchun:** Maxfiylik haqida g'amxo'rlik qiluvchi oddiy foydalanuvchi, jurnalist, faol.
+
+### Parrot Architect Edition
+
+- **Maqsad:** Minimal o'rnatish — o'zingiz quring.
+- **Tarkib:** Faqat asosiy Parrot tizim. Hech qanday DE yoki ilovalar.
+- **Kim uchun:** Tajribali foydalanuvchilar, server, maxsus konfiguratsiya.
+
+## 2. Maxsus versiyalar
+
+### Parrot Hack The Box Edition
+
+[HackTheBox](https://www.hackthebox.com/) bilan rasmiy hamkorlikda — HTB foydalanuvchilari uchun maxsus sozlangan.
+
+### Parrot ARM
+
+Raspberry Pi va boshqa ARM qurilmalar uchun. Embedded security va IoT testlar uchun.
+
+### Parrot Cloud / Docker
+
+AWS, Azure va Docker uchun tayyor image'lar. Pentest infrastruktura sifatida foydali.
+
+## 3. Solishtirish jadvali
+
+| Edition | Asboblar | DE | RAM minimal | Disk |
+|---|---|---|---|---|
+| **Security** | 600+ | MATE / KDE | 2 GB | 16 GB |
+| **Home** | Minimal | MATE / KDE | 2 GB | 12 GB |
+| **Architect** | Tanlovingizga | Yo'q (default) | 1 GB | 8 GB |
+| **ARM** | Asosiy | XFCE | 1 GB | 8 GB |
+| **Cloud/Docker** | Minimal | Yo'q | — | — |
+
+## 4. Qaysi versiyani tanlash?
+
+| Vaziyat | Tavsiya |
+|---|---|
+| Penetration testing | **Security Edition** |
+| Faqat maxfiylik (kundalik) | **Home Edition** |
+| Minimal va custom | **Architect Edition** |
+| Server (security infrastruktura) | **Cloud/Docker** yoki **Architect** + custom |
+| Raspberry Pi | **ARM Edition** |
+| HackTheBox foydalanuvchisi | **HTB Edition** |
+
+## 5. Yuklash
+
+Hammasi [parrotsec.org/download](https://parrotsec.org/download/) saytida bepul.[¹](https://parrotsec.org/download/) Har versiya 3 formatda:
+
+- **ISO** — fizik o'rnatish yoki USB.
+- **OVA** — VirtualBox virtual mashinasi.
+- **VDI** — VirtualBox virtual disk.
+
+SHA-256 hash'larni rasmiy saytda solishtiring.
+
+## 6. Mashqlar
+
+1. [parrotsec.org/download](https://parrotsec.org/download/) ga kiring. Nechta versiya mavjud?
+2. Sizning maqsadingiz: kundalik foydalanish + ba'zan pentest. Qaysi edition mos?
+3. Home va Security edition ISO hajmlarini solishtiring.
+
+## 7. Bilim sinovi
+
+**Savol 1.** Faqat maxfiylik kerak, security vositalar emas — qaysi edition?
+
+- a) Security
+- b) Home
+- c) Architect
+- d) Cloud
+
+<Callout type="success" title="Javob">
+**(b)** Home Edition — Tor/AnonSurf bilan, lekin offensive vositalar yo'q.
+</Callout>
+
+**Savol 2.** Minimal o'rnatishni xohlaysiz va o'zingiz to'plamni quryapsiz:
+
+- a) Security
+- b) Home
+- c) Architect
+- d) Hech qaysisi mos kelmaydi
+
+<Callout type="success" title="Javob">
+**(c)** Architect — bo'sh Parrot, o'zingiz qurasiz.
+</Callout>
+
+## Manbalar
+
+1. Parrot — Download. [https://parrotsec.org/download/](https://parrotsec.org/download/)
+2. Parrot Documentation — Editions. [https://docs.parrotsec.org/](https://docs.parrotsec.org/)
+
+## Keyingi qadam
+
+👉 [Tizim talablari](/parrot/installation/requirements)

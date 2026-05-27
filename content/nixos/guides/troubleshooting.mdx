@@ -1,0 +1,98 @@
+---
+title: "Muammolarni hal qilish"
+description: "NixOS va Nix'da uchraydigan tipik muammolar va yechimlar."
+order: 2
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/introduction"
+learning_objectives:
+  - "Build xatolar"
+  - "Rollback strategiyalari"
+  - "Disk to'lganida"
+tags: ["nixos", "troubleshooting"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Discourse"
+    url: "https://discourse.nixos.org/"
+  - title: "nix.dev — Recipes"
+    url: "https://nix.dev/recipes/"
+---
+
+NixOS muammolarining ko'pi configuration'dagi xato. Rollback eng kuchli vositangiz.[¹](https://nix.dev/recipes/)
+
+## 1. `nixos-rebuild switch` xato
+
+```
+error: attribute 'foo' missing
+```
+
+- `configuration.nix` da yozish xatosi.
+- Mavjud opsiyani noto'g'ri nomda.
+- Yechim: [search.nixos.org/options](https://search.nixos.org/options) da to'g'ri nomni topib qo'ying.
+
+## 2. Tizim yuklanmasdi
+
+GRUB menyusida **eski generatsiya** ni tanlang. So'ng:
+
+```bash
+# Tizim ishlamoqda — eski generatsiya bilan
+# Configuration.nix ni tuzating
+sudo nano /etc/nixos/configuration.nix
+
+# Yana qo'llang
+sudo nixos-rebuild switch
+```
+
+## 3. Disk to'lgan
+
+Nix store ko'p paket versiyalarini saqlaydi:
+
+```bash
+# Qancha
+du -sh /nix/store
+
+# Eski generatsiyalarni o'chirish
+sudo nix-collect-garbage --delete-older-than 30d
+
+# Hammasini (faqat joriy qoldirish)
+sudo nix-collect-garbage -d
+
+# Boot qaytadan
+sudo nixos-rebuild boot
+```
+
+## 4. Build cheksiz davom etadi
+
+- Tarmoq sekin — Nixpkgs cache'dan yuklab oladi.
+- `nixos-rebuild --substituters https://cache.nixos.org` standart cache yoqilganligini tekshiring.
+- Yangi paket — manba'dan build qilinadi.
+
+## 5. Forum va resurslar
+
+- [discourse.nixos.org](https://discourse.nixos.org/) — savol-javob.
+- [NixOS Wiki](https://nixos.wiki/) — community.
+- [Matrix #nixos](https://matrix.to/#/#nixos:nixos.org) — chat.
+
+## 6. Bilim sinovi
+
+**Savol 1.** Tizim yuklanmasdi — eng oson yechim:
+
+- a) Yangi NixOS o'rnatish
+- b) GRUB menyusida eski generatsiyani tanlash
+- c) USB live'dan o'tib config tuzatish
+- d) Tarmoq sozlash
+
+<Callout type="success" title="Javob">
+**(b)** Generatsiyalar — NixOS'ning eng kuchli xususiyati.
+</Callout>
+
+## Manbalar
+
+1. NixOS Discourse. [https://discourse.nixos.org/](https://discourse.nixos.org/)
+2. nix.dev — Recipes. [https://nix.dev/recipes/](https://nix.dev/recipes/)
+
+## Keyingi qadam
+
+👉 [Ko'p so'raladigan savollar](/nixos/guides/faq)

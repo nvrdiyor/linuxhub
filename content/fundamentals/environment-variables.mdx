@@ -1,0 +1,509 @@
+---
+title: "Muhit o'zgaruvchilari (environment variables)"
+description: "Linux muhit o'zgaruvchilari — PATH, HOME, LANG; export, env, doimiy sozlash va xavfsizlik."
+order: 103
+level: "beginner"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/shell"
+learning_objectives:
+  - "Muhit va shell o'zgaruvchilari farqini izohlash"
+  - "PATH va boshqa standart o'zgaruvchilarni boshqarish"
+  - "Doimiy sozlash (.bashrc, .profile, /etc/environment)"
+  - "Xavfsizlik amaliyotini bilish"
+tags: ["beginner", "environment", "variables", "path", "bash"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU Bash — Shell Variables"
+    url: "https://www.gnu.org/software/bash/manual/bash.html#Shell-Variables"
+  - title: "ArchWiki — Environment variables"
+    url: "https://wiki.archlinux.org/title/Environment_variables"
+  - title: "Debian Reference — environment variables"
+    url: "https://www.debian.org/doc/manuals/debian-reference/ch01.en.html"
+---
+
+Muhit o'zgaruvchilari — Linux'da har bir jarayonga uzatiladigan **kontekst** ma'lumoti. `$PATH` orqali tizim qaysi katalogdan buyruq qidiradi; `$LANG` orqali til; `$HOME` orqali sizning uy katalogingiz. Bu darsda muhit o'zgaruvchilari bilan to'liq ishlashni o'rganamiz.[¹](https://www.gnu.org/software/bash/manual/bash.html#Shell-Variables)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Shell va muhit o'zgaruvchilari farqi.
+- Eng muhim standart o'zgaruvchilar.
+- `export`, `env`, `printenv` buyruqlari.
+- Doimiy sozlash uchun fayllar.
+- PATH'ni xavfsiz boshqarish.
+</Callout>
+
+## 1. Shell vs muhit o'zgaruvchilari
+
+```bash
+# Shell o'zgaruvchisi (faqat joriy shell)
+MY_NAME="Ali"
+echo $MY_NAME      # Ali
+
+# Bash subprocess (faqat shell o'zgaruvchisi ko'rilmaydi)
+bash -c 'echo $MY_NAME'    # bo'sh
+
+# Muhit o'zgaruvchisi (subprocess'larga uzatiladi)
+export MY_NAME
+bash -c 'echo $MY_NAME'    # Ali
+```
+
+`export` — shell o'zgaruvchisini muhit o'zgaruvchisiga **promote** qiladi.
+
+```bash
+# Bir qatorda
+export GREETING="Hello"
+
+# Yoki avval e'lon, keyin export
+GREETING="Hello"
+export GREETING
+```
+
+## 2. Joriy muhit o'zgaruvchilari
+
+```bash
+# Hamma muhit o'zgaruvchilari
+env
+printenv
+
+# Aniq biri
+echo $HOME
+echo $PATH
+echo $USER
+
+# Boshqacha
+printenv HOME
+```
+
+Tipik chiqish:
+
+```
+USER=ali
+HOME=/home/ali
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+LANG=en_US.UTF-8
+TERM=xterm-256color
+SHELL=/bin/bash
+EDITOR=vim
+PWD=/home/ali
+LOGNAME=ali
+```
+
+## 3. Eng muhim standart o'zgaruvchilar
+
+| O'zgaruvchi | Maqsad | Misol |
+|---|---|---|
+| `PATH` | Buyruq qidirish kataloglari | `/usr/bin:/bin` |
+| `HOME` | Foydalanuvchi uy katalogi | `/home/ali` |
+| `USER` / `LOGNAME` | Login nomi | `ali` |
+| `SHELL` | Default shell | `/bin/bash` |
+| `TERM` | Terminal turi | `xterm-256color` |
+| `LANG` | Til va kodlash | `en_US.UTF-8` |
+| `LC_*` | Lokalizatsiya detallar | `en_US.UTF-8` |
+| `PWD` | Joriy katalog | `/home/ali` |
+| `OLDPWD` | Oldingi katalog | `/tmp` |
+| `EDITOR` / `VISUAL` | Default muharrir | `vim` |
+| `PAGER` | Default pager | `less` |
+| `MANPATH` | `man` qidirish kataloglari | |
+| `DISPLAY` | X11 display | `:0` |
+| `XDG_*` | XDG Base Directory Specification | |
+| `SSH_*` | SSH session ma'lumoti | |
+
+## 4. PATH — eng muhim o'zgaruvchi
+
+`PATH` — `:` bilan ajratilgan kataloglar ro'yxati. Buyruq yozganda, shell shu kataloglardan qidiradi.
+
+```bash
+echo $PATH
+# /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/ali/.local/bin
+```
+
+### Buyruq qaerdaligini ko'rish
+
+```bash
+which python3
+# /usr/bin/python3
+
+# Hamma topilganlar
+which -a python3
+
+# Yoki
+type python3
+# python3 is /usr/bin/python3
+```
+
+### PATH ga katalog qo'shish
+
+```bash
+# Vaqtinchalik (joriy shell)
+export PATH="$HOME/bin:$PATH"
+
+# Yoki oxiriga
+export PATH="$PATH:$HOME/bin"
+```
+
+**Tartib muhim!** Birinchi topilgan yutadi. `$HOME/bin` boshida bo'lsa, sizning lokal versiyangiz tizim versiyasidan ustun.
+
+### Doimiy PATH
+
+`~/.bashrc` (bash) yoki `~/.zshrc` (zsh):
+
+```bash
+# Faylga qo'shish
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+
+# Hozir qo'llash
+source ~/.bashrc
+```
+
+## 5. Doimiy sozlash — fayllar va tartibi
+
+Login va non-login shell'lar turli fayllarni o'qiydi:
+
+### Login shell (SSH yoki TTY)
+
+```
+/etc/profile          → tizim
+~/.bash_profile       → foydalanuvchi
+~/.bash_login         → (ikkinchi)
+~/.profile            → (uchinchi)
+```
+
+Bash birinchi mavjudini o'qiydi: `.bash_profile`, so'ng `.bash_login`, so'ng `.profile`.
+
+### Interactive non-login shell (yangi terminal oynasi)
+
+```
+/etc/bash.bashrc      → tizim
+~/.bashrc             → foydalanuvchi
+```
+
+### Hamma uchun (logout fayli)
+
+```
+~/.bash_logout        → logout vaqtida
+```
+
+### Tipik `~/.profile`
+
+```bash
+# ~/.profile (login shell)
+
+# Agar .bashrc mavjud bo'lsa, o'qish
+if [ -n "$BASH_VERSION" ]; then
+    if [ -f "$HOME/.bashrc" ]; then
+        . "$HOME/.bashrc"
+    fi
+fi
+
+# PATH
+if [ -d "$HOME/bin" ]; then
+    PATH="$HOME/bin:$PATH"
+fi
+if [ -d "$HOME/.local/bin" ]; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+export PATH
+
+# Editor
+export EDITOR=vim
+export VISUAL=vim
+
+# Locale
+export LANG=en_US.UTF-8
+```
+
+### Tizim darajasi: `/etc/environment`
+
+PAM tomonidan o'qiladigan oddiy `KEY=VALUE` fayl (shell sintaksis emas):
+
+```
+# /etc/environment
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+LANG="en_US.UTF-8"
+LC_ALL="en_US.UTF-8"
+EDITOR="vim"
+```
+
+**Diqqat:** bu shell skript emas, `export` va `$VAR` interpolyatsiya **ishlamaydi**.
+
+### Tizim darajasi: `/etc/profile.d/*.sh`
+
+Shell skript fragmentlari:
+
+```bash
+# /etc/profile.d/my-vars.sh
+export JAVA_HOME=/usr/lib/jvm/default-java
+export ANDROID_HOME=$HOME/Android/Sdk
+```
+
+## 6. Vaqtinchalik o'zgartirish — bitta buyruq uchun
+
+```bash
+# Faqat shu buyruq uchun
+EDITOR=nano sudo visudo
+
+# Bir nechta
+LC_ALL=C LANG=C sort fayl.txt
+```
+
+Buyruq tugagandan keyin o'zgaruvchi yo'qoladi.
+
+## 7. `env` buyrug'i — toza muhit
+
+```bash
+# Joriy muhit
+env
+
+# Toza muhit bilan ishga tushirish (hech qanday o'zgaruvchi)
+env -i bash
+
+# Faqat aniq o'zgaruvchilar bilan
+env -i HOME=/root PATH=/bin bash
+```
+
+Bu container'lar va xavfsizlik audit'lar uchun foydali.
+
+## 8. Lokalizatsiya — LANG va LC_*
+
+```bash
+# Joriy locale
+locale
+
+# Misol:
+# LANG=en_US.UTF-8
+# LC_NUMERIC="en_US.UTF-8"
+# LC_TIME="en_US.UTF-8"
+# LC_MONETARY="en_US.UTF-8"
+# LC_MESSAGES="en_US.UTF-8"
+# LC_ALL=
+
+# Mavjud locale'lar
+locale -a
+
+# Locale generatsiya (Debian/Ubuntu)
+sudo dpkg-reconfigure locales
+```
+
+`LC_ALL` — barcha LC_* ni bostiradi. Skriptlarda predictability uchun foydali:
+
+```bash
+LC_ALL=C sort fayl.txt    # ASCII tartibi
+```
+
+## 9. XDG Base Directory Specification
+
+Foydalanuvchi fayllari standart joylari:
+
+| O'zgaruvchi | Default | Maqsad |
+|---|---|---|
+| `XDG_CONFIG_HOME` | `~/.config` | Sozlama fayllari |
+| `XDG_DATA_HOME` | `~/.local/share` | Foydalanuvchi ma'lumotlari |
+| `XDG_CACHE_HOME` | `~/.cache` | Cache |
+| `XDG_STATE_HOME` | `~/.local/state` | Vaqtinchalik holat |
+| `XDG_RUNTIME_DIR` | `/run/user/UID` | Runtime fayllari |
+
+Yangi dasturlar uchun standart. Eski dasturlar `~/.<nom>` ishlatishi mumkin.
+
+## 10. SSH va muhit
+
+SSH login'da quyidagi o'zgaruvchilar avtomatik o'rnatiladi:
+
+```bash
+SSH_CLIENT="192.168.1.10 12345 22"
+SSH_CONNECTION="192.168.1.10 12345 192.168.1.50 22"
+SSH_TTY=/dev/pts/0
+```
+
+Skriptlarda foydali:
+
+```bash
+if [ -n "$SSH_TTY" ]; then
+    echo "Siz SSH orqali ulangansiz"
+fi
+```
+
+## 11. Secret muhit o'zgaruvchilari (API kalitlari, parollar)
+
+```bash
+# YOMON — terminal historyga yoziladi
+export API_KEY="abc123secret"
+
+# YAXSHIROQ — `.env` fayli + dotenv
+cat > ~/.env <<EOF
+API_KEY=abc123secret
+DB_PASSWORD=secretpass
+EOF
+chmod 600 ~/.env
+
+# Skriptda yuklash
+set -a
+source ~/.env
+set +a
+```
+
+`set -a` — keyingi har bir o'zgaruvchi avtomatik export qilinadi.
+
+### `.bashrc`'da maxfiy ma'lumot — YOMON
+
+```bash
+# YOMON
+export GITHUB_TOKEN="ghp_xyz..."
+```
+
+Bu fayl ko'pincha backup qilinadi, dotfiles repository'da git'da bo'ladi.
+
+### YAXSHIROQ — alohida fayl
+
+```bash
+# ~/.secrets (chmod 600)
+export GITHUB_TOKEN="ghp_xyz..."
+
+# ~/.bashrc
+[ -f ~/.secrets ] && source ~/.secrets
+```
+
+`.secrets` ni gitignore'ga qo'shing.
+
+## 12. Misol — Node.js loyihasi muhiti
+
+```bash
+# .env (lokal)
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgres://localhost/myapp
+JWT_SECRET=your-secret-here
+
+# .env.production (production)
+NODE_ENV=production
+PORT=80
+DATABASE_URL=postgres://prod-db.example.com/myapp
+JWT_SECRET=production-secret
+```
+
+Skriptda:
+
+```javascript
+// Node.js
+require('dotenv').config()
+console.log(process.env.NODE_ENV)
+```
+
+systemd service'da:
+
+```ini
+[Service]
+EnvironmentFile=/etc/myapp/.env
+ExecStart=/usr/local/bin/node app.js
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `echo $VAR` | O'zgaruvchi qiymatini ko'rish |
+| `printenv VAR` | Aniq muhit o'zgaruvchisi |
+| `env` | Hamma muhit o'zgaruvchilari |
+| `set` | Hamma (shell + muhit) o'zgaruvchilari |
+| `export VAR=qiymat` | Muhit o'zgaruvchisi sifatida e'lon |
+| `unset VAR` | O'zgaruvchini olib tashlash |
+| `env -i bash` | Toza muhit bilan shell |
+| `source ~/.bashrc` | Faylni o'qib, joriy shellga qo'llash |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`export` ni unutish** — shell o'zgaruvchisi subprocess'larga uzatilmaydi.
+- **`PATH` ni butunlay qayta yozish** — `export PATH=/mybin` o'rniga `export PATH=/mybin:$PATH`. Aks holda barcha tizim buyruqlari yo'qoladi.
+- **`/etc/environment` ga shell sintaksis** — bu fayl PAM tomonidan o'qiladi, `export` va `$VAR` ishlamaydi.
+- **`.bashrc` o'zgartirgandan keyin yangi terminal kerak deb o'ylash** — `source ~/.bashrc` orqali joriy shellga qo'llang.
+- **Secret'ni `.bashrc`'da** — backup va git xavfi.
+- **Locale yo'q** — `Cannot set LC_ALL` xato. `locale -a` orqali tekshiring va `sudo locale-gen <locale>` (Debian) bilan generatsiya qiling.
+
+## 15. Eng yaxshi amaliyot
+
+- **`PATH`'ga qo'shish — boshiga** (`$HOME/bin:$PATH`) — lokal buyruq tizim versiyasidan ustun.
+- **`.bashrc`'da faqat interactive sozlamalar.** Login darajasidagi narsa — `.profile` da.
+- **`/etc/environment`** — barcha foydalanuvchilar uchun.
+- **`/etc/profile.d/`** — modulli sozlash.
+- **Secret'lar — alohida shifrlangan fayl** (`pass`, `1Password CLI`, AWS Secrets Manager).
+- **systemd xizmatlar uchun `EnvironmentFile=`** — sozlamani kod'dan ajratish.
+- **`.env` faylni gitignore'ga qo'shish.**
+- **`set -a`** — bash skriptda env faylni avtomatik yuklash uchun.
+- **`unset`** ehtiyot bilan — ba'zi o'zgaruvchilarning yo'qligi sintaksis xatosiga olib kelishi mumkin.
+
+## 16. Mashqlar
+
+1. **Inventarizatsiya:** `env | wc -l` — sizda nechta muhit o'zgaruvchisi?
+2. **PATH analizi:** `echo $PATH | tr ':' '\n'` — `PATH`'dagi kataloglarni alohida qatorlarda ko'ring. Qaysisi birinchi?
+3. **Test export:** `MY_VAR="test"` qiling, so'ng `bash -c 'echo $MY_VAR'`. Bo'shmi? Endi `export MY_VAR` va qaytaring. Endi ko'rinadimi?
+4. **Doimiy o'zgaruvchi:** `~/.bashrc`'ga `export MY_PROJECT_HOME="$HOME/projects"` qo'shing. `source ~/.bashrc` qiling. `echo $MY_PROJECT_HOME` ishladimi?
+5. **PATH'ga katalog:** `~/bin` katalog yarating, ichida `mytest.sh` skript yarating va executable qiling. `~/.bashrc` da `PATH="$HOME/bin:$PATH"` qo'shing. `mytest.sh` bevosita ishladimi?
+6. **Locale:** `locale -a | wc -l` — sizdagi mavjud locale'lar soni nima?
+7. **Toza muhit:** `env -i bash --norc` ni bajaring. `echo $PATH` — bo'shmi?
+
+## 17. Bilim sinovi
+
+**Savol 1.** `export` nima qiladi?
+
+- a) O'zgaruvchini saqlaydi
+- b) Shell o'zgaruvchisini muhit o'zgaruvchisiga aylantiradi (subprocess'larga uzatish uchun)
+- c) Faylni eksport qiladi
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `export` — o'zgaruvchini subprocess'larga ko'rinadigan qilish.[¹](https://www.gnu.org/software/bash/manual/bash.html#Shell-Variables)
+</Callout>
+
+**Savol 2.** `PATH="$HOME/bin"` ni `~/.bashrc`'ga yozsangiz nima yomon?
+
+- a) Hech qanday muammo
+- b) Tizim buyruqlari (`ls`, `cp` va h.k.) yo'qoladi
+- c) PATH cheksiz o'sib boradi
+- d) Faqat root uchun ishlaydi
+
+<Callout type="success" title="Javob">
+**(b)** PATH'ni qayta yozadi. To'g'risi `PATH="$HOME/bin:$PATH"` — eskini saqlash.
+</Callout>
+
+**Savol 3.** `/etc/environment` da `export PATH="..."` yozish:
+
+- a) To'g'ri
+- b) Xato — bu fayl shell sintaksisni qabul qilmaydi, faqat `KEY=VALUE`
+- c) Faqat root uchun
+- d) Faqat Ubuntu'da
+
+<Callout type="success" title="Javob">
+**(b)** PAM oddiy `KEY=VALUE` fayl sifatida o'qiydi.
+</Callout>
+
+**Savol 4.** Login shell qaysi faylni birinchi o'qiydi?
+
+- a) `~/.bashrc`
+- b) `/etc/profile` so'ng `~/.bash_profile` (yoki `.profile`)
+- c) `~/.profile`
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** Tartib: `/etc/profile`, so'ng `~/.bash_profile`, `~/.bash_login`, `~/.profile` (birinchi mavjudi).
+</Callout>
+
+**Savol 5.** Secret kalitlarni qaerda saqlash eng yaxshi?
+
+- a) `~/.bashrc` ichida `export`
+- b) Alohida fayl (`chmod 600`), `.gitignore`'da, conditional source
+- c) Skriptlarda hardcoded
+- d) Tizim hammaga ko'rinadigan o'zgaruvchida
+
+<Callout type="success" title="Javob">
+**(b)** Alohida, cheklangan ruxsat, git'dan tashqari.
+</Callout>
+
+## Manbalar
+
+1. GNU Bash — Shell Variables. [https://www.gnu.org/software/bash/manual/bash.html#Shell-Variables](https://www.gnu.org/software/bash/manual/bash.html#Shell-Variables)
+2. ArchWiki — Environment variables. [https://wiki.archlinux.org/title/Environment_variables](https://wiki.archlinux.org/title/Environment_variables)
+3. Debian Reference. [https://www.debian.org/doc/manuals/debian-reference/ch01.en.html](https://www.debian.org/doc/manuals/debian-reference/ch01.en.html)
+
+## Keyingi qadam
+
+👉 [Globbing va wildcards](/fundamentals/globbing-wildcards)

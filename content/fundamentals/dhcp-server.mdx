@@ -1,0 +1,458 @@
+---
+title: "DHCP server o'rnatish"
+description: "Lokal tarmoqda DHCP server — ISC DHCP va dnsmasq bilan."
+order: 142
+level: "intermediate"
+estimated_minutes: 10
+prerequisites:
+  - "/fundamentals/networking"
+learning_objectives:
+  - "DHCP qanday ishlaydi"
+  - "ISC DHCP server konfiguratsiyasi"
+  - "dnsmasq — yengil alternativ"
+  - "Static lease, scope"
+tags: ["intermediate", "dhcp", "networking", "isc"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ISC DHCP"
+    url: "https://www.isc.org/dhcp/"
+  - title: "dnsmasq"
+    url: "https://thekelleys.org.uk/dnsmasq/doc.html"
+  - title: "RFC 2131 — DHCP"
+    url: "https://www.rfc-editor.org/rfc/rfc2131"
+---
+
+**DHCP** (Dynamic Host Configuration Protocol) — klient'larga IP manzil, gateway, DNS server'larini avtomatik berish. Bu darsda Linux'da DHCP server o'rnatishni o'rganamiz.[¹](https://www.isc.org/dhcp/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- DHCP jarayoni (DORA — Discover, Offer, Request, Acknowledge).
+- ISC DHCP server.
+- dnsmasq — yengil alternativ.
+- Static lease (MAC bo'yicha doimiy IP).
+- Lease boshqaruv.
+</Callout>
+
+## 1. DHCP qanday ishlaydi
+
+```
+Klient (yangi)                           DHCP Server
+
+DHCP DISCOVER (broadcast: kim DHCP?)   ──▶
+                                        ◀── DHCP OFFER (IP taklif)
+DHCP REQUEST (rozi, shu IP)            ──▶
+                                        ◀── DHCP ACK (tasdiq, lease info)
+```
+
+DHCP klient quyidagilarni oladi:
+
+- IP manzil
+- Subnet mask
+- Default gateway
+- DNS server(lar)
+- DNS suffix (domain)
+- NTP server
+- TFTP server (PXE boot)
+- Boshqa custom option'lar
+
+## 2. ISC DHCP server o'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install isc-dhcp-server
+
+# Fedora/RHEL
+sudo dnf install dhcp-server
+
+# Arch
+sudo pacman -S dhcp
+```
+
+## 3. Konfiguratsiya — `/etc/dhcp/dhcpd.conf`
+
+```
+# Global
+default-lease-time 600;
+max-lease-time 7200;
+authoritative;
+
+# Tarmoq
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    range 192.168.1.100 192.168.1.200;
+    option routers 192.168.1.1;
+    option subnet-mask 255.255.255.0;
+    option domain-name-servers 1.1.1.1, 8.8.8.8;
+    option domain-name "home.local";
+    option ntp-servers pool.ntp.org;
+}
+```
+
+| Parametr | Maqsad |
+|---|---|
+| `default-lease-time` | Default lease (soniya) |
+| `max-lease-time` | Maksimal |
+| `authoritative` | "Men DHCP'man" |
+| `subnet ... netmask ...` | Tarmoq |
+| `range` | IP diapazoni |
+| `option routers` | Gateway |
+| `option domain-name-servers` | DNS |
+| `option domain-name` | DNS suffix |
+
+## 4. Static lease — MAC bo'yicha doimiy IP
+
+```
+host my-printer {
+    hardware ethernet aa:bb:cc:dd:ee:ff;
+    fixed-address 192.168.1.50;
+}
+
+host nas {
+    hardware ethernet 11:22:33:44:55:66;
+    fixed-address 192.168.1.10;
+}
+```
+
+MAC bo'lgan klient doim shu IP'ni oladi.
+
+## 5. Interface va xizmat
+
+`/etc/default/isc-dhcp-server`:
+
+```
+INTERFACESv4="eth0"
+INTERFACESv6=""
+```
+
+Faqat shu interfeysda tinglaydi.
+
+```bash
+sudo systemctl restart isc-dhcp-server
+sudo systemctl enable isc-dhcp-server
+
+# Status
+sudo systemctl status isc-dhcp-server
+
+# Sintaksis tekshirish
+sudo dhcpd -t -cf /etc/dhcp/dhcpd.conf
+```
+
+## 6. Lease ko'rish
+
+```bash
+# Aktiv lease'lar
+sudo cat /var/lib/dhcp/dhcpd.leases | tail -30
+
+# Yoki
+sudo dhcp-lease-list
+```
+
+Misol:
+
+```
+lease 192.168.1.100 {
+  starts 5 2026/05/26 10:00:00;
+  ends 5 2026/05/26 10:10:00;
+  hardware ethernet aa:bb:cc:dd:ee:ff;
+  client-hostname "laptop";
+}
+```
+
+## 7. dnsmasq — yengil alternativ
+
+[dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) — DHCP + DNS + TFTP bir paketda. Yengil router yoki lab uchun ideal.[²](https://thekelleys.org.uk/dnsmasq/doc.html)
+
+```bash
+sudo apt install dnsmasq
+```
+
+`/etc/dnsmasq.conf`:
+
+```
+# Interface
+interface=eth0
+bind-interfaces
+
+# DHCP
+dhcp-range=192.168.1.100,192.168.1.200,12h
+dhcp-option=option:router,192.168.1.1
+dhcp-option=option:dns-server,1.1.1.1,8.8.8.8
+dhcp-option=option:domain-name,home.local
+
+# Static
+dhcp-host=aa:bb:cc:dd:ee:ff,my-printer,192.168.1.50
+dhcp-host=11:22:33:44:55:66,nas,192.168.1.10
+
+# DNS
+domain=home.local
+expand-hosts
+local=/home.local/
+```
+
+```bash
+sudo systemctl restart dnsmasq
+```
+
+dnsmasq + `/etc/hosts` — internal DNS:
+
+```
+192.168.1.10 nas.home.local
+192.168.1.50 printer.home.local
+```
+
+Endi `ping nas.home.local` ishlaydi.
+
+## 8. PXE boot — DHCP + TFTP
+
+PXE — boot orqali tarmoqdan OS yuklash.
+
+`/etc/dhcp/dhcpd.conf`:
+
+```
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    range 192.168.1.100 192.168.1.200;
+    next-server 192.168.1.5;     # TFTP server
+    filename "pxelinux.0";        # boot fayl
+}
+```
+
+TFTP server — `tftpd-hpa` yoki dnsmasq.
+
+dnsmasq PXE:
+
+```
+enable-tftp
+tftp-root=/srv/tftp
+dhcp-boot=pxelinux.0,server,192.168.1.5
+```
+
+`/srv/tftp/pxelinux.0` — SYSLINUX bootloader.
+
+## 9. Multi-VLAN DHCP
+
+Bir nechta subnet:
+
+```
+subnet 192.168.1.0 netmask 255.255.255.0 {
+    interface eth0.10;
+    range 192.168.1.100 192.168.1.200;
+    option routers 192.168.1.1;
+}
+
+subnet 10.10.0.0 netmask 255.255.255.0 {
+    interface eth0.20;
+    range 10.10.0.100 10.10.0.200;
+    option routers 10.10.0.1;
+}
+```
+
+## 10. Firewall
+
+DHCP UDP ports 67 (server) va 68 (klient):
+
+```bash
+sudo ufw allow 67/udp
+```
+
+## 11. Klient sifatida DHCP olish
+
+Default'da NetworkManager yoki systemd-networkd DHCP klient.
+
+Manual test:
+
+```bash
+# DHCP release va renew
+sudo dhclient -r eth0        # release
+sudo dhclient eth0           # renew
+
+# Verbose
+sudo dhclient -v eth0
+```
+
+## 12. Misol — uy lab tarmog'i
+
+`/etc/dnsmasq.conf`:
+
+```
+# Asosiy
+interface=eth0
+bind-interfaces
+
+# DHCP
+dhcp-range=192.168.50.100,192.168.50.200,24h
+dhcp-option=3,192.168.50.1            # gateway
+dhcp-option=6,192.168.50.1            # DNS — biz o'zimiz
+dhcp-option=15,lab.home               # domain
+
+# Static
+dhcp-host=aa:bb:cc:dd:ee:ff,nas,192.168.50.10,infinite
+dhcp-host=11:22:33:44:55:66,pi,192.168.50.20,infinite
+dhcp-host=22:33:44:55:66:77,switch,192.168.50.30,infinite
+
+# DNS
+domain=lab.home
+expand-hosts
+local=/lab.home/
+server=1.1.1.1
+server=8.8.8.8
+
+# Logging
+log-dhcp
+log-queries
+```
+
+`/etc/hosts`:
+
+```
+192.168.50.10 nas.lab.home nas
+192.168.50.20 pi.lab.home pi
+192.168.50.30 switch.lab.home switch
+192.168.50.40 server.lab.home server
+```
+
+```bash
+sudo systemctl restart dnsmasq
+sudo systemctl enable dnsmasq
+
+# Test
+nslookup nas.lab.home
+```
+
+## 13. Lease lifecycle
+
+```
+Klient ulanadi → DISCOVER
+              ↓
+              Server javob beradi (OFFER)
+              ↓
+              Klient tasdiqlaydi (REQUEST)
+              ↓
+              Server tasdiqlaydi (ACK)
+              ↓
+              Klient IP ishlatadi
+              ↓
+              Lease 50% — REQUEST yana yubormoqchi (renew)
+              ↓
+              Lease 87.5% — REBINDING (boshqa server'ga ham so'rash)
+              ↓
+              Lease tugaganda — yangi DISCOVER
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+### ISC DHCP
+
+| Buyruq | Vazifa |
+|---|---|
+| `dhcpd -t -cf /etc/dhcp/dhcpd.conf` | Sintaksis test |
+| `systemctl restart isc-dhcp-server` | Restart |
+| `dhcp-lease-list` | Lease'lar |
+| `cat /var/lib/dhcp/dhcpd.leases` | Raw lease fayl |
+
+### dnsmasq
+
+| Buyruq | Vazifa |
+|---|---|
+| `dnsmasq --test` | Sintaksis test |
+| `systemctl restart dnsmasq` | Restart |
+| `cat /var/lib/misc/dnsmasq.leases` | Lease |
+
+### Klient
+
+| Buyruq | Vazifa |
+|---|---|
+| `dhclient -r` | Release |
+| `dhclient -v` | Verbose renew |
+| `ip a show` | Joriy IP |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **`authoritative;`** yo'q — server boshqa DHCP server'lar mavjud bo'lganda BOOT REPLY yubormaydi.
+- **Interface noto'g'ri** — `INTERFACESv4` aniq belgilang.
+- **Firewall 67-port bloklash** — DHCP ishlamaydi.
+- **Lease overlap** — bir IP ikki klient'ga — IP conflict.
+- **Range routers'dan tashqarida** — gateway klient bilan bir subnet'da bo'lishi shart.
+
+## 16. Eng yaxshi amaliyot
+
+- **Static lease MAC-based** — server, printer, NAS uchun.
+- **Lease time short (1-24h)** — dynamic tarmoq, IP eskirmaslik.
+- **Reserved range** — `range 100-200`, lekin static lease'lar 10-50 da.
+- **dnsmasq uy/lab uchun** — DHCP + DNS bir paketda.
+- **ISC DHCP enterprise** — kuchli, lekin murakkab.
+- **Backup `dhcpd.conf`** — Git'ga commit.
+- **Monitor lease** — yangi MAC'lar — kim ulandi?
+
+## 17. Mashqlar
+
+1. **dnsmasq o'rnatish** (lab muhitida): yuqoridagi config.
+2. **Static lease:** Klient MAC olib, fixed-address sozlang.
+3. **Klient test:** `sudo dhclient -v eth0` — qaysi IP va options keldi?
+4. **Lease faylni ko'rish:** `cat /var/lib/misc/dnsmasq.leases`.
+5. **DNS test:** `nslookup nas.lab.home` (yuqoridagi misol bilan).
+
+## 18. Bilim sinovi
+
+**Savol 1.** DHCP klient birinchi qaysi paket yuboradi?
+
+- a) REQUEST
+- b) DISCOVER (broadcast — "kim DHCP server?")
+- c) OFFER
+- d) ACK
+
+<Callout type="success" title="Javob">
+**(b)** DORA jarayoni — Discover boshlaydi.[³](https://www.rfc-editor.org/rfc/rfc2131)
+</Callout>
+
+**Savol 2.** DHCP server portlari:
+
+- a) 80, 443
+- b) 67 (server), 68 (klient) — UDP
+- c) 53 (DNS bilan)
+- d) 22
+
+<Callout type="success" title="Javob">
+**(b)** UDP 67/68.
+</Callout>
+
+**Savol 3.** Static lease nima beradi:
+
+- a) Tezroq lease
+- b) MAC bo'yicha doimiy IP — har vaqt bir xil IP
+- c) Faqat enterprise uchun
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Server, printer va boshqalar uchun.
+</Callout>
+
+**Savol 4.** Uy lab uchun yengil DHCP:
+
+- a) ISC DHCP server
+- b) dnsmasq (DHCP + DNS + TFTP bir paketda)
+- c) Faqat router
+- d) Manual config
+
+<Callout type="success" title="Javob">
+**(b)** dnsmasq — minimal, oson.
+</Callout>
+
+**Savol 5.** Klient DHCP'dan release qilish:
+
+- a) Reboot
+- b) `dhclient -r <interface>`
+- c) `ifdown`
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Lease'ni server'ga qaytarish.
+</Callout>
+
+## Manbalar
+
+1. ISC DHCP. [https://www.isc.org/dhcp/](https://www.isc.org/dhcp/)
+2. dnsmasq. [https://thekelleys.org.uk/dnsmasq/doc.html](https://thekelleys.org.uk/dnsmasq/doc.html)
+3. RFC 2131 — DHCP. [https://www.rfc-editor.org/rfc/rfc2131](https://www.rfc-editor.org/rfc/rfc2131)
+
+## Keyingi qadam
+
+👉 [Python Linux ostida](/fundamentals/python-on-linux)

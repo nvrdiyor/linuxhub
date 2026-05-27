@@ -1,0 +1,58 @@
+---
+title: "Tushunchalar — FAQ"
+description: "Nix va NixOS tushunchalari bo'yicha keng tarqalgan savollar."
+order: 2
+level: "intermediate"
+estimated_minutes: 3
+prerequisites:
+  - "/nixos/introduction"
+tags: ["nixos", "concepts", "faq"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Concepts"
+    url: "https://nix.dev/concepts/"
+---
+
+Nix va NixOS tushunchalari bo'yicha qisqa javoblar.[¹](https://nix.dev/concepts/)
+
+## "Pure" derivation nima?
+
+Derivation outputi faqat inputlardan (manba, bog'liqliklar, build skript) kelib chiqadi. Tarmoq, vaqt, foydalanuvchi nomi — yo'q. Aynan bir xil inputlar — aynan bir xil output.
+
+## `nix-shell` va `nix shell` farqi?
+
+- `nix-shell` — eski, channel asoslangan, `shell.nix` ishlatadi.
+- `nix shell` — yangi, flake asoslangan, modular.
+
+## Nix store immutable'mi?
+
+Ha. Bir marotaba yozilgandan keyin o'zgartirilmaydi. Yangi versiya — yangi yo'l.
+
+## Qaysi vaqtda yangi reliz?
+
+NixOS har 6 oyda: YY.05 (may) va YY.11 (noyabr).
+
+## Nixpkgs hajmi qancha?
+
+100,000+ paket — eng katta paket repository.
+
+## Boshqa Linuxdan farqi?
+
+Bitta jumlada: hammasi deklarativ va atomik.
+
+## Yangilanish necha vaqt oladi?
+
+`nixos-rebuild switch` odatda 1-5 daqiqa. Yadro o'zgargan bo'lsa, qayta yuklash kerak.
+
+## Disk hajmi katta?
+
+Nix store ko'p paket versiyalarini saqlaydi. `nix-collect-garbage` orqali tozalanadi.
+
+## Manbalar
+
+1. nix.dev — Concepts. [https://nix.dev/concepts/](https://nix.dev/concepts/)
+
+## Keyingi qadam
+
+👉 [Hissa qo'shish — Qanday hissa qo'shish](/nixos/contributing/how-to-contribute)

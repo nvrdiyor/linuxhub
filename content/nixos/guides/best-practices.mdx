@@ -1,0 +1,111 @@
+---
+title: "Eng yaxshi amaliyotlar"
+description: "NixOS va Nix loyihalarda eng yaxshi amaliyotlar va qoidalar."
+order: 1
+level: "advanced"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/nixos/configuration-basics"
+learning_objectives:
+  - "Configuration va paket loyihalari uchun amaliyot"
+  - "Reproducibility, pin'lar, modular tuzilish"
+tags: ["nixos", "best-practices"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Best practices"
+    url: "https://nix.dev/guides/best-practices.html"
+---
+
+NixOS yangi paradigma — eski "tezda fix qiling" amaliyotlar ishlamaydi. Quyida tajribali jamoa tomonidan tan olingan amaliyotlar.[¹](https://nix.dev/guides/best-practices.html)
+
+## 1. Configuration
+
+✅ **Qiling:**
+
+- `configuration.nix` ni Git'da saqlang.
+- Modullarga bo'ling — bir fayl 500 qatordan oshmasin.
+- Hostlar uchun alohida fayl (`hosts/myserver.nix`, `hosts/laptop.nix`).
+- `flake.nix` — yangi loyihalarda.
+
+❌ **Qilmang:**
+
+- `nix-env -i` orqali tizim paketlar — bu **imperative**, configuration'dan tashqari.
+- `/etc` ni qo'lda tahrirlash — keyingi rebuild'da yo'qoladi.
+- `nix-channel` ni avtomatik yangilash — pin'siz tizim takrorlanmaydi.
+
+## 2. Paketlar
+
+✅ **Qiling:**
+
+- `fetchurl` har doim `sha256` bilan.
+- `meta` to'liq (description, license, maintainers).
+- `lib.fileset` lokal fayllar uchun.
+- `cargoLock = { lockFile = ./Cargo.lock; };` Rust uchun.
+
+❌ **Qilmang:**
+
+- `sha256 = "0000...";` — bu "har vaqt qaytadan yuklab oladigan" anti-pattern.
+- `src = ./.;` ehtiyot bilan tekshirmasdan.
+- `IFD` (import from derivation) — tezligini buzadi.
+
+## 3. Reproducibility
+
+- Nixpkgs ni **pin** qiling (flake.lock yoki niv).
+- Aniq commit hash — channel nomi emas.
+- CI build'da pin'ni tekshiring.
+
+## 4. Modular configuration
+
+```
+/etc/nixos/
+├── configuration.nix     # asosiy entry
+├── hardware-configuration.nix
+├── modules/
+│   ├── users.nix
+│   ├── networking.nix
+│   ├── services.nix
+│   └── desktop.nix
+└── hosts/
+    ├── laptop.nix
+    └── server.nix
+```
+
+## 5. Flake'lar (zamonaviy yo'l)
+
+```nix
+# flake.nix
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+
+  outputs = { self, nixpkgs }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [ ./configuration.nix ];
+    };
+  };
+}
+```
+
+`nixos-rebuild switch --flake .#myhost`.
+
+## 6. Bilim sinovi
+
+**Savol 1.** Tizim paketlarni qaerda e'lon qilish:
+
+- a) `nix-env -i`
+- b) `environment.systemPackages` `configuration.nix` da
+- c) `~/.nix-profile`
+- d) `/usr/bin`
+
+<Callout type="success" title="Javob">
+**(b)** Deklarativ va reproducible.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Best practices. [https://nix.dev/guides/best-practices.html](https://nix.dev/guides/best-practices.html)
+
+## Keyingi qadam
+
+👉 [Muammolarni hal qilish](/nixos/guides/troubleshooting)

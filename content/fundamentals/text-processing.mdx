@@ -1,0 +1,339 @@
+---
+title: "Matnni qayta ishlash"
+description: "Linux'da matn bilan ishlashning klassik vositalari — grep, sed, awk, sort, uniq, cut va pipe."
+order: 4
+level: "intermediate"
+estimated_minutes: 8
+prerequisites:
+  - "/fundamentals/basic-commands"
+  - "/fundamentals/file-operations"
+learning_objectives:
+  - "Pipe va redirektsiyani ishlatish"
+  - "grep bilan matn ichida qidirish"
+  - "sed bilan almashtirish va sort/uniq/cut bilan tahlil"
+  - "Asosiy awk bilan ustun-asosli ishlash"
+tags: ["intermediate", "grep", "sed", "awk", "pipes"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU grep manual"
+    url: "https://www.gnu.org/software/grep/manual/grep.html"
+  - title: "GNU sed manual"
+    url: "https://www.gnu.org/software/sed/manual/sed.html"
+  - title: "GNU awk (gawk) manual"
+    url: "https://www.gnu.org/software/gawk/manual/gawk.html"
+  - title: "GNU coreutils — sort, uniq, cut"
+    url: "https://www.gnu.org/software/coreutils/manual/coreutils.html"
+---
+
+Linux'ning kuchli tomonlaridan biri — matnni vositalar zanjiri orqali qayta ishlash. "Hammasi matn" tamoyili uchun bu juda muhim: log fayllari, konfiguratsiyalar, buyruq chiqishi — barchasi matn. Bu darsda klassik GNU vositalarini o'rganamiz.[¹](https://www.gnu.org/software/grep/manual/grep.html)[²](https://www.gnu.org/software/sed/manual/sed.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Pipe (`|`) va redirektsiya (`>`, `>>`, `<`).
+- `grep` — matn qidirish.
+- `sed` — almashtirish.
+- `awk` — ustun-asosli tahlil.
+- `sort`, `uniq`, `cut`, `wc` — yordamchi vositalar.
+</Callout>
+
+## 1. Pipe va redirektsiya
+
+**Pipe (`|`)** — bir buyruq chiqishini ikkinchisining kirishiga uzatadi:
+
+```bash
+# `ls` chiqishini `grep` ga uzatish
+ls /etc | grep "conf"
+
+# Birga uchta buyruq
+cat /var/log/syslog | grep "error" | head -20
+```
+
+**Redirektsiya:**
+
+```bash
+# Chiqishni faylga (overwrite)
+ls > fayllar.txt
+
+# Append (oxiriga qo'shish)
+ls >> fayllar.txt
+
+# Xato oqimini (stderr) faylga
+command 2> xato.log
+
+# Standart va xatoni birga
+command > chiqish.log 2>&1
+
+# Yoki qisqacha
+command &> hammasi.log
+
+# Faylni kirish manbai sifatida
+sort < ro'yxat.txt
+```
+
+## 2. `grep` — matn qidirish
+
+```bash
+# Faylda so'z qidirish
+grep "error" /var/log/syslog
+
+# Case-insensitive
+grep -i "error" syslog
+
+# Faqat qator raqamlari
+grep -n "error" syslog
+
+# Aksincha (mos kelmaganlarni)
+grep -v "debug" syslog
+
+# Rekursiv (katalog ichidagi barcha fayllarda)
+grep -r "TODO" ~/loyihalar/
+
+# Faqat fayl nomlarini ko'rsatish
+grep -l "import React" *.tsx
+
+# Mosliklar sonini sanash
+grep -c "error" syslog
+
+# Atrofdagi 3 qatorni ko'rsatish (context)
+grep -C 3 "error" syslog
+```
+
+### Regular expression (regex)
+
+`grep` regex'ni qo'llab-quvvatlaydi:
+
+```bash
+# Faqat sonlar
+grep "[0-9]" fayl.txt
+
+# Email manzillari
+grep -E "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}" fayl.txt
+
+# Qator boshi/oxiri
+grep "^Error" syslog
+grep "done$" syslog
+
+# Yoki (`grep -E` kerak)
+grep -E "error|warning|fail" syslog
+```
+
+## 3. `sed` — almashtirish va tahrirlash
+
+```bash
+# `eski` ni `yangi` ga almashtirish (faqat birinchi)
+sed 's/eski/yangi/' fayl.txt
+
+# Har bir qatorda barcha mosliklar (global)
+sed 's/eski/yangi/g' fayl.txt
+
+# Faylni o'zgartirish (-i — in-place)
+sed -i 's/eski/yangi/g' fayl.txt
+
+# Faylni o'zgartirishdan oldin backup yaratish
+sed -i.bak 's/eski/yangi/g' fayl.txt
+
+# Faqat 5-qatordagi mosliklarni
+sed '5s/eski/yangi/' fayl.txt
+
+# 1-10 qatorlar ichida
+sed '1,10s/eski/yangi/g' fayl.txt
+
+# Qator o'chirish
+sed '/error/d' fayl.txt
+
+# Bo'sh qatorlarni o'chirish
+sed '/^$/d' fayl.txt
+```
+
+[²](https://www.gnu.org/software/sed/manual/sed.html)
+
+## 4. `awk` — ustun-asosli tahlil
+
+`awk` matnni ustunlarga (`$1`, `$2`, ...) ajratib ishlaydi. Standart ajratuvchi — bo'sh joy.[³](https://www.gnu.org/software/gawk/manual/gawk.html)
+
+```bash
+# `/etc/passwd` da har qator 1-ustuni (foydalanuvchi nomi)
+awk -F: '{print $1}' /etc/passwd
+
+# `-F` — ajratuvchi (`:` chiziqcha)
+
+# 1- va 3-ustunlar
+awk -F: '{print $1, $3}' /etc/passwd
+
+# Faqat UID > 1000 bo'lganlar (oddiy foydalanuvchilar)
+awk -F: '$3 > 1000 {print $1}' /etc/passwd
+
+# Mos kelgan qatorlar uchun amaliyot
+awk '/error/ {print NR, $0}' syslog
+# NR — qator raqami; $0 — butun qator
+
+# Ustunlar yig'indisi
+awk '{sum += $1} END {print sum}' raqamlar.txt
+
+# Faylda nechta qator (NR oxirgi qator raqamiga teng)
+awk 'END {print NR}' fayl.txt
+```
+
+## 5. `sort`, `uniq`, `cut`, `wc`
+
+```bash
+# Saralash (alifbo bo'yicha)
+sort fayl.txt
+
+# Teskari tartibda
+sort -r fayl.txt
+
+# Raqamli saralash
+sort -n raqamlar.txt
+
+# Aniq ustunga ko'ra
+sort -k 2 fayl.txt
+
+# Takrorlarni olib tashlash (sort+uniq odatda birga)
+sort fayl.txt | uniq
+
+# Faqat takrorlanganlar
+sort fayl.txt | uniq -d
+
+# Har birining sonini ko'rsatish
+sort fayl.txt | uniq -c
+
+# Eng tez-tez uchraydigan 10ta
+sort fayl.txt | uniq -c | sort -rn | head -10
+```
+
+```bash
+# `cut` — ustun ajratish (sed/awk'dan oson)
+cut -d: -f1 /etc/passwd     # foydalanuvchi nomlari
+cut -d, -f2,4 ma'lumotlar.csv  # 2 va 4-ustunlar
+
+# `wc` — qator, so'z, belgi sanash
+wc fayl.txt        # qatorlar, so'zlar, belgilar
+wc -l fayl.txt     # faqat qatorlar
+wc -w fayl.txt     # faqat so'zlar
+```
+
+## 6. Amaliy misol: log tahlili
+
+Apache log faylidan eng faol IP manzillarni topish:
+
+```bash
+# Log fayl namunasi: 192.168.1.5 - - [25/May/2026:10:15:23] "GET ..."
+
+# 1-ustunni (IP) olish, saralash, takrorlarni sanash, top 10
+cut -d' ' -f1 access.log | sort | uniq -c | sort -rn | head -10
+```
+
+Bash skript bo'lib yozish:
+
+```bash
+#!/bin/bash
+# top-visitors.sh
+
+LOG=${1:-/var/log/apache2/access.log}
+
+echo "Eng faol 10 ta IP:"
+cut -d' ' -f1 "$LOG" | sort | uniq -c | sort -rn | head -10
+```
+
+## 7. Pipe zanjirlar misollari
+
+```bash
+# Joriy katalogdagi eng katta 5 ta fayl
+du -ah . | sort -rh | head -5
+
+# Joriy katalogdagi `.log` fayllar sonini sanash
+find . -name "*.log" | wc -l
+
+# `/etc/passwd` da oddiy foydalanuvchilar ro'yxati
+awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' /etc/passwd
+
+# Hozir ishlayotgan eng ko'p CPU yeyuvchi 5 ta jarayon
+ps aux --sort=-%cpu | head -6
+```
+
+## 8. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `grep <namuna> <fayl>` | Matn ichida qidirish |
+| `grep -r <namuna> <kat>` | Rekursiv qidirish |
+| `sed 's/x/y/g' <fayl>` | Almashtirish |
+| `sed -i ...` | Faylni joyida o'zgartirish |
+| `awk '{print $1}' <fayl>` | 1-ustun |
+| `awk -F: ...` | Ajratuvchini belgilash |
+| `sort <fayl>` | Saralash |
+| `uniq -c` | Takrorlarni sanash |
+| `cut -d: -f1` | Ustun ajratish |
+| `wc -l <fayl>` | Qator sanash |
+| `head -N` | Birinchi N qator |
+| `tail -N` | Oxirgi N qator |
+
+## 9. Eng tez-tez uchraydigan xatolar
+
+- **`sed -i` siz backup** — agar regex noto'g'ri bo'lsa, fayl yo'qoladi. Har doim `-i.bak` ishlatish tavsiya etiladi.
+- **`grep` va regex** — `grep -E` (Extended) ishlatmasdan ba'zi metakaraktelar `|`, `(`, `)` ishlamaydi.
+- **Pipe va exit code** — pipe oxirgi buyruq exit kodini qaytaradi; `set -o pipefail` xato birinchi yarmida ham qulay.
+- **`awk` ustun raqami** — `$0` — butun qator, `$1` — birinchi ustun. `$NF` — oxirgi ustun.
+- **Bash `$(...)` ichida pipe** — odatda muammosiz, lekin maxsus belgilar uchun ehtiyot bo'ling.
+
+## 10. Eng yaxshi amaliyot
+
+- **Sed o'rniga awk** — agar siz ustunlar bilan ishlasangiz, `awk` o'qishga oson.
+- **`grep -F` literal qidiruv uchun** — agar siz regex'ga muhtoj bo'lmasangiz, tezroq va xavfsizroq.
+- **`sort -u`** — `sort | uniq` o'rniga; bir vositada ikkala ish.
+- **Skript yozish vaqtida shellcheck** — `sudo apt install shellcheck`; xatolarni avtomatik topadi.
+- **Doim manpage o'qing** — `man grep`, `man sed`, `info awk` — eng to'liq manba.
+
+## 11. Bilim sinovi
+
+**Savol 1.** Faylda `error` so'zi nechta qatorda uchraganini bilish uchun:
+
+- a) `grep error fayl | wc -l`
+- b) `grep -c error fayl`
+- c) Ikkalasi ham to'g'ri
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(c)** Ikkalasi ham natija beradi. `-c` qisqaroq va tezroq.[¹](https://www.gnu.org/software/grep/manual/grep.html)
+</Callout>
+
+**Savol 2.** `awk -F: '{print $1}' /etc/passwd` nima qiladi?
+
+- a) `:` bilan ajratib har qatorning birinchi qismini chiqaradi
+- b) Faqat birinchi qatorni chiqaradi
+- c) `:` ni `1` ga almashtiradi
+- d) `/etc/passwd` ni o'chiradi
+
+<Callout type="success" title="Javob">
+**(a)** `-F:` ajratuvchi, `$1` birinchi ustun — bu yerda foydalanuvchi nomlari.[³](https://www.gnu.org/software/gawk/manual/gawk.html)
+</Callout>
+
+**Savol 3.** `sed 's/old/new/g' fayl.txt` natijasi:
+
+- a) Faylni joyida o'zgartiradi
+- b) Faylni o'zgartirmaydi, chiqishni terminal'ga yuboradi
+- c) Hammasini o'chiradi
+- d) Faqat birinchi qatorni o'zgartiradi
+
+<Callout type="success" title="Javob">
+**(b)** `-i` flagsiz `sed` faylni o'zgartirmaydi — faqat chiqishni ko'rsatadi.[²](https://www.gnu.org/software/sed/manual/sed.html)
+</Callout>
+
+## 12. Mashq
+
+1. `cut -d: -f1 /etc/passwd | wc -l` — tizimingizda nechta foydalanuvchi mavjud (sistem foydalanuvchilari bilan)?
+2. `grep -c "^processor" /proc/cpuinfo` — protsessoringizda nechta yadro?
+3. `~/.bashrc` faylida `alias` qatorlarini topib, ularning sonini sanang: `grep -c "^alias" ~/.bashrc`.
+4. Quyidagi pipe nima qiladi (yozma izoh bering): `ls -la | awk '{print $5, $9}' | sort -rn | head -5`?
+
+## Manbalar
+
+1. GNU grep manual. [https://www.gnu.org/software/grep/manual/grep.html](https://www.gnu.org/software/grep/manual/grep.html)
+2. GNU sed manual. [https://www.gnu.org/software/sed/manual/sed.html](https://www.gnu.org/software/sed/manual/sed.html)
+3. GNU awk (gawk) manual. [https://www.gnu.org/software/gawk/manual/gawk.html](https://www.gnu.org/software/gawk/manual/gawk.html)
+4. GNU coreutils — sort, uniq, cut. [https://www.gnu.org/software/coreutils/manual/coreutils.html](https://www.gnu.org/software/coreutils/manual/coreutils.html)
+
+## Keyingi qadam
+
+👉 [Nano vs Vim](/fundamentals/text-editors)

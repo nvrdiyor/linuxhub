@@ -1,0 +1,501 @@
+---
+title: "Yadro modullari (kernel modules)"
+description: "Linux yadrosini kengaytiruvchi modullar — lsmod, modprobe, modinfo, /etc/modules-load.d/ va modulning ichki tuzilishi."
+order: 102
+level: "intermediate"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/boot-process"
+learning_objectives:
+  - "Yadro modulining vazifasini izohlash"
+  - "modprobe, lsmod, modinfo, rmmod bilan ishlash"
+  - "Modullarni boot vaqtida yuklash va bloklashni sozlash"
+  - "Drayverlarni qo'lda boshqarish"
+tags: ["intermediate", "kernel", "modules", "drivers", "modprobe"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Linux Kernel Modules Programming Guide"
+    url: "https://sysprog21.github.io/lkmpg/"
+  - title: "ArchWiki — Kernel module"
+    url: "https://wiki.archlinux.org/title/Kernel_module"
+  - title: "modprobe(8) manpage"
+    url: "https://manpages.debian.org/bookworm/kmod/modprobe.8.en.html"
+---
+
+Linux yadrosi monolitik dizayn — barcha asosiy kod bir binary'da. Lekin u **modulli** — runtime'da yangi funksiya qo'shish yoki olib tashlash mumkin. Bu drayverlar, fayl tizimlari, tarmoq protokollari va boshqa kerakli komponentlarni dinamik yuklashga imkon beradi.[¹](https://sysprog21.github.io/lkmpg/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Yadro moduli nima va u qanday ishlaydi.
+- `lsmod`, `modprobe`, `modinfo`, `rmmod` buyruqlari.
+- Modullarni doimiy yuklash va bloklash.
+- Drayverlarni qo'lda boshqarish.
+- Modul parametrlari.
+</Callout>
+
+## 1. Yadro modullari nima uchun kerak?
+
+Agar barcha drayverlar va funksiyalar yadroda built-in bo'lganida:
+
+- Yadro fayli o'nlab GB bo'lardi.
+- RAM iqtisodsiz ishlatilardi.
+- Har yangi apparat — yadroni qayta kompilyatsiya.
+
+Yechim — **modulli yadro**. Asosiy yadro minimal, qo'shimcha narsalar — `.ko` (kernel object) fayl sifatida disk'da:
+
+```bash
+ls /lib/modules/$(uname -r)/kernel/ | head
+# arch
+# crypto
+# drivers       ← eng katta — minglab drayver
+# fs
+# kernel
+# lib
+# mm
+# net
+# security
+# sound
+```
+
+Misol:
+
+```bash
+# Wi-Fi drayver
+ls /lib/modules/$(uname -r)/kernel/drivers/net/wireless/ | head
+
+# Fayl tizimi drayverlari
+ls /lib/modules/$(uname -r)/kernel/fs/ | head
+# btrfs   exfat   ext4    f2fs    fat     nfs     ntfs3   xfs
+```
+
+Yadro kerakli modullarni avtomatik yuklaydi (apparat aniqlanganda) yoki foydalanuvchi qo'lda yuklaydi.
+
+## 2. Joriy yuklangan modullarni ko'rish
+
+```bash
+lsmod
+```
+
+Misol natija:
+
+```
+Module                  Size  Used by
+nvidia_drm             82152  4
+nvidia_modeset       1335296  6 nvidia_drm
+nvidia              62562304  410 nvidia_modeset
+btrfs                1855488  1
+ext4                 1163264  1
+xt_conntrack           16384  1
+nf_conntrack          188416  1 xt_conntrack
+bluetooth            1097728  43
+btusb                  77824  0
+...
+```
+
+| Ustun | Ma'no |
+|---|---|
+| Module | Modul nomi |
+| Size | RAM hajmi (bayt) |
+| Used by | Qancha boshqa modul/jarayon bu modulni ishlatadi |
+
+`Used by` 0 dan katta bo'lsa, modul **band**, uni olib tashlab bo'lmaydi.
+
+## 3. Modul haqida ma'lumot — `modinfo`
+
+```bash
+modinfo bluetooth
+```
+
+Misol natija:
+
+```
+filename:       /lib/modules/6.8.0/kernel/net/bluetooth/bluetooth.ko.zst
+license:        GPL
+description:    Bluetooth Core
+author:         Marcel Holtmann <marcel@holtmann.org>
+depends:        crc16,rfkill,ecdh_generic
+parm:           disable_esco:Disable eSCO (bool)
+parm:           disable_ertm:Disable ERTM (bool)
+```
+
+| Maydon | Ma'no |
+|---|---|
+| `filename` | `.ko` fayl yo'li |
+| `license` | Litsenziya (GPL, Proprietary) |
+| `description` | Tavsif |
+| `depends` | Boshqa modullar (avtomatik yuklanadi) |
+| `parm` | Sozlanadigan parametrlar |
+
+## 4. Modulni yuklash — `modprobe`
+
+```bash
+# Modulni yuklash (depends ni avtomatik yuklaydi)
+sudo modprobe <modul_nomi>
+
+# Misol — vboxdrv (VirtualBox)
+sudo modprobe vboxdrv
+
+# Parametrlar bilan
+sudo modprobe <modul> param1=qiymat1 param2=qiymat2
+
+# Misol
+sudo modprobe bluetooth disable_esco=1
+```
+
+### `insmod` — past darajali
+
+`modprobe` bog'liqliklarni avtomatik hal qiladi. `insmod` esa to'g'ridan-to'g'ri faylni yuklaydi — bog'liqliklarsiz.
+
+```bash
+sudo insmod /path/to/module.ko
+```
+
+Boshlovchilar uchun **`modprobe`** har doim afzal.
+
+## 5. Modulni o'chirish — `rmmod` va `modprobe -r`
+
+```bash
+# Yumshoq olib tashlash (modprobe -r yoki rmmod)
+sudo modprobe -r <modul>
+sudo rmmod <modul>
+
+# Bog'liq modullarni ham olib tashlash
+sudo modprobe -r --remove-dependencies <modul>
+```
+
+Agar `Used by` > 0 bo'lsa, xato:
+
+```
+rmmod: ERROR: Module bluetooth is in use by: btusb
+```
+
+Avval bog'liq modullarni olib tashlang.
+
+## 6. Modul faylini topish
+
+```bash
+# Aniq joylashuv
+modinfo -F filename <modul>
+
+# Yoki
+find /lib/modules/$(uname -r) -name "<modul>*"
+```
+
+## 7. Boot vaqtida modullarni yuklash
+
+systemd Linux'da `/etc/modules-load.d/` katalogi orqali boot modullarini sozlash:
+
+```bash
+# Yangi sozlama fayli
+sudo nano /etc/modules-load.d/myapp.conf
+```
+
+```
+# Har bir qator — modul nomi
+overlay
+br_netfilter
+nvidia_uvm
+```
+
+Reboot keyingi — bu modullar avtomatik yuklanadi.
+
+### Eski usul (`/etc/modules`)
+
+Debian/Ubuntu'da hali ham `/etc/modules` fayli ishlaydi:
+
+```
+# /etc/modules
+fuse
+loop
+```
+
+## 8. Modul parametrlari — doimiy
+
+`/etc/modprobe.d/<nom>.conf`:
+
+```bash
+sudo nano /etc/modprobe.d/myparams.conf
+```
+
+```
+# Bluetooth eSCO disable
+options bluetooth disable_esco=1
+
+# i915 (Intel GPU) modeset force
+options i915 modeset=1
+
+# nvidia parametrlari
+options nvidia NVreg_PreserveVideoMemoryAllocations=1
+```
+
+Reboot yoki modulni qayta yuklash:
+
+```bash
+sudo modprobe -r bluetooth
+sudo modprobe bluetooth
+```
+
+## 9. Modulni bloklash (blacklist)
+
+Agar muayyan modul yuklanmasligi kerak bo'lsa (masalan, noto'g'ri drayver):
+
+```bash
+sudo nano /etc/modprobe.d/blacklist.conf
+```
+
+```
+# Nouveau (open-source NVIDIA) bloklash — proprietary ishlatilsa
+blacklist nouveau
+options nouveau modeset=0
+```
+
+So'ng initramfs yangilash kerak (drayver shu yerda ham bo'lishi mumkin):
+
+```bash
+# Debian/Ubuntu
+sudo update-initramfs -u
+
+# Fedora/Arch
+sudo dracut --force      # Fedora
+sudo mkinitcpio -P       # Arch
+```
+
+## 10. Misol — Wi-Fi drayveri muammosi
+
+Yangi Wi-Fi karta ishlamayapti.
+
+```bash
+# 1. Apparatni topish
+lspci | grep -i network
+lsusb | grep -i wireless
+
+# Misol natija:
+# 02:00.0 Network controller: Intel Corporation Wireless 8265 / 8275
+
+# 2. Tegishli modul nomi
+lspci -k | grep -A 3 Wireless
+# Kernel driver in use: iwlwifi    ← BU
+# Kernel modules: iwlwifi
+
+# 3. Modul yuklanganmi?
+lsmod | grep iwlwifi
+
+# 4. Yo'q bo'lsa, qo'lda yuklash
+sudo modprobe iwlwifi
+
+# 5. Loglarni tekshirish
+sudo dmesg | grep -i iwlwifi
+
+# 6. Firmware kerakmi?
+sudo modinfo iwlwifi | grep firmware
+# firmware:       iwlwifi-8265-36.ucode
+sudo apt install firmware-iwlwifi    # Debian/Ubuntu
+
+# 7. Reboot
+```
+
+## 11. Misol — modul build qilish (DKMS)
+
+**DKMS** (Dynamic Kernel Module Support) — yadro yangilanganda modullarni avtomatik qayta build qiluvchi tizim.
+
+```bash
+# DKMS o'rnatish
+sudo apt install dkms
+
+# Misol — VirtualBox host modules
+sudo apt install virtualbox-dkms
+
+# DKMS holati
+sudo dkms status
+# virtualbox/7.0.10, 6.8.0-49-generic, x86_64: installed
+```
+
+Yadro yangilanganda DKMS modullarni qayta build qiladi — qo'l aralashuvi kerak emas.
+
+## 12. Modul versiya muammosi
+
+Yangi yadroga eski modul mos kelmasligi mumkin:
+
+```bash
+# Joriy yadro
+uname -r
+# 6.8.0-49-generic
+
+# Modullar shu yerda bo'lishi kerak
+ls /lib/modules/6.8.0-49-generic/
+
+# Yo'q bo'lsa
+sudo apt install linux-modules-extra-$(uname -r)
+```
+
+## 13. Yadroni qayta kompilyatsiya qilmasdan modul yozish
+
+Yadroni butunlay qayta kompilyatsiya qilish noqulay (1-2 soat). Modul yozish ancha oson:
+
+```c
+// hello.c
+#include <linux/module.h>
+#include <linux/kernel.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Sizning ismingiz");
+MODULE_DESCRIPTION("Salom dunyo moduli");
+
+static int __init hello_init(void) {
+    printk(KERN_INFO "Hello, kernel!\n");
+    return 0;
+}
+
+static void __exit hello_exit(void) {
+    printk(KERN_INFO "Goodbye, kernel!\n");
+}
+
+module_init(hello_init);
+module_exit(hello_exit);
+```
+
+`Makefile`:
+
+```makefile
+obj-m += hello.o
+
+all:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+
+clean:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+```
+
+```bash
+sudo apt install build-essential linux-headers-$(uname -r)
+make
+sudo insmod hello.ko
+dmesg | tail -1
+# [12345.678] Hello, kernel!
+sudo rmmod hello
+dmesg | tail -1
+# [12345.789] Goodbye, kernel!
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `lsmod` | Yuklangan modullar ro'yxati |
+| `modprobe <modul>` | Modulni yuklash (bog'liqliklar bilan) |
+| `modprobe -r <modul>` | Yumshoq olib tashlash |
+| `modinfo <modul>` | Modul haqida ma'lumot |
+| `insmod <fayl.ko>` | Past daraja — modulni qo'shimcha tekshirish bilan yuklash |
+| `rmmod <modul>` | Modulni olib tashlash |
+| `find /lib/modules/$(uname -r) -name '*.ko*'` | Mavjud modul fayllarini topish |
+| `lspci -k` | PCI qurilmalar va ularning drayverlari |
+| `lsusb -t` | USB qurilma daraxti |
+| `dmesg | grep <modul>` | Modul yuklash/xato xabarlari |
+
+## 15. Modul holati — `/proc/modules` va `/sys/module/`
+
+```bash
+# Hammasi (lsmod manbai)
+cat /proc/modules | head
+
+# Aniq modul ma'lumotlari
+ls /sys/module/bluetooth/
+
+# Parametrlar joriy qiymatlari
+cat /sys/module/bluetooth/parameters/disable_esco
+```
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **`modprobe`'siz `insmod`** — bog'liqliklar yuklanmaydi. Doim `modprobe` afzal.
+- **Modul band — `rmmod` xato** — `lsmod | grep <modul>` orqali "Used by" sonni ko'ring va avval band modullarni olib tashlang.
+- **`modprobe.d/` o'zgartirgandan keyin initramfs unutish** — boot drayvelar uchun majburiy.
+- **Blacklist ishlamaydi** — `update-initramfs -u` (Debian/Ubuntu) bajarmasdan reboot.
+- **Yadro yangilanganidan keyin DKMS modullar yo'qoldi** — `linux-headers-$(uname -r)` o'rnatilganini tekshiring.
+- **Proprietary modullar (NVIDIA) Secure Boot bilan** — imzolanmasdan yuklash mumkin emas. `mokutil` orqali imzolang.
+
+## 17. Eng yaxshi amaliyot
+
+- **Avtomatik yuklash uchun `/etc/modules-load.d/`** — `/etc/modules` (eski) o'rniga.
+- **Parametrlar uchun `/etc/modprobe.d/`** — kompozit.
+- **`modinfo`'ni doim ishlatilsin** — modul haqida hammasi bilinadi.
+- **DKMS** — uchinchi tomon drayverlar uchun majburiy.
+- **`dmesg`'ni har modul muammosi paytida tekshiring** — yadro xabarlari u yerda.
+- **`linux-headers`** o'rnatish — modul build qilish uchun.
+
+## 18. Mashqlar
+
+1. **Inventarizatsiya:** `lsmod | wc -l` — tizimingizda nechta modul yuklangan?
+2. **Eng katta modullar:** `lsmod | sort -k 2 -n -r | head -5` — eng katta 5 ta modul nima?
+3. **Modul haqida:** `modinfo ext4` — `ext4` fayl tizim moduli haqida ma'lumotni o'qing. Qaysi parametrlari bor?
+4. **Apparat va drayver:** `lspci -k` natijasini ko'ring. Sizdagi GPU qaysi drayver ishlatadi?
+5. **Test modul:** Yuqoridagi C kod misolini compile qilib, `insmod`/`rmmod` orqali sinab ko'ring (paketlar: `build-essential`, `linux-headers-$(uname -r)`).
+6. **Boot vaqti modullar:** `/etc/modules-load.d/` katalogini ko'ring. Qaysi modullar default'da yuklanadi?
+7. **Bloklash:** Test — `nouveau` (open-source NVIDIA) yoki boshqa noma'lum modulni `/etc/modprobe.d/blacklist.conf` ga qo'shing, `update-initramfs -u`, reboot. So'ng `lsmod | grep nouveau` — bo'shmi?
+
+## 19. Bilim sinovi
+
+**Savol 1.** `lsmod` chiqishidagi "Used by" ustuni 0 dan katta bo'lsa, modul:
+
+- a) O'chirilgan
+- b) Band — boshqa modul yoki jarayon uni ishlatadi
+- c) Xato bilan yuklangan
+- d) Yangilanish kerak
+
+<Callout type="success" title="Javob">
+**(b)** Boshqa modul/jarayon ishlatmoqda. Avval band modullarni olib tashlash kerak.
+</Callout>
+
+**Savol 2.** `modprobe` va `insmod` farqi:
+
+- a) Bir xil
+- b) `modprobe` bog'liqliklarni avtomatik yuklaydi, `insmod` faqat berilgan faylni
+- c) `insmod` faqat root uchun
+- d) `modprobe` faqat yangi yadrolar uchun
+
+<Callout type="success" title="Javob">
+**(b)** `modprobe` yuqori darajadagi vosita; deps avtomatik.[³](https://manpages.debian.org/bookworm/kmod/modprobe.8.en.html)
+</Callout>
+
+**Savol 3.** Boot vaqtida modul yuklash uchun qaysi fayl:
+
+- a) `/etc/modules-load.d/<nom>.conf`
+- b) `/etc/modprobe.conf`
+- c) `~/.bashrc`
+- d) `/boot/load.conf`
+
+<Callout type="success" title="Javob">
+**(a)** systemd `/etc/modules-load.d/` orqali boot modullarini boshqaradi.
+</Callout>
+
+**Savol 4.** DKMS nima uchun kerak?
+
+- a) Modul parametrlari uchun
+- b) Yadro yangilanganda uchinchi tomon modullarini avtomatik qayta build qilish
+- c) Modul fayllarini siqish
+- d) Modullarni audit qilish
+
+<Callout type="success" title="Javob">
+**(b)** Yadro versiyasi har o'zgarganda DKMS modullarni qayta build qiladi.
+</Callout>
+
+**Savol 5.** Modul fayli kengaytmasi:
+
+- a) `.so`
+- b) `.ko`
+- c) `.elf`
+- d) `.bin`
+
+<Callout type="success" title="Javob">
+**(b)** `.ko` (kernel object). Hozir ko'pincha `.ko.zst` (Zstandard siqilgan).
+</Callout>
+
+## Manbalar
+
+1. Linux Kernel Modules Programming Guide. [https://sysprog21.github.io/lkmpg/](https://sysprog21.github.io/lkmpg/)
+2. ArchWiki — Kernel module. [https://wiki.archlinux.org/title/Kernel_module](https://wiki.archlinux.org/title/Kernel_module)
+3. modprobe(8) manpage. [https://manpages.debian.org/bookworm/kmod/modprobe.8.en.html](https://manpages.debian.org/bookworm/kmod/modprobe.8.en.html)
+
+## Keyingi qadam
+
+👉 [Muhit o'zgaruvchilari (environment variables)](/fundamentals/environment-variables)

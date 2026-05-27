@@ -1,0 +1,481 @@
+---
+title: "Bash asoslari"
+description: "Bash skript yozish — o'zgaruvchilar, shartlar, sikllar, funksiyalar va eng yaxshi amaliyotlar."
+order: 1
+level: "advanced"
+estimated_minutes: 9
+prerequisites:
+  - "/fundamentals/shell"
+  - "/fundamentals/text-processing"
+learning_objectives:
+  - "Shebang va skript ishga tushirish"
+  - "O'zgaruvchilar, parametrlar, foydalanuvchi kiritishi"
+  - "Shartlar (`if`), sikllar (`for`, `while`)"
+  - "Funksiyalar va xato boshqaruvi"
+tags: ["advanced", "bash", "scripting"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU Bash Reference Manual"
+    url: "https://www.gnu.org/software/bash/manual/bash.html"
+  - title: "ArchWiki — Bash"
+    url: "https://wiki.archlinux.org/title/Bash"
+  - title: "tldp.org — Advanced Bash-Scripting Guide"
+    url: "https://tldp.org/LDP/abs/html/"
+---
+
+Bash skript — administratorning eng kuchli vositasi. Bu darsda kichik utiliteylar yozishdan murakkab avtomatlashtirilgan skriptlargacha bo'lgan asoslarni o'rganamiz.[¹](https://www.gnu.org/software/bash/manual/bash.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Skript yaratish va ishga tushirish.
+- O'zgaruvchilar va parametrlar (`$1`, `$@`).
+- Shartlar va sikllar.
+- Funksiyalar.
+- Xato boshqaruvi va `set -euo pipefail`.
+</Callout>
+
+## 1. Birinchi skript
+
+```bash
+#!/bin/bash
+# salom.sh — birinchi skript
+
+echo "Salom, $(whoami)!"
+echo "Bugun: $(date +%Y-%m-%d)"
+echo "Joriy katalog: $(pwd)"
+```
+
+```bash
+chmod +x salom.sh
+./salom.sh
+```
+
+**Shebang (`#!/bin/bash`)** — birinchi qator. Yadroga qaysi interpretator ishlatilishini aytadi. Maxsus belgi (`#!`) "magic number" deyiladi.
+
+### Portativlik uchun
+
+```bash
+#!/usr/bin/env bash      # bash'ning aniq yo'li har xil bo'lishi mumkin
+```
+
+## 2. O'zgaruvchilar
+
+```bash
+#!/bin/bash
+
+# E'lon (atrofda bo'sh joy YO'Q)
+NAME="Ali"
+AGE=25
+FILE_LIST=$(ls)
+
+# Foydalanish
+echo "Salom, $NAME!"
+echo "Yoshingiz: ${AGE}"      # qavslar aniqroq
+
+# Read-only o'zgaruvchi
+readonly PI=3.14159
+
+# Muhit o'zgaruvchisi (boshqa jarayonlarga ko'rinadigan)
+export DATABASE_URL="postgres://localhost/myapp"
+```
+
+### O'zgaruvchilar atrofidagi qoidalar
+
+```bash
+# YOMON (bo'sh joy)
+NAME = "Ali"
+
+# YAXSHI
+NAME="Ali"
+
+# YOMON (qo'shtirnoqsiz — bo'sh joy muammosi)
+FILE=my fayl.txt
+rm $FILE         # "my" va "fayl.txt" alohida o'chiriladi
+
+# YAXSHI
+FILE="my fayl.txt"
+rm "$FILE"       # to'g'ri
+```
+
+**Asosiy qoida:** o'zgaruvchini ishlatganda **doim qo'shtirnoq ichida** (`"$VAR"`).
+
+## 3. Skript parametrlari
+
+```bash
+#!/bin/bash
+# skript ./salom.sh Ali Vali
+
+echo "Skript nomi:  $0"        # ./salom.sh
+echo "1-parametr:   $1"        # Ali
+echo "2-parametr:   $2"        # Vali
+echo "Hamma:        $@"        # Ali Vali
+echo "Soni:         $#"        # 2
+echo "Exit kod:     $?"        # oldingi buyruq exit kodi
+echo "Joriy PID:    $$"        # joriy jarayon PID
+```
+
+## 4. Foydalanuvchi kiritishi — `read`
+
+```bash
+#!/bin/bash
+
+read -p "Ismingiz: " NAME
+read -sp "Parol: " PASSWORD     # -s — yashirin
+echo
+
+echo "Salom, $NAME"
+```
+
+## 5. Shartlar — `if`
+
+```bash
+#!/bin/bash
+
+if [ "$1" = "salom" ]; then
+    echo "Sizga ham salom!"
+elif [ "$1" = "xayr" ]; then
+    echo "Xayr!"
+else
+    echo "Tushunmadim."
+fi
+```
+
+### `[[ ... ]]` zamonaviy va xavfsizroq
+
+```bash
+if [[ "$NAME" == "Ali" ]]; then
+    echo "Salom Ali"
+fi
+
+# Pattern matching
+if [[ "$FILE" == *.txt ]]; then
+    echo "Bu matn fayl"
+fi
+
+# Sonlarni solishtirish
+if (( AGE > 18 )); then
+    echo "Voyaga yetgan"
+fi
+```
+
+### Test operatorlar
+
+| Operator | Ma'no |
+|---|---|
+| `-f FILE` | Fayl mavjud |
+| `-d DIR` | Katalog mavjud |
+| `-r FILE` | O'qish ruxsati bor |
+| `-w FILE` | Yozish |
+| `-x FILE` | Bajarish |
+| `-z STR` | Bo'sh string |
+| `-n STR` | Bo'sh emas |
+| `=` `==` | String teng |
+| `!=` | Teng emas |
+| `-eq` `-ne` `-lt` `-gt` `-le` `-ge` | Son taqqoslash |
+
+Misol:
+
+```bash
+if [[ -f "/etc/passwd" ]]; then
+    echo "Fayl mavjud"
+fi
+
+if [[ ! -d "/backup" ]]; then
+    mkdir /backup
+fi
+```
+
+## 6. `case`
+
+```bash
+case "$1" in
+    start)
+        echo "Boshlash"
+        ;;
+    stop)
+        echo "To'xtatish"
+        ;;
+    restart|reload)
+        echo "Qayta boshlash"
+        ;;
+    *)
+        echo "Noma'lum: $1"
+        exit 1
+        ;;
+esac
+```
+
+## 7. Sikllar
+
+### `for`
+
+```bash
+# Ro'yxat bo'yicha
+for NAME in Ali Vali Karim; do
+    echo "Salom $NAME"
+done
+
+# Fayllar
+for FILE in *.txt; do
+    echo "Topildi: $FILE"
+done
+
+# Diapazon
+for i in {1..10}; do
+    echo "Raqam: $i"
+done
+
+# C-style
+for ((i=0; i<10; i++)); do
+    echo "i=$i"
+done
+```
+
+### `while`
+
+```bash
+COUNT=1
+while (( COUNT <= 5 )); do
+    echo "Count: $COUNT"
+    ((COUNT++))
+done
+
+# Faylni qator bo'yicha o'qish
+while IFS= read -r LINE; do
+    echo "Qator: $LINE"
+done < fayl.txt
+```
+
+### `until`
+
+```bash
+# Server ishga tushguncha kutish
+until curl -sf http://localhost:8080/health; do
+    echo "Kutilmoqda..."
+    sleep 2
+done
+```
+
+## 8. Funksiyalar
+
+```bash
+#!/bin/bash
+
+# E'lon
+hello() {
+    echo "Salom, $1!"
+}
+
+# Yoki
+function world {
+    echo "Dunyo $1 yoshda"
+    return 0
+}
+
+# Chaqirish
+hello "Ali"
+world 25
+
+# Qiymat qaytarish (echo orqali)
+add() {
+    local A=$1
+    local B=$2
+    echo $((A + B))
+}
+
+RESULT=$(add 5 10)
+echo "5 + 10 = $RESULT"
+```
+
+**`local`** — funksiya ichida o'zgaruvchini cheklaydi (global skopni "iflos" qilmaslik uchun).
+
+## 9. Xato boshqaruvi
+
+```bash
+#!/bin/bash
+
+# Eng yaxshi amaliyot — boshida:
+set -euo pipefail
+```
+
+| Flag | Ma'no |
+|---|---|
+| `-e` | Birinchi xatoda skriptni to'xtatish |
+| `-u` | Aniqlanmagan o'zgaruvchini xato deb hisoblash |
+| `-o pipefail` | Pipe ichida birinchi xato bo'lsa, butun pipe xato |
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+backup() {
+    local SRC=$1
+    local DST=$2
+
+    if [[ ! -d "$SRC" ]]; then
+        echo "Xato: $SRC katalog yo'q" >&2
+        exit 1
+    fi
+
+    tar -czf "$DST" "$SRC"
+    echo "Backup tayyor: $DST"
+}
+
+backup "/home/ali" "/backup/home-$(date +%F).tar.gz"
+```
+
+`>&2` — chiqishni standart xato oqimiga (stderr) yo'naltirish.
+
+## 10. Trap — tozalash
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# Vaqtinchalik fayl
+TMPFILE=$(mktemp)
+
+# Skript tugaganda yoki xato bo'lganda tozalash
+cleanup() {
+    rm -f "$TMPFILE"
+    echo "Tozalandi"
+}
+trap cleanup EXIT
+
+# Ish
+echo "Salom" > "$TMPFILE"
+cat "$TMPFILE"
+```
+
+## 11. Amaliy misol — backup skript
+
+```bash
+#!/bin/bash
+# backup.sh — uy katalogini backup qiladi
+
+set -euo pipefail
+
+SRC="${1:-$HOME}"                    # default: $HOME
+DST_DIR="${2:-/backup}"              # default: /backup
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DST="${DST_DIR}/$(basename "$SRC")-${TIMESTAMP}.tar.gz"
+
+# Tekshirish
+if [[ ! -d "$SRC" ]]; then
+    echo "Xato: '$SRC' katalogi mavjud emas" >&2
+    exit 1
+fi
+
+if [[ ! -d "$DST_DIR" ]]; then
+    echo "Backup katalogini yaratish: $DST_DIR"
+    mkdir -p "$DST_DIR"
+fi
+
+echo "Backup boshlanmoqda: $SRC -> $DST"
+
+tar -czf "$DST" \
+    --exclude="$HOME/.cache" \
+    --exclude="$HOME/Downloads" \
+    "$SRC"
+
+SIZE=$(du -h "$DST" | cut -f1)
+echo "Backup tayyor: $DST ($SIZE)"
+
+# 30 kundan eski backuplarni o'chirish
+find "$DST_DIR" -name "$(basename "$SRC")-*.tar.gz" -mtime +30 -delete
+echo "Eski backuplar tozalandi"
+```
+
+Ishga tushirish:
+
+```bash
+chmod +x backup.sh
+./backup.sh ~/Documents /tmp/backups
+```
+
+## 12. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `#!/bin/bash` | Shebang — interpretator yo'li |
+| `set -euo pipefail` | Xato boshqaruvi |
+| `read -p "..." VAR` | Foydalanuvchi kiritishi |
+| `[[ -f FILE ]]` | Fayl mavjudligini tekshirish |
+| `for VAR in LIST; do ...; done` | Sikl |
+| `function NAME { ... }` | Funksiya |
+| `local VAR=...` | Lokal o'zgaruvchi (funksiya ichida) |
+| `trap CMD EXIT` | Skript tugashida tozalash |
+| `mktemp` | Vaqtinchalik fayl |
+| `$(cmd)` | Buyruq natijasini almashtirish |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **O'zgaruvchi atrofida bo'sh joy** — `X = 5` xato. To'g'risi `X=5`.
+- **Qo'shtirnoqsiz o'zgaruvchi** — `rm $FILE` xato bo'lishi mumkin agar `FILE` da bo'sh joy bo'lsa.
+- **`==` POSIX `sh` da yo'q** — `[[ ... ]]` (bash) yoki `[ ... ]` (sh) bilan `=`.
+- **Funksiya `return` qiymati** — faqat 0-255 exit kod, **string qaytara olmaydi**. String uchun `echo` + `$(...)`.
+- **`bash` vs `sh`** — `#!/bin/sh` bash xususiyatlarisiz. `[[ ... ]]`, massivlar, `<<<` ishlamaydi.
+- **`shellcheck`** orqali xatolarni topish — `sudo apt install shellcheck`.
+
+## 14. Eng yaxshi amaliyot
+
+- **Doim `set -euo pipefail` boshida.**
+- **O'zgaruvchilar qo'shtirnoq ichida:** `"$VAR"`.
+- **`local`** funksiyalarda — global skopni toza saqlash.
+- **Xatolarni `>&2` ga** — exit kodi bilan birga.
+- **`shellcheck` ishlatish** — har bir skriptni bu vosita tekshiradi.
+- **Skript boshida fayl yo'lini absolyut qilish** — `cd "$(dirname "$0")"`.
+- **Konfiguratsiya o'zgaruvchilari boshida** — sehrli raqamlarsiz.
+- **Argumentlar `--help` qo'shing** — foydalanish ko'rsatmasi.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Shebang nima?
+
+- a) Skriptning birinchi qatori `#!` bilan boshlanadigan, interpretatorni ko'rsatuvchi
+- b) Bash funksiyasi
+- c) Skript chiqish kodi
+- d) Maxsus o'zgaruvchi
+
+<Callout type="success" title="Javob">
+**(a)** `#!/bin/bash` kabi — yadroga qaysi interpretator ishlatilishini ayttiradi.
+</Callout>
+
+**Savol 2.** `set -e` nima qiladi?
+
+- a) Skriptni doim debug rejimida ishlatadi
+- b) Birinchi xato bo'lganda skriptni to'xtatadi
+- c) Hamma chiqishni faylga yozadi
+- d) Atributlarni o'rnatadi
+
+<Callout type="success" title="Javob">
+**(b)** `-e` — exit on error. `set -euo pipefail` bilan ishlatish standart amaliyot.
+</Callout>
+
+**Savol 3.** O'zgaruvchini qo'shtirnoq ichida ishlatish nima uchun muhim?
+
+- a) Sintaksis talabi
+- b) Bo'sh joy va maxsus belgilarni to'g'ri ishlash uchun
+- c) Faqat estetik sabab
+- d) Tezroq ishlash uchun
+
+<Callout type="success" title="Javob">
+**(b)** `"$FILE"` da bo'sh joy yoki maxsus belgilar bo'lsa, qo'shtirnoqsiz `$FILE` ko'p so'zga bo'linadi.
+</Callout>
+
+## 16. Mashq
+
+1. `salom.sh` skripti yarating — argumentdan ism oladi va salomlashadi. `chmod +x` qilib sinab ko'ring.
+2. Skript yozing — joriy katalogdagi har bir `.txt` fayl uchun qator sonini chop etadi.
+3. Backup skripti yozing — `$HOME` ni `tar.gz` ga arxivlaydi va sana bilan nomlaydi.
+4. `shellcheck` ni o'rnating va skriptingizni tekshiring: `shellcheck backup.sh`.
+
+## Manbalar
+
+1. GNU Bash Reference Manual. [https://www.gnu.org/software/bash/manual/bash.html](https://www.gnu.org/software/bash/manual/bash.html)
+2. ArchWiki — Bash. [https://wiki.archlinux.org/title/Bash](https://wiki.archlinux.org/title/Bash)
+3. tldp.org — Advanced Bash-Scripting Guide. [https://tldp.org/LDP/abs/html/](https://tldp.org/LDP/abs/html/)
+
+## Keyingi qadam
+
+👉 [Loglar bilan ishlash](/fundamentals/logs)

@@ -1,0 +1,462 @@
+---
+title: "WireGuard VPN"
+description: "WireGuard — modern, tezkor, oson sozlanadigan VPN protokoli — server va klient sozlash."
+order: 115
+level: "advanced"
+estimated_minutes: 13
+prerequisites:
+  - "/fundamentals/networking"
+  - "/fundamentals/iptables-nftables"
+learning_objectives:
+  - "WireGuard arxitekturasi"
+  - "Kalit yaratish va sozlash"
+  - "Server va klient konfiguratsiyasi"
+  - "Routing va NAT bilan birga"
+tags: ["advanced", "vpn", "wireguard", "networking", "security"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "WireGuard — Official site"
+    url: "https://www.wireguard.com/"
+  - title: "WireGuard Quick Start"
+    url: "https://www.wireguard.com/quickstart/"
+  - title: "ArchWiki — WireGuard"
+    url: "https://wiki.archlinux.org/title/WireGuard"
+---
+
+**WireGuard** — Jason A. Donenfeld tomonidan yaratilgan modern VPN. 4000 qator kod (OpenVPN ~600,000), oddiy konfiguratsiya, eng tez VPN protokollardan biri. Linux 5.6+ da yadro ichida.[¹](https://www.wireguard.com/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- WireGuard arxitekturasi va xavfsizlik.
+- Server va klient yaratish.
+- Public/private key bo'yicha autentifikatsiya.
+- Routing va NAT sozlash.
+- Mobile va boshqa platformalar.
+</Callout>
+
+## 1. WireGuard arxitekturasi
+
+```
+[Klient] ─── shifrlangan tunnel ───▶ [Server]
+   │                                       │
+   ↓                                       ↓
+Private/Public                          Public/Private
+key pair                                key pair
+```
+
+Asosiy g'oyalar:
+
+- **SSH kabi** — har peer (klient + server) o'z key pair'iga ega.
+- **UDP** — TCP emas (tezroq, NAT'dan o'tish oson).
+- **State-less** — har paket alohida; ulanish o'rnatish kerak emas.
+- **Roaming** — IP o'zgarganda ham ishlaydi (mobile uchun ideal).
+
+## 2. O'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install wireguard wireguard-tools
+
+# Fedora/RHEL
+sudo dnf install wireguard-tools
+
+# Arch
+sudo pacman -S wireguard-tools
+```
+
+Yadro modul yadro 5.6+ da default. Eski versiyalar uchun `wireguard-dkms`.
+
+## 3. Kalit yaratish
+
+```bash
+cd /etc/wireguard
+sudo umask 077    # ruxsatlar restrictive
+
+# Server kalitlari
+sudo wg genkey | sudo tee server_private.key | sudo wg pubkey | sudo tee server_public.key
+
+# Klient kalitlari
+sudo wg genkey | sudo tee client_private.key | sudo wg pubkey | sudo tee client_public.key
+```
+
+`umask 077` — yangi fayllar `chmod 600`.
+
+```bash
+# Kalit qiymatini ko'rish
+sudo cat server_private.key
+# qiymat: kPxz...
+```
+
+## 4. Server konfiguratsiyasi
+
+`/etc/wireguard/wg0.conf` server'da:
+
+```ini
+[Interface]
+PrivateKey = <server_private_key>
+Address = 10.0.0.1/24
+ListenPort = 51820
+SaveConfig = false
+
+# Internet sharing (klient internet ham uzatsa)
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+# Klient 1
+[Peer]
+PublicKey = <client_public_key>
+AllowedIPs = 10.0.0.2/32
+
+# Klient 2
+[Peer]
+PublicKey = <client2_public_key>
+AllowedIPs = 10.0.0.3/32
+```
+
+### IP forwarding yoqish
+
+```bash
+sudo sysctl -w net.ipv4.ip_forward=1
+echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-wireguard.conf
+```
+
+### Firewall
+
+```bash
+# WireGuard port
+sudo ufw allow 51820/udp
+```
+
+### Yoqish
+
+```bash
+sudo wg-quick up wg0
+
+# Systemd avtomatik boot
+sudo systemctl enable wg-quick@wg0
+```
+
+### Status
+
+```bash
+sudo wg show
+```
+
+## 5. Klient konfiguratsiyasi
+
+Klient'da `/etc/wireguard/wg0.conf`:
+
+```ini
+[Interface]
+PrivateKey = <client_private_key>
+Address = 10.0.0.2/24
+DNS = 1.1.1.1
+
+[Peer]
+PublicKey = <server_public_key>
+Endpoint = vpn.example.com:51820
+AllowedIPs = 0.0.0.0/0          # hamma trafik VPN orqali
+PersistentKeepalive = 25         # NAT keep-alive
+```
+
+### `AllowedIPs` tushunchasi
+
+- `0.0.0.0/0` — hamma trafik VPN orqali (full tunnel).
+- `10.0.0.0/24` — faqat ichki tarmoq VPN orqali (split tunnel).
+- `10.0.0.1/32` — faqat server'ga.
+
+### Yoqish
+
+```bash
+sudo wg-quick up wg0
+
+# Tekshirish
+ip a show wg0
+sudo wg show
+```
+
+## 6. To'liq misol — uy server'iga VPN
+
+Stsenariy: uydan ofisga ulanish.
+
+### Server (ofis)
+
+```ini
+# /etc/wireguard/wg0.conf
+[Interface]
+PrivateKey = sIPp7M+...
+Address = 10.0.0.1/24
+ListenPort = 51820
+
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+[Peer]
+# Laptop
+PublicKey = HIgo9xN...
+AllowedIPs = 10.0.0.2/32
+```
+
+### Klient (laptop)
+
+```ini
+# /etc/wireguard/wg0.conf
+[Interface]
+PrivateKey = aTAi9zHr...
+Address = 10.0.0.2/24
+DNS = 8.8.8.8
+
+[Peer]
+PublicKey = TIBn2cAhKp...
+Endpoint = office.example.com:51820
+AllowedIPs = 192.168.1.0/24       # ofis ichki tarmoq
+PersistentKeepalive = 25
+```
+
+Endi laptop ofis ichki tarmog'i'ga (`192.168.1.x`) kira oladi.
+
+## 7. QR kod orqali mobile klient
+
+iOS/Android WireGuard ilovasi QR kodni o'qiy oladi:
+
+```bash
+sudo apt install qrencode
+
+# Klient config'ni QR ga
+qrencode -t ansiutf8 < /etc/wireguard/client1.conf
+```
+
+Telefonda WireGuard ilovasi → "Add tunnel" → "Scan QR code".
+
+## 8. Network monitoring
+
+```bash
+# Faol peer'lar
+sudo wg show
+
+# Misol:
+# interface: wg0
+#   public key: <server_pub>
+#   private key: (hidden)
+#   listening port: 51820
+# peer: <client_pub>
+#   endpoint: 1.2.3.4:5678
+#   allowed ips: 10.0.0.2/32
+#   latest handshake: 1 minute, 23 seconds ago
+#   transfer: 1.23 MiB received, 4.56 MiB sent
+
+# Faqat aniq peer
+sudo wg show wg0 peers
+
+# JSON format (skript uchun)
+sudo wg show all dump
+```
+
+## 9. Multi-peer sozlash — script
+
+Ko'p klient uchun script:
+
+```bash
+#!/bin/bash
+# add-client.sh
+
+set -e
+
+CLIENT_NAME=$1
+CLIENT_IP=$2
+SERVER_PUB=$(cat /etc/wireguard/server_public.key)
+SERVER_ENDPOINT="vpn.example.com:51820"
+
+cd /etc/wireguard
+
+# Kalit yaratish
+umask 077
+wg genkey | tee ${CLIENT_NAME}_private.key | wg pubkey > ${CLIENT_NAME}_public.key
+
+CLIENT_PRIV=$(cat ${CLIENT_NAME}_private.key)
+CLIENT_PUB=$(cat ${CLIENT_NAME}_public.key)
+
+# Klient config
+cat > ${CLIENT_NAME}.conf <<EOF
+[Interface]
+PrivateKey = ${CLIENT_PRIV}
+Address = ${CLIENT_IP}/24
+DNS = 1.1.1.1
+
+[Peer]
+PublicKey = ${SERVER_PUB}
+Endpoint = ${SERVER_ENDPOINT}
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25
+EOF
+
+# Server'ga peer qo'shish
+cat >> wg0.conf <<EOF
+
+# ${CLIENT_NAME}
+[Peer]
+PublicKey = ${CLIENT_PUB}
+AllowedIPs = ${CLIENT_IP}/32
+EOF
+
+# Reload
+wg syncconf wg0 <(wg-quick strip wg0)
+
+echo "Klient ${CLIENT_NAME} qo'shildi"
+echo "Config: /etc/wireguard/${CLIENT_NAME}.conf"
+```
+
+```bash
+sudo ./add-client.sh alice 10.0.0.2
+sudo ./add-client.sh bob 10.0.0.3
+```
+
+## 10. Routing - faqat ichki tarmoq
+
+Klient default route'i VPN orqali bo'lmasin (split tunnel):
+
+```ini
+[Peer]
+AllowedIPs = 192.168.1.0/24, 10.0.0.0/24
+```
+
+Faqat shu IP'larga trafik VPN orqali. Boshqa hammasi to'g'ridan-to'g'ri.
+
+## 11. DNS leak
+
+Klient `DNS` o'rnatilmasa, mahalliy DNS ishlatadi — bu IP'ngizni fosh qiladi:
+
+```ini
+[Interface]
+DNS = 1.1.1.1, 8.8.8.8
+```
+
+Yoki o'z DNS server:
+
+```ini
+DNS = 10.0.0.1     # server'da DNS resolver
+```
+
+## 12. Kill switch
+
+Agar VPN to'satdan to'xtasa, internet trafik bloklash:
+
+```bash
+sudo iptables -A OUTPUT -o eth0 -m mark ! --mark 51820 -j REJECT
+```
+
+Yoki firewall qoidasi:
+
+```bash
+sudo ufw default deny outgoing
+sudo ufw allow out on wg0
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `wg genkey` | Private key yaratish |
+| `wg pubkey` | Public key (private'dan) |
+| `wg-quick up wg0` | Tunnel yoqish |
+| `wg-quick down wg0` | O'chirish |
+| `wg show` | Faol holat |
+| `wg show all dump` | JSON format |
+| `wg syncconf wg0 <(wg-quick strip wg0)` | Tunnel'ni qayta yuklamasdan config qayta yuklash |
+| `systemctl enable wg-quick@wg0` | Boot vaqtida avtomatik |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`PostUp/PostDown` interface (`eth0`) noto'g'ri** — sizdagi public interfeysni `ip route` orqali tekshiring.
+- **`net.ipv4.ip_forward=0`** — paket forwarding o'chirilgan.
+- **Firewall UDP 51820 bloklangan** — `sudo ufw allow 51820/udp`.
+- **`AllowedIPs` overlap** — bir nechta peer bir xil IP da — chalkashlik.
+- **DNS leak** — `DNS = ...` server'ga ham ulanish.
+- **Mobile'da `PersistentKeepalive` yo'q** — NAT timeout, ulanish o'ladi.
+- **Public va private key chalkashlik** — har peer o'z key pair'iga ega.
+
+## 15. Eng yaxshi amaliyot
+
+- **Kalitlar ruxsati `chmod 600`** — `umask 077`.
+- **Har peer alohida key pair** — bittasi yo'qolsa, faqat shu peer.
+- **`PersistentKeepalive 25` mobile uchun** — NAT'dan o'tish.
+- **DNS server VPN orqali** — leak'dan saqlanish.
+- **Monitoring** — `wg show` muntazam.
+- **fail2ban WireGuard'ga ishlamaydi** (UDP autentifikatsiyasiz paket tashlanadi) — `iptables` rate limit ishlating.
+- **Backup server konfiguratsiyasini.** Klient kalitlarni ham (yo'qotsa qayta yaratish kerak).
+
+## 16. Mashqlar
+
+1. **Server o'rnatish:** Yuqoridagi misol bo'yicha minimal WireGuard server yarating.
+2. **Klient qo'shish:** Lokal mashinada klient config yarating.
+3. **Test:** Klientni ulang. `ip a show wg0` — interfeys mavjudmi?
+4. **Ping test:** `ping 10.0.0.1` — server'ga ulanasizmi?
+5. **Internet:** `AllowedIPs = 0.0.0.0/0` qiling. `curl ifconfig.me` — sizning IP server IP'sini ko'rsatadimi?
+6. **Mobile:** QR kod yarating va telefon orqali ulang.
+
+## 17. Bilim sinovi
+
+**Savol 1.** WireGuard qaysi transport ishlatadi?
+
+- a) TCP
+- b) UDP
+- c) ICMP
+- d) HTTP
+
+<Callout type="success" title="Javob">
+**(b)** UDP — tezroq va NAT'dan o'tish oson.[¹](https://www.wireguard.com/)
+</Callout>
+
+**Savol 2.** WireGuard'da har peer (klient va server) nimaga ega?
+
+- a) Faqat parol
+- b) Public/Private key pair (SSH kabi)
+- c) Sertifikat va parol
+- d) Token
+
+<Callout type="success" title="Javob">
+**(b)** Cryptokey routing — har peer key pair.
+</Callout>
+
+**Savol 3.** `AllowedIPs = 0.0.0.0/0` klient'da nima qiladi?
+
+- a) Hech narsa
+- b) Full tunnel — hamma trafik VPN orqali
+- c) Server'ni bloklaydi
+- d) Faqat ichki tarmoq
+
+<Callout type="success" title="Javob">
+**(b)** Default route VPN orqali — full VPN.
+</Callout>
+
+**Savol 4.** Server'da peer qo'shish uchun:
+
+- a) Yangi WireGuard server o'rnatish
+- b) `wg0.conf` ga yangi `[Peer]` blok qo'shish va `wg syncconf` qilish
+- c) Yangi xizmat
+- d) Reboot
+
+<Callout type="success" title="Javob">
+**(b)** Statik konfiguratsiya, dynamic reload mumkin.
+</Callout>
+
+**Savol 5.** Mobile klient uchun `PersistentKeepalive` nima uchun:
+
+- a) Tezroq
+- b) NAT timeout'dan saqlanish (ko'p mobile NAT 30-60s)
+- c) Faqat estetik
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Periodik UDP paket — NAT tableda entry'ni tirik tutadi.
+</Callout>
+
+## Manbalar
+
+1. WireGuard. [https://www.wireguard.com/](https://www.wireguard.com/)
+2. WireGuard Quick Start. [https://www.wireguard.com/quickstart/](https://www.wireguard.com/quickstart/)
+3. ArchWiki — WireGuard. [https://wiki.archlinux.org/title/WireGuard](https://wiki.archlinux.org/title/WireGuard)
+
+## Keyingi qadam
+
+👉 [DNS va systemd-resolved](/fundamentals/dns-systemd-resolved)

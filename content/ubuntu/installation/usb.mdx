@@ -1,0 +1,209 @@
+---
+title: "USB dan Ubuntu o'rnatish"
+description: "Bootable USB tayyorlash va Ubuntu Desktop'ni nol kompyuterga rasmiy o'rnatish jarayoni."
+order: 2
+level: "beginner"
+estimated_minutes: 8
+prerequisites:
+  - "/ubuntu/introduction"
+  - "/ubuntu/installation/requirements"
+learning_objectives:
+  - "ISO yuklab olish va uning yaxlitligini tekshirish"
+  - "Windows va Linux'da bootable USB yaratish"
+  - "Ubuntu Desktop o'rnatuvchisi bilan ishlash"
+tags: ["ubuntu", "installation", "usb", "iso"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu Tutorial — Create a bootable USB stick on Ubuntu"
+    url: "https://ubuntu.com/tutorials/create-a-usb-stick-on-ubuntu"
+  - title: "Ubuntu Tutorial — Create a bootable USB stick on Windows"
+    url: "https://ubuntu.com/tutorials/create-a-usb-stick-on-windows"
+  - title: "Ubuntu Tutorial — Install Ubuntu desktop"
+    url: "https://ubuntu.com/tutorials/install-ubuntu-desktop"
+---
+
+Bu darsda Ubuntu Desktop'ni yuklash ISO faylidan bootable USB tayyorlash va uni kompyuterga o'rnatishni o'rganamiz. Rasmiy Ubuntu o'quv qo'llanmalariga asoslangan.[¹](https://ubuntu.com/tutorials/create-a-usb-stick-on-ubuntu)[²](https://ubuntu.com/tutorials/create-a-usb-stick-on-windows)[³](https://ubuntu.com/tutorials/install-ubuntu-desktop)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- ISO yuklab olish va SHA256 yaxlitlik tekshiruvi.
+- Bootable USB yaratish: Windows va Linux'da.
+- Ubuntu o'rnatuvchisining asosiy qadamlari.
+</Callout>
+
+## 1. Kerakli narsalar
+
+- Kamida **8 GB** sig'imli USB flesh-disk (uning ichidagi barcha ma'lumot yo'qoladi).
+- Ishlovchi internet ulanishi.
+- Asosiy kompyuterda kamida 25 GB bo'sh disk joyi.
+- Backup — o'rnatishdan oldin majburiy.
+
+## 2. ISO yuklab olish
+
+[Ubuntu Desktop yuklash sahifasidan](https://ubuntu.com/download/desktop) hozirgi LTS ISO faylini yuklab oling. Fayl nomi shu kabi bo'ladi: `ubuntu-24.04.1-desktop-amd64.iso`.
+
+### SHA256 yaxlitlik tekshiruvi
+
+Yuklangan ISO buzilmaganligini tekshirish — bu xavfsizlik amaliyoti. Rasmiy SHA256 raqamlari [releases.ubuntu.com](https://releases.ubuntu.com/) saytida `SHA256SUMS` faylida nashr etiladi.
+
+**Linux/macOS'da:**
+
+```bash
+sha256sum ubuntu-24.04.1-desktop-amd64.iso
+```
+
+**Windows PowerShell'da:**
+
+```powershell
+Get-FileHash ubuntu-24.04.1-desktop-amd64.iso -Algorithm SHA256
+```
+
+Chiqarilgan qatorni `SHA256SUMS` faylidagi qator bilan solishtiring. Mos kelsa — ISO buzilmagan.
+
+<Callout type="warning">
+Buni o'tkazib yubormang. Yuklab olishda buzilgan ISO o'rnatish jarayonida tushuntirib bo'lmaydigan xatolarni keltirib chiqaradi.
+</Callout>
+
+## 3. Bootable USB tayyorlash
+
+<Tabs>
+  <TabList>
+    <TabTrigger value="windows">Windows</TabTrigger>
+    <TabTrigger value="ubuntu">Ubuntu / Linux</TabTrigger>
+    <TabTrigger value="mac">macOS</TabTrigger>
+  </TabList>
+  <TabContent value="windows">
+    Rasmiy tavsiya — **Rufus** ([rufus.ie](https://rufus.ie)):[²](https://ubuntu.com/tutorials/create-a-usb-stick-on-windows)
+
+    1. Rufus'ni yuklab oling va ishga tushiring.
+    2. **Device** ro'yxatidan USB flesh-diskingizni tanlang.
+    3. **Boot selection** → **SELECT** → yuklangan Ubuntu ISO'ni ko'rsating.
+    4. **Partition scheme** odatda **GPT** (UEFI kompyuterlar uchun). Eski Legacy BIOS kompyuterlarda **MBR**.
+    5. **START** ni bosing. "ISOHybrid image detected" oynasi chiqsa, **Write in ISO Image mode** ni tanlang.
+    6. Yakunini kuting.
+  </TabContent>
+  <TabContent value="ubuntu">
+    Ubuntu bilan birga keladigan **Startup Disk Creator** ishlatish eng oson:[¹](https://ubuntu.com/tutorials/create-a-usb-stick-on-ubuntu)
+
+    1. Ilovani oching: `Activities → "Startup Disk Creator"`.
+    2. **Source disc image** sifatida yuklangan ISO ni tanlang.
+    3. **Disk to use** sifatida USB flesh-diskingizni ko'rsating.
+    4. **Make Startup Disk** ni bosing.
+
+    Yoki konsol orqali (ehtiyot bo'ling):
+
+    ```bash
+    # USB qaysi qurilma ekanligini aniqlash
+    lsblk
+
+    # Misol: USB /dev/sdb ekan (siznikida boshqacha bo'lishi mumkin)
+    sudo dd if=ubuntu-24.04.1-desktop-amd64.iso of=/dev/sdb bs=4M status=progress conv=fdatasync
+    ```
+
+    <Callout type="danger">
+    `dd` da xato qurilmani tanlash diskdagi hamma ma'lumotni yo'qotadi. `of=` qiymatini tekshirib so'ng bajaring.
+    </Callout>
+  </TabContent>
+  <TabContent value="mac">
+    Rasmiy macOS ko'rsatmasi `dd` orqali:
+
+    ```bash
+    diskutil list                          # USBning nomini topish
+    diskutil unmountDisk /dev/diskN
+    sudo dd if=ubuntu-24.04.1-desktop-amd64.iso of=/dev/rdiskN bs=4m
+    ```
+  </TabContent>
+</Tabs>
+
+## 4. Kompyuterni USB'dan yuklash
+
+1. Kompyuterni o'chiring, USB ni qo'shing, qaytadan yoqing.
+2. Boot menyusiga kirish tugmasini bosing (odatda `F12`, `F10`, `ESC` yoki `F2` — ishlab chiqaruvchiga qarab farqlanadi).
+3. Yuklash qurilmasi sifatida USB ni tanlang.
+4. Ubuntu yuklovchisi (GRUB) ko'rinadi — **Try or Install Ubuntu** ni tanlang.
+
+## 5. O'rnatuvchi qadamlari
+
+Ubuntu 24.04 LTS dan boshlab yangi `ubuntu-desktop-installer` ishlatiladi. Asosiy qadamlar:[³](https://ubuntu.com/tutorials/install-ubuntu-desktop)
+
+<Steps>
+  <Step title="Til">
+    O'rnatish tili — hozircha o'zbek tili rasmiy ro'yxatda yo'q, **English** yoki **Russian** ni tanlash mumkin.
+  </Step>
+  <Step title="Klaviatura">
+    Klaviatura turini ko'rsating (odatda **English (US)**).
+  </Step>
+  <Step title="Internet ulanishi">
+    Wi-Fi yoki ulangan kabel orqali. Internetsiz ham o'rnatish mumkin, lekin yangilanishlar va drayverlar keyinroq olinadi.
+  </Step>
+  <Step title="O'rnatish turi">
+    **Interactive installation** — odatdagi qadamba-qadam o'rnatish. **Automated** — oldindan tayyorlangan konfiguratsiya bilan.
+  </Step>
+  <Step title="Ilovalar">
+    **Default selection** (asosiy ilovalar) yoki **Extended selection** (qo'shimcha ofis, multimedia).
+  </Step>
+  <Step title="Maxsus drayverlar">
+    "Install third-party software" — NVIDIA drayveri, multimedia kodeklari. Tavsiya qilinadi.
+  </Step>
+  <Step title="Disk bo'limi">
+    - **Erase disk and install Ubuntu** — diskni butunlay tozalash (yangi mashina uchun).
+    - **Install alongside another OS** — Windows yonida (dual boot).
+    - **Manual partitioning** — tajribali foydalanuvchilar uchun.
+  </Step>
+  <Step title="Vaqt mintaqasi va foydalanuvchi">
+    Toshkent vaqt mintaqasi. Foydalanuvchi nomi va parol — bu sizning birinchi `sudo` huquqiga ega akkauntingiz.
+  </Step>
+  <Step title="O'rnatish va qayta yuklash">
+    20-30 daqiqa kuting. So'ng **Restart Now** — USB'ni chiqarib, ENTER bosing.
+  </Step>
+</Steps>
+
+## 6. Birinchi yuklanishdan keyin
+
+Birinchi marta kirib, terminalda quyidagini bajaring:
+
+```bash
+sudo apt update
+sudo apt upgrade
+```
+
+Bu paket bazasini yangilaydi va o'rnatilgan dasturlarning oxirgi yamoq versiyalarini olib keladi.
+
+## 7. Mashqlar
+
+1. [releases.ubuntu.com/24.04](https://releases.ubuntu.com/24.04/) sahifasini oching. `SHA256SUMS` faylida qancha qator bor? Har bir qator nima ma'no anglatadi?
+2. (Ixtiyoriy) [Rufus](https://rufus.ie) yoki Startup Disk Creator yordamida bo'sh USB tayyorlang va virtual mashinada uni sinab ko'ring.
+
+## 8. Bilim sinovi
+
+**Savol 1.** ISO faylining yaxlitligini qanday tekshirish kerak?
+
+- a) Hajmini taqqoslash
+- b) SHA256 raqami orqali
+- c) Fayl ochib ko'rish
+- d) Tekshirish shart emas
+
+<Callout type="success" title="Javob">
+**(b)** SHA256 — kriptografik xesh. Rasmiy `SHA256SUMS` faylidagi qiymat bilan solishtirgan yagona ishonchli usul.
+</Callout>
+
+**Savol 2.** Windows'da bootable USB tayyorlash uchun Ubuntu tavsiya qiladigan dastur qaysi?
+
+- a) Etcher
+- b) UNetbootin
+- c) Rufus
+- d) WinSCP
+
+<Callout type="success" title="Javob">
+**(c)** Rufus — rasmiy Ubuntu Windows qo'llanmasida tavsiya etiladi.[²](https://ubuntu.com/tutorials/create-a-usb-stick-on-windows)
+</Callout>
+
+## Manbalar
+
+1. Ubuntu Tutorial — Create a bootable USB stick on Ubuntu. [https://ubuntu.com/tutorials/create-a-usb-stick-on-ubuntu](https://ubuntu.com/tutorials/create-a-usb-stick-on-ubuntu)
+2. Ubuntu Tutorial — Create a bootable USB stick on Windows. [https://ubuntu.com/tutorials/create-a-usb-stick-on-windows](https://ubuntu.com/tutorials/create-a-usb-stick-on-windows)
+3. Ubuntu Tutorial — Install Ubuntu desktop. [https://ubuntu.com/tutorials/install-ubuntu-desktop](https://ubuntu.com/tutorials/install-ubuntu-desktop)
+
+## Keyingi qadam
+
+👉 [WSL ostida Ubuntu](/ubuntu/installation/wsl)

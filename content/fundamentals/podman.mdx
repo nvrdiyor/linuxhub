@@ -1,0 +1,485 @@
+---
+title: "Podman — daemonless container'lar"
+description: "Podman — Docker'ga muqobil — daemonless, rootless, OCI-mos container engine."
+order: 136
+level: "advanced"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/docker-basics"
+learning_objectives:
+  - "Podman va Docker farqi"
+  - "Rootless container'lar"
+  - "Podman pod (Kubernetes mos)"
+  - "Quadlet — systemd integratsiya"
+tags: ["advanced", "podman", "containers", "rootless"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Podman Documentation"
+    url: "https://docs.podman.io/"
+  - title: "Podman vs Docker"
+    url: "https://www.redhat.com/en/topics/containers/what-is-podman"
+  - title: "ArchWiki — Podman"
+    url: "https://wiki.archlinux.org/title/Podman"
+---
+
+**Podman** — Red Hat tomonidan ishlab chiqilgan modern container engine. Docker'dan asosiy farq — **daemonless** (markaziy daemon yo'q) va **rootless** (root'siz). Container API Docker'ga mos — `alias docker=podman` ishlaydi.[¹](https://docs.podman.io/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Podman va Docker farqi.
+- Rootless container'lar.
+- Pod (Kubernetes-mos) tushunchasi.
+- Quadlet — systemd integratsiya.
+- Migratsiya Docker → Podman.
+</Callout>
+
+## 1. Podman vs Docker
+
+| | Docker | Podman |
+|---|---|---|
+| Arxitektura | Markaziy daemon (`dockerd`) | Daemonless (fork+exec) |
+| Root | Default'da | Rootless first-class |
+| Pod | Yo'q (Swarm) | Ha (Kubernetes-mos) |
+| systemd integratsiya | Cheklangan | Quadlet (native) |
+| API mosligi | Docker API | Docker-mos (90%+) |
+| Default Linux | Mavjud | RHEL/Fedora default |
+| Image build | `docker build` | `podman build` yoki `buildah` |
+
+## 2. O'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install podman
+
+# Fedora/RHEL
+sudo dnf install podman
+
+# Arch
+sudo pacman -S podman
+```
+
+Foydalanuvchi sifatida darrov ishlaydi (rootless):
+
+```bash
+podman run hello-world
+```
+
+## 3. Asosiy buyruqlar — Docker bilan bir xil
+
+```bash
+# Pull
+podman pull nginx
+
+# Run
+podman run -d -p 8080:80 --name web nginx
+
+# List
+podman ps
+podman ps -a
+
+# Logs
+podman logs web
+
+# Exec
+podman exec -it web bash
+
+# Stop / Start / Remove
+podman stop web
+podman start web
+podman rm -f web
+
+# Images
+podman images
+podman rmi nginx
+
+# Build
+podman build -t myapp:1.0 .
+
+# Compose (podman-compose o'rnatish kerak)
+podman-compose up -d
+```
+
+**Docker bilan deyarli bir xil**. `alias docker=podman` qo'shsangiz, eski skript'lar ishlaydi.
+
+## 4. Rootless — eng katta farq
+
+Docker daemon root sifatida ishlaydi → container ham root'ga kira oladi (escape vulnerability xavfi).
+
+Podman rootless — har user o'z container engine'ini ishga tushiradi. Kompromat bo'lsa, faqat shu user'ga zarar.
+
+```bash
+# Foydalanuvchi sifatida
+podman run -d nginx
+# Ishlaydi, daemonsiz, root'siz
+```
+
+### Rootless cheklovlar
+
+- Privileged port (<1024) — direct bind qila olmaydi (faqat 1024+).
+- Bridge networking cheklangan — slirp4netns ishlatadi (sekinroq).
+- Capabilities cheklangan.
+
+### Privileged port — port forwarding bilan
+
+```bash
+# Host'da: 80 → user'ning 8080
+sudo sysctl net.ipv4.ip_unprivileged_port_start=80
+# Yoki capability
+sudo setcap cap_net_bind_service=+ep $(which podman)
+
+# Container 8080
+podman run -d -p 8080:80 nginx
+
+# Host firewall yo'naltirish
+sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8080
+```
+
+## 5. Pod — Kubernetes-mos
+
+Pod — bir nechta container birga ishlaydi, **bir xil network namespace**.
+
+```bash
+# Pod yaratish
+podman pod create --name myapp -p 8080:80
+
+# Container'larni pod'ga qo'shish
+podman run -d --pod myapp --name web nginx
+podman run -d --pod myapp --name cache redis
+
+# Pod ichida ikkala container 'localhost' orqali ulanadi
+podman exec web curl localhost:6379    # redis'ga
+
+# Pod ko'rish
+podman pod ps
+podman pod inspect myapp
+
+# Pod boshqaruv
+podman pod stop myapp
+podman pod start myapp
+podman pod rm -f myapp
+```
+
+Bu Kubernetes pod konsepsiyasiga aniq mos — local development uchun ideal.
+
+## 6. Quadlet — systemd integratsiya
+
+Quadlet — Podman container'ni systemd unit sifatida deklarativ yozish.
+
+`/etc/containers/systemd/myapp.container`:
+
+```ini
+[Unit]
+Description=My App
+After=network-online.target
+
+[Container]
+Image=docker.io/library/nginx:latest
+PublishPort=8080:80
+Volume=/srv/nginx/conf:/etc/nginx/conf.d:ro
+Volume=/srv/nginx/www:/usr/share/nginx/html:ro
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start myapp.service
+```
+
+User-level uchun `~/.config/containers/systemd/`:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user start myapp
+```
+
+### `AutoUpdate=registry`
+
+```bash
+# Bir martalik
+podman auto-update
+
+# Yoki avtomatik (timer)
+sudo systemctl enable --now podman-auto-update.timer
+```
+
+## 7. Image build — `buildah` bilan
+
+Podman `build` Docker'ga mos, lekin `buildah` — alohida vosita, ko'p kuch.
+
+```bash
+sudo apt install buildah
+
+# Containerfile (Dockerfile bilan bir xil sintaksis)
+buildah bud -t myapp:1.0 .
+
+# Yoki bosqichma-bosqich
+container=$(buildah from alpine:latest)
+buildah run "$container" apk add python3
+buildah copy "$container" app.py /
+buildah config --cmd "python3 /app.py" "$container"
+buildah commit "$container" myapp:1.0
+buildah rm "$container"
+```
+
+## 8. Image yuklash va saqlash
+
+```bash
+# Save
+podman save -o myapp.tar myapp:1.0
+
+# Load
+podman load -i myapp.tar
+
+# Registry login
+podman login docker.io
+podman login quay.io
+
+# Push
+podman tag myapp:1.0 docker.io/username/myapp:1.0
+podman push docker.io/username/myapp:1.0
+```
+
+## 9. Network
+
+```bash
+# Bridge network
+podman network create mynet
+
+# Container shu network'da
+podman run --network mynet --name db postgres
+podman run --network mynet --name app -e DATABASE_URL=postgres://db myapp
+
+# Mavjud network'lar
+podman network ls
+
+# Inspect
+podman network inspect mynet
+```
+
+## 10. Volume
+
+```bash
+# Named volume
+podman volume create mydata
+
+podman run -v mydata:/data --name app myapp
+
+# Bind mount
+podman run -v /host/path:/container/path:Z myapp
+# :Z — SELinux relabel
+# :z — shared
+
+# Volume'lar ro'yxati
+podman volume ls
+```
+
+## 11. Compose — podman-compose
+
+```bash
+# O'rnatish
+sudo apt install podman-compose
+
+# Yoki pip
+pip3 install --user podman-compose
+```
+
+Docker-compose `compose.yml`'ni bevosita qabul qiladi:
+
+```bash
+podman-compose up -d
+podman-compose ps
+podman-compose logs -f
+podman-compose down
+```
+
+Yoki modern: **Quadlet** orqali, har container alohida `.container` fayl.
+
+## 12. Migratsiya Docker → Podman
+
+```bash
+# Eski script'lar uchun alias
+alias docker=podman
+```
+
+Aksariyat Docker buyruqlar ishlaydi. Maxsus farqlar:
+
+| Docker | Podman |
+|---|---|
+| `docker login` | `podman login` |
+| `docker push` | `podman push` |
+| `docker swarm` | Mavjud emas (Kubernetes ishlating) |
+| `docker network host` | Rootless'da farq |
+
+Kompozit:
+
+```bash
+# Eski docker-compose.yml ni
+mv docker-compose.yml compose.yml
+podman-compose up -d
+```
+
+## 13. Misol — uy server uchun
+
+```ini
+# /etc/containers/systemd/nextcloud.container
+[Unit]
+Description=Nextcloud
+Requires=postgres.container
+After=postgres.container
+
+[Container]
+Image=docker.io/nextcloud:latest
+PublishPort=8080:80
+Volume=nextcloud-data:/var/www/html
+Volume=nextcloud-config:/var/www/html/config
+Environment=POSTGRES_HOST=systemd-postgres
+Environment=POSTGRES_DB=nextcloud
+Environment=POSTGRES_USER=nextcloud
+EnvironmentFile=/etc/nextcloud/secrets.env
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```ini
+# /etc/containers/systemd/postgres.container
+[Unit]
+Description=PostgreSQL for Nextcloud
+
+[Container]
+Image=docker.io/postgres:15
+Volume=postgres-data:/var/lib/postgresql/data
+Environment=POSTGRES_DB=nextcloud
+Environment=POSTGRES_USER=nextcloud
+EnvironmentFile=/etc/postgres/secrets.env
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now nextcloud.service
+sudo systemctl enable --now podman-auto-update.timer
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `podman run [opts] <image>` | Container ishga tushirish |
+| `podman ps -a` | Ro'yxat |
+| `podman exec -it <name> bash` | Ichiga kirish |
+| `podman logs -f <name>` | Loglar |
+| `podman pod create --name <p> -p ...` | Pod yaratish |
+| `podman run --pod <p> ...` | Pod ichida container |
+| `podman auto-update` | Image yangilash |
+| `systemctl start <foo>.service` | Quadlet container ishga tushirish |
+| `buildah bud -t image .` | Build |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **Rootless'da privileged port** — 80 ga bind qilolmaydi. `8080` ishlating va firewall'da redirect.
+- **SELinux volume xato** — `:Z` (private) yoki `:z` (shared) qo'shing bind mount'ga.
+- **`docker.io/` prefix yo'q** — Podman default'da fully-qualified image nomini talab qiladi. `nginx` o'rniga `docker.io/library/nginx`.
+- **Quadlet fayl `.service` emas** — `.container`, `.pod`, `.network`, `.volume` kengaytmalar.
+- **`daemon-reload` unutish** — Quadlet o'zgartirgandan keyin majburiy.
+
+## 16. Eng yaxshi amaliyot
+
+- **Rootless ishlatish** — xavfsizlik uchun.
+- **Quadlet** — production'da, Docker Compose o'rniga.
+- **`AutoUpdate=registry`** + `podman-auto-update.timer`.
+- **Pod**'lar — bir-biriga bog'liq xizmatlar (frontend + backend + cache).
+- **Image registry mirror** — tarmoq tezligi uchun.
+- **`buildah`** — multi-stage va dasturlanadigan build.
+- **`podman play kube`** — Kubernetes YAML to'g'ridan-to'g'ri.
+
+## 17. Mashqlar
+
+1. **O'rnatish:** Podman'ni o'rnating va `podman run hello-world` qiling.
+2. **Rootless test:** Oddiy user sifatida `podman run -d -p 8080:80 nginx` — ishlatdi mi?
+3. **Pod:** Yuqoridagi misol bo'yicha pod yarating va ikki container qo'shing.
+4. **Quadlet:** Mavjud kichik container uchun `.container` fayl yozing va systemd orqali yoqing.
+5. **Compose:** Mavjud `docker-compose.yml`'ni `podman-compose up` orqali ishga tushiring.
+
+## 18. Bilim sinovi
+
+**Savol 1.** Podman va Docker asosiy farqi:
+
+- a) Bir xil
+- b) Daemonless, rootless first-class
+- c) Tezroq
+- d) Faqat Fedora'da
+
+<Callout type="success" title="Javob">
+**(b)** Markaziy daemon yo'q, har user o'z engine'ini.[¹](https://docs.podman.io/)
+</Callout>
+
+**Savol 2.** Rootless container nima foyda?
+
+- a) Tezroq
+- b) Container escape vulnerability bo'lsa, faqat user darajasidagi zarar
+- c) Kichikroq
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Privilege escalation xavfi pasaytirish.
+</Callout>
+
+**Savol 3.** Pod nima?
+
+- a) Container ichidagi pod
+- b) Bir nechta container birga, bir network namespace bilan (Kubernetes-mos)
+- c) Image format
+- d) Tarmoq
+
+<Callout type="success" title="Javob">
+**(b)** Kubernetes pod konsepsiyasi.
+</Callout>
+
+**Savol 4.** Quadlet nima?
+
+- a) Container image format
+- b) systemd unit fayl Podman container uchun deklarativ
+- c) Network
+- d) Compose alternativ
+
+<Callout type="success" title="Javob">
+**(b)** systemd-native, declarative.
+</Callout>
+
+**Savol 5.** Docker buyruq Podman'da:
+
+- a) Faqat boshqacha sintaksis
+- b) Aksariyat bir xil — `alias docker=podman` ham ishlaydi
+- c) Imkonsiz
+- d) Faqat root uchun
+
+<Callout type="success" title="Javob">
+**(b)** Drop-in replacement.
+</Callout>
+
+## Manbalar
+
+1. Podman Documentation. [https://docs.podman.io/](https://docs.podman.io/)
+2. Podman vs Docker. [https://www.redhat.com/en/topics/containers/what-is-podman](https://www.redhat.com/en/topics/containers/what-is-podman)
+3. ArchWiki — Podman. [https://wiki.archlinux.org/title/Podman](https://wiki.archlinux.org/title/Podman)
+
+## Keyingi qadam
+
+👉 [Kubernetes kirish](/fundamentals/kubernetes-intro)

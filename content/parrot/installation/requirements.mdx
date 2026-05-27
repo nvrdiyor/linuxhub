@@ -1,0 +1,90 @@
+---
+title: "Parrot tizim talablari"
+description: "Parrot OS o'rnatish uchun apparat talablari va tavsiyalar."
+order: 1
+level: "beginner"
+estimated_minutes: 4
+prerequisites:
+  - "/parrot/introduction"
+learning_objectives:
+  - "Minimal va tavsiya etilgan apparat"
+  - "Edition farqlariga ko'ra talablar"
+tags: ["parrot", "installation", "requirements"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Parrot Documentation — Install"
+    url: "https://docs.parrotsec.org/install/"
+  - title: "Parrot Download"
+    url: "https://parrotsec.org/download/"
+---
+
+Parrot OS Debian asosida bo'lganligi sababli, apparat talablari moderatdan past. Edition'ga qarab biroz farqlanadi.[¹](https://docs.parrotsec.org/install/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Minimal va tavsiya etilgan resurslar.
+- Virtual mashina va fizik o'rnatish farqi.
+- BIOS/UEFI sozlamalari.
+</Callout>
+
+## 1. Minimal talablar
+
+| Resurs | Minimal | Tavsiya |
+|---|---|---|
+| Protsessor | 1 GHz x86_64 | 2+ yadroli, 2 GHz+ |
+| RAM | 2 GB (MATE) | 4-8 GB |
+| Disk | 16 GB (Security), 12 GB (Home) | 40+ GB |
+| Grafika | VGA, 800×600 | 1024×768+ |
+| Internet | O'rnatish va yangilanish uchun | — |
+
+## 2. Edition bo'yicha farqlar
+
+- **Security Edition** — 600+ vositalar, ko'p RAM kerak (4 GB+ tavsiya).
+- **Home Edition** — kichikroq, 2 GB RAM yetarli.
+- **Architect** — minimal, 1 GB RAM bilan ham ishlaydi.
+- **ARM** — Raspberry Pi 3+ (4+ tavsiya).
+
+## 3. Arxitekturalar
+
+- **amd64** — eng keng tarqalgan.
+- **arm64** — Raspberry Pi, ARM serverlar.
+- **i386** — eski 32-bit kompyuterlar (mavjud, lekin tavsiya etilmaydi).
+
+## 4. Virtual mashina afzalligi
+
+Boshlovchilar uchun **Virtual mashina** tavsiya etiladi:
+
+- Host RAM: 8 GB+ (Parrot uchun 4 GB ajratish).
+- Host disk: 50 GB+ bo'sh.
+- VT-x/AMD-V yoqilgan (BIOS'da).
+
+## 5. UEFI / Secure Boot
+
+Parrot UEFI'ni qo'llab-quvvatlaydi. Secure Boot bilan ba'zi muammolar bo'lishi mumkin — o'rnatishdan oldin BIOS'da Secure Boot'ni vaqtincha o'chirib qo'yish tavsiya etiladi.
+
+## 6. Mashqlar
+
+1. O'z kompyuteringizning RAM va CPU yadrolari sonini bilib oling. Parrot uchun qaysi tavsiya etilgan?
+2. [parrotsec.org/download](https://parrotsec.org/download/) — Security Edition ISO hajmini yozing.
+
+## 7. Bilim sinovi
+
+**Savol 1.** Parrot Security Edition uchun minimal RAM:
+
+- a) 1 GB
+- b) 2 GB
+- c) 4 GB
+- d) 8 GB
+
+<Callout type="success" title="Javob">
+**(b)** 2 GB minimal (MATE uchun). Tavsiya — 4 GB+.[¹](https://docs.parrotsec.org/install/)
+</Callout>
+
+## Manbalar
+
+1. Parrot Documentation — Install. [https://docs.parrotsec.org/install/](https://docs.parrotsec.org/install/)
+2. Parrot Download. [https://parrotsec.org/download/](https://parrotsec.org/download/)
+
+## Keyingi qadam
+
+👉 [O'rnatish qo'llanmasi](/parrot/installation/guide)

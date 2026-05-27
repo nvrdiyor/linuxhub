@@ -1,84 +1,244 @@
 ---
 title: "Linux nima?"
-description: "Linux operatsion tizimi haqida asosiy ma'lumotlar - kernel, distributivlar va ochiq kodli falsafa"
+description: "Linux yadrosi, GNU/Linux operatsion tizimi va distributivlar — barchasi rasmiy manbalarga asoslangan, boshlang'ich uchun tushunarli izoh."
 order: 1
-lastUpdated: "2026-01-27"
+level: "beginner"
+estimated_minutes: 7
+prerequisites: []
+learning_objectives:
+  - "Yadro (kernel) va to'liq operatsion tizim farqini izohlash"
+  - "GNU va Linux nima sababdan birga eslatilishini tushuntirish"
+  - "Linux qaerda ishlatilishini va kim foydalanishini sanab o'tish"
+  - "Linux qachon va kim tomonidan yaratilganini bilish"
+tags: ["beginner", "kernel", "gnu", "history"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "The Linux Kernel — About"
+    url: "https://www.kernel.org/category/about.html"
+  - title: "GNU Project — Linux and the GNU System"
+    url: "https://www.gnu.org/gnu/linux-and-gnu.html"
+  - title: "GNU Project — The GNU Operating System and the Free Software Movement"
+    url: "https://www.gnu.org/gnu/thegnuproject.html"
+  - title: "Linus Torvalds — original announcement (comp.os.minix, 25 Aug 1991)"
+    url: "https://groups.google.com/g/comp.os.minix/c/dlNtH7RRrGA"
+  - title: "Linux Foundation — About"
+    url: "https://www.linuxfoundation.org/about"
 ---
 
-# Linux nima?
+Linux — bu butun dunyo bo'ylab millionlab kompyuterlar, serverlar va smartfonlarda ishlaydigan ochiq kodli **yadro** (kernel). "Linux" deganda ko'pchilik butun operatsion tizimni tushunadi; aslida bu so'z faqat yadroni anglatadi. Ushbu darsda farqni aniq ko'rib chiqamiz va Linuxning qaerdan kelib chiqqanini, hozir qaerda ishlatilishini o'rganamiz.
 
-Linux — bu butun dunyo bo'ylab millionlab kompyuterlar, serverlar, smartfonlar va hatto kosmik kemalarni boshqaruvchi **ochiq kodli operatsion tizim yadrosi** (kernel). Lekin ko'pchilik "Linux" deganda nafaqat yadroni, balki to'liq operatsion tizimni nazarda tutadi.
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Yadro (kernel) va to'liq operatsion tizim farqi.
+- "GNU/Linux" atamasi va nega ikkala nom ham ishlatiladi.
+- Linux tarixining qisqacha bayoni — 1991-yildan bugungi kungacha.
+- Linux qayerda ishlaydi va kim uchun foydali.
+</Callout>
 
-## Kernel va Operatsion Tizim farqi
+## Tayyorgarlik
 
-**Kernel (yadro)** — bu kompyuter uskunasi (hardware) bilan dasturlar o'rtasidagi ko'prik. U quyidagi vazifalarni bajaradi:
+Bu birinchi dars — oldindan bilim talab qilinmaydi. Agar siz kompyuterni yoqib, fayllarni ochib ko'rgan bo'lsangiz — yetarli.
 
-- 💾 Xotira boshqaruvi
-- ⚡ Protsessor vaqtini taqsimlash
-- 🔌 Qurilmalar bilan aloqa
-- 📁 Fayl tizimlarini boshqarish
+---
 
-**Operatsion tizim** esa kerneldan tashqari quyidagilarni o'z ichiga oladi:
-- Grafik interfeys (GUI)
-- Tizim ilovalari
-- Paket menejeri
-- Foydalanuvchi asboblari
+## 1. Yadro va operatsion tizim
 
-> Linux — bu kernel. Ubuntu, Fedora, NixOS — bu kerneldan foydalanuvchi to'liq **distributivlar**.
+**Yadro (kernel)** — bu kompyuter uskunasi (apparat: protsessor, xotira, disk, tarmoq kartasi) va dasturlar o'rtasidagi vositachi. U bevosita "metall bilan gaplashadi" va dasturlarga uskunadan foydalanish imkonini beradi.
 
-## Qisqacha tarix
+Yadroning to'rt asosiy vazifasi:
 
-| Yil | Voqea |
-|-----|-------|
-| 1991 | Linus Torvalds Linux kernelini yaratdi |
-| 1993 | Debian distributivi paydo bo'ldi |
-| 2004 | Ubuntu birinchi versiyasi chiqdi |
-| 2020+ | Linux serverlar bozorining 90%+ ni egalladi |
+- **Xotirani boshqarish** — har bir dasturga RAMdan qancha joy ajratilishini hal qiladi.
+- **Protsessor vaqtini taqsimlash** — bir vaqtning o'zida o'nlab dasturlar ishlashi uchun ularni navbat bilan protsessorga uzatadi.
+- **Qurilmalar bilan aloqa** — disk, klaviatura, tarmoq kartasi va boshqalarni boshqaradi.
+- **Fayl tizimlarini boshqarish** — diskdagi fayl va papkalarni o'qish hamda yozish.
 
-Linus Torvalds 21 yoshida, Finlandiyada talaba bo'lganida, shaxsiy kompyuteri uchun bepul operatsion tizim yaratmoqchi edi. Bugun esa uning yaratgan kerneli:
+> Yadroning nima ish bajarishi haqidagi rasmiy ta'rif: [kernel.org — About](https://www.kernel.org/category/about.html).
 
-- 🌐 Internet serverlarining 96%+ da ishlaydi
-- 📱 Android telefonlarining barchasida
-- ☁️ Bulutli xizmatlarning aksariyatida
-- 🚀 SpaceX va NASA missiyalarida
+**Operatsion tizim** esa yadrodan kengroq — u yadro ustiga qo'shilgan dasturlar to'plamini ham qamrab oladi:
 
-## Ochiq kodli falsafa
+- Buyruq satri (shell — masalan, `bash`).
+- Asosiy buyruqlar (`ls`, `cp`, `cat`...) — ularning ko'pi **GNU coreutils** to'plamidan.
+- Grafik interfeys (GNOME, KDE Plasma va boshqalar — agar o'rnatilgan bo'lsa).
+- Paket menejeri (`apt`, `dnf`, `pacman`...).
+- Tizim xizmatlari (`systemd` kabi).
 
-Linux **ochiq kodli** (open source) lisenziya ostida tarqatiladi. Bu nimani anglatadi?
+```
+┌────────────────────────────────────────────────┐
+│             Foydalanuvchi dasturlari            │   ← Firefox, VS Code, ...
+├────────────────────────────────────────────────┤
+│   Shell + buyruqlar (bash, GNU coreutils)      │   ← ls, cp, grep, ...
+├────────────────────────────────────────────────┤
+│              Linux yadrosi                     │   ← jarayonlar, fayl tizimi,
+│                                                │     tarmoq, xotira boshqaruvi
+├────────────────────────────────────────────────┤
+│   Apparat: CPU, RAM, disk, tarmoq, ...         │
+└────────────────────────────────────────────────┘
+```
 
-1. **Kod ochiq** — har kim kodni ko'rishi mumkin
-2. **Bepul** — sotib olish shart emas
-3. **Erkin** — o'zgartirish va tarqatish mumkin
-4. **Hamjamiyat** — minglab dasturchilar birgalikda rivojlantiradi
+**Asosiy fikr:** Linux yadrosi yakka holda hech narsa ko'rinmas — uni ishga tushirish uchun yuqoridagi qatlamlar kerak. Shu sababli "Linux" deyilganda odatda to'liq operatsion tizim nazarda tutiladi.
+
+## 2. Nega "GNU/Linux"?
+
+Linux yadrosini Linus Torvalds 1991-yilda yaratdi[¹](https://www.kernel.org/category/about.html). Lekin to'liq operatsion tizim uchun yadroning o'zi kifoya emas — shellni, kompilyatorni, va asosiy buyruqlarni kim yozadi?
+
+Bu vazifani **GNU Project** (1983-yildan beri, Richard Stallman boshchiligida) bajarib kelayotgan edi[²](https://www.gnu.org/gnu/thegnuproject.html). GNU loyihasining yadrosi (Hurd) tugallanmagan edi, lekin atrofdagi barcha dasturlar — `gcc` kompilyatori, `bash` shell, `coreutils` buyruqlari, GNU C kutubxonasi — tayyor edi.
+
+Linus 1991-yilning 25-avgustida `comp.os.minix` Usenet guruhiga elon yozdi:
+
+> "I'm doing a (free) operating system (just a hobby, won't be big and professional like gnu) for 386(486) AT clones."[³](https://groups.google.com/g/comp.os.minix/c/dlNtH7RRrGA)
+
+Linuxning birinchi versiyalari aynan GNU dasturlari bilan birlashtirilgan holda ishlatilgan. Shu sababli GNU loyihasi to'liq tizimni **"GNU/Linux"** deb nomlashni tavsiya qiladi[⁴](https://www.gnu.org/gnu/linux-and-gnu.html). Amalda esa qisqalik uchun ko'pchilik "Linux" deydi.
+
+<Callout type="tip">
+Qaysi nom to'g'ri — bu ko'p yillik bahs. Ikkalasi ham qabul qilingan. Ushbu kursda biz "Linux" so'zini operatsion tizimni anglatuvchi sifatida ishlatamiz, lekin GNUning hissasini hech qachon esdan chiqarmaymiz.
+</Callout>
+
+## 3. Distributiv nima?
+
+**Distributiv** (qisqacha "distro") — bu Linux yadrosi, GNU/asosiy dasturlar va qo'shimcha kompozitsiyalardan yig'ilgan to'liq, o'rnatishga tayyor operatsion tizim. Bir nechta mashhur misol:
+
+- **Ubuntu** — Canonical kompaniyasi tomonidan, Debian asosida. Yangi foydalanuvchilarga mo'ljallangan.
+- **Debian** — eng eski distributivlardan biri. Erkin dasturlar siyosatiga qattiq amal qiladi.
+- **Fedora** — Red Hatga aloqador, yangi texnologiyalarni birinchilardan sinaydi.
+- **Arch Linux** — minimalist; foydalanuvchi tizimni o'zi yig'adi.
+- **NixOS** — deklarativ konfiguratsiyali, qayta tiklanadigan tizim.
+- **Kali Linux** va **Parrot OS** — xavfsizlik tahlili uchun mo'ljallangan, Debian asosida.
+
+Bu kursda asosiy distributivlarni alohida bo'limlarda o'rganamiz. Hozir asosiy fikr: **distributivlar bir-biridan paket menejeri, dastlabki to'plam va falsafa bilan farq qiladi, lekin yadro hammasida bir xil — Linux.**
+
+## 4. Linux qaerda ishlaydi?
+
+Linux faqat ish stoli operatsion tizimi emas. U:
+
+- **Serverlar va bulutli xizmatlar** — internetdagi veb-saytlarning aksariyati Linux serverlarda ishlaydi. Linux Foundation ushbu sohada Linuxning ustun pozitsiyasini hujjatlashtirgan[⁵](https://www.linuxfoundation.org/about).
+- **Android telefonlar** — Androidning yadrosi Linux yadrosi asosida quriladi.
+- **Superkomputerlar** — TOP500 ro'yxatidagi eng tezkor kompyuterlarning barchasi Linuxda ishlaydi.
+- **Embedded qurilmalar** — routerlar, smart TV, "aqlli" maishiy texnika.
+- **Avtomashinalar va sanoat uskunalari** — ko'pgina zamonaviy avtomobillarning infotaynment tizimi Linux asosida.
+
+<Callout type="info" title="Konkret raqamlardan ehtiyot bo'ling">
+Internetda "Linux internet serverlarining 96% ida ishlaydi" kabi raqamlarni tez-tez uchratasiz. Bu raqamlar manbaiga bog'liq va vaqt o'tishi bilan o'zgaradi. Yuqoridagi sanab o'tilgan sohalarda Linuxning ustunligi haqiqat, lekin aniq foiz ko'rsatkichini keltirayotganda har doim manbaning nashr sanasini tekshiring.
+</Callout>
+
+## 5. Nega Linuxni o'rganish kerak?
+
+- **Bepul va erkin** — Linuxni hech qanday litsenziya to'lovisiz o'rnatish, ishlatish va o'zgartirish mumkin. Lazenziyaning huquqiy asosi GPL (GNU General Public License).
+- **Ochiq kod** — kodni har kim ko'rishi, tekshirishi va hissa qo'shishi mumkin. Bu xavfsizlik va shaffoflik uchun katta afzallik.
+- **Eski kompyuterlarda ishlaydi** — yengilroq distributivlar (Xubuntu, Lubuntu, Debian + LXQt) 10 yoshlik kompyuterlarda ham qoniqarli tezlikda ishlaydi.
+- **Kasbiy talab** — DevOps, bulut texnologiyalari, dasturlash, kibersuxavfsizlik sohalarida Linux bilim majburiy.
+- **Maxfiylik** — Linux odatda foydalanuvchi ma'lumotlarini operatsiya tizim darajasida yig'maydi.
+
+## 6. Amaliy misol — terminalda Linux haqida ma'lumot
+
+Agar sizda Linux o'rnatilgan kompyuter bo'lsa, quyidagi buyruqlarni bajarib ko'ring. Agar yo'q bo'lsa — havotir olmang, [Virtual mashina o'rnatish](/fundamentals/virtual-machine) darsida tayyorgarlik qilamiz.
 
 ```bash
-# Linux kernelining versiyasini ko'rish
+# Yadroning aniq versiyasini ko'rish
 uname -r
+```
 
-# Tizim haqida to'liq ma'lumot
+Misol natija:
+
+```
+6.8.0-49-generic
+```
+
+`6.8.0` — yadro versiyasi raqami. `-49-generic` qismi distributiv tomonidan qo'shilgan.
+
+```bash
+# Tizim haqida to'liq ma'lumot — qaysi distributiv, qaysi versiya
 cat /etc/os-release
 ```
 
-## Nega Linux o'rganish kerak?
+Misol natija (Ubuntu uchun):
 
-### Dasturchilar uchun
-- Ko'pchilik serverlar Linuxda ishlaydi
-- DevOps va Cloud texnologiyalar Linux asosida
-- Open source loyihalar odatda Linuxda rivojlanadi
+```
+PRETTY_NAME="Ubuntu 24.04.1 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+```
 
-### Oddiy foydalanuvchilar uchun
-- Butunlay bepul
-- Viruslar kamroq
-- Eski kompyuterlarda ham tez ishlaydi
-- Maxfiylik va xavfsizlik
+```bash
+# Yadro nomi va arxitektura (x86_64 / aarch64 / ...)
+uname -a
+```
 
-### IT mutaxassislari uchun
-- Tizimni to'liq nazorat qilish
-- Avtomatlashtirish imkoniyatlari
-- Professional asboblar to'plami
+> `uname` buyrug'i — bu GNU coreutils tarkibidagi standart utilita. Batafsil: [`uname(1)` manpage](https://manpages.debian.org/bookworm/coreutils/uname.1.en.html).
+
+## 7. Mashqlar
+
+Bu mashqlar uchun sizga ishlaydigan Linux kerak (yoki virtual mashina). Agar hozircha yo'q bo'lsa — keyingi darslarga o'ting, ishga tushirgandan keyin qaytib mashq qilasiz.
+
+1. Terminalda `uname -r` ni bajaring. Sizdagi yadro versiyasi nima?
+2. `cat /etc/os-release` orqali qaysi distributivda ekanligingizni aniqlang. `PRETTY_NAME` qatorida nima yozilgan?
+3. Linux yadrosining rasmiy sayti — [kernel.org](https://www.kernel.org). Ushbu saytga kirib, **stable** (barqaror) versiya raqamini toping. Bu raqam sizdagi yadrodan kattaroqmi yoki kichikroqmi?
+4. [GNU Project sahifasiga](https://www.gnu.org/gnu/linux-and-gnu.html) o'tib, "Why GNU/Linux?" matnining birinchi paragrafini o'qing. GNU loyihasi qachon boshlangan?
+5. (Ixtiyoriy) `uname --help` chiqishini o'qing va `-a` parametrining vazifasini topib, o'z so'zlaringiz bilan tushuntiring.
+
+## 8. Bilim sinovi
+
+**Savol 1.** Linux nima?
+
+- a) To'liq operatsion tizim.
+- b) Operatsion tizim yadrosi.
+- c) Dasturlash tili.
+- d) Foydalanuvchi interfeysi.
+
+<Callout type="success" title="Javob">
+**(b)** Linux — bu operatsion tizim **yadrosi**. To'liq tizim — bu yadro + GNU dasturlari + qo'shimcha komponentlar (distributiv).
+</Callout>
+
+**Savol 2.** Quyidagilarning qaysi biri yadro vazifasi **emas**?
+
+- a) Xotirani boshqarish.
+- b) Protsessor vaqtini taqsimlash.
+- c) Web-sahifani ko'rsatish.
+- d) Fayl tizimini boshqarish.
+
+<Callout type="success" title="Javob">
+**(c)** Web-sahifani ko'rsatish — bu foydalanuvchi dasturi (brauzer) vazifasi. Brauzer yadrodan tarmoq orqali ma'lumot olishni so'raydi, lekin uni ko'rsatish brauzer ichida bajariladi.
+</Callout>
+
+**Savol 3.** Linux yadrosini kim va qachon yaratdi?
+
+- a) Richard Stallman, 1983.
+- b) Linus Torvalds, 1991.
+- c) Linus Torvalds, 2001.
+- d) Ken Thompson, 1969.
+
+<Callout type="success" title="Javob">
+**(b)** Linus Torvalds 1991-yilda yaratdi. Richard Stallman 1983-yilda **GNU Project** ni boshlagan; Ken Thompson 1969-yilda **Unix** ni yaratgan — ikkalasi ham Linuxdan oldingi loyihalar.
+</Callout>
+
+**Savol 4.** Nima uchun ba'zilar "GNU/Linux" deyishadi?
+
+- a) GNU — bu boshqacha yadro.
+- b) GNU dasturlari to'liq tizimning katta qismini tashkil qiladi va ulardan oldin yozilgan.
+- c) GNU — bu Linus Torvaldsning korporatsiyasi.
+- d) GNU faqat marketing nomidir.
+
+<Callout type="success" title="Javob">
+**(b)** GNU loyihasi yadrodan tashqari deyarli barcha asosiy dasturlarni (kompilyator, shell, asosiy buyruqlar) yozgan va bu dasturlar 1991-yildan oldin tayyor edi. GNU loyihasi to'liq tizimni "GNU/Linux" deb atashni tavsiya qiladi[¹](https://www.gnu.org/gnu/linux-and-gnu.html).
+</Callout>
+
+## 9. Xulosa
+
+- **Yadro** uskuna bilan dasturlar o'rtasidagi vositachi; Linux — aynan shu yadroning nomi.
+- **Operatsion tizim** = yadro + GNU/asosiy dasturlar + grafik interfeys + paket menejeri.
+- **Distributiv** — to'liq, o'rnatishga tayyor operatsion tizim. Ubuntu, Debian, Fedora, Arch, NixOS — bu distributivlar.
+- Linux 1991-yilda Linus Torvalds tomonidan yaratilgan; GNU loyihasi 1983-yildan beri davom etmoqda.
+- Linux serverlar, mobil qurilmalar, embedded tizimlar va ish stollarida keng tarqalgan.
+
+## Manbalar
+
+1. The Linux Kernel — About. [https://www.kernel.org/category/about.html](https://www.kernel.org/category/about.html)
+2. GNU Project — Linux and the GNU System. [https://www.gnu.org/gnu/linux-and-gnu.html](https://www.gnu.org/gnu/linux-and-gnu.html)
+3. GNU Project — The GNU Operating System and the Free Software Movement. [https://www.gnu.org/gnu/thegnuproject.html](https://www.gnu.org/gnu/thegnuproject.html)
+4. Linus Torvalds — original announcement (comp.os.minix, 25 Aug 1991). [https://groups.google.com/g/comp.os.minix/c/dlNtH7RRrGA](https://groups.google.com/g/comp.os.minix/c/dlNtH7RRrGA)
+5. Linux Foundation — About. [https://www.linuxfoundation.org/about](https://www.linuxfoundation.org/about)
 
 ## Keyingi qadam
 
-Endi Linux dunyosining turli "oilalari" — distributivlar haqida bilib oling:
+Endi Linux dunyosining "oilalarini" — distributivlar shajarasini ko'rib chiqamiz.
 
-👉 [Distributivlar Shajarasi](/fundamentals/family-tree)
+👉 [Linux oila shajarasi](/fundamentals/family-tree)

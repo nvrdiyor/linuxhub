@@ -1,0 +1,229 @@
+---
+title: "APT bilan ishlash"
+description: "Ubuntu da paket o'rnatish, yangilash, o'chirish va qidirish — apt buyrug'i bilan."
+order: 1
+level: "beginner"
+estimated_minutes: 7
+prerequisites:
+  - "/fundamentals/package-managers"
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "apt va apt-get o'rtasidagi farqni izohlash"
+  - "Asosiy apt buyruqlarini ishlatish: update, upgrade, install, remove, search"
+  - "Yangilanish va to'liq yangilanish (upgrade vs full-upgrade) farqini bilish"
+tags: ["ubuntu", "apt", "package-management"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian — apt(8) manpage"
+    url: "https://manpages.debian.org/bookworm/apt/apt.8.en.html"
+  - title: "Ubuntu Community Help — AptGet/Howto"
+    url: "https://help.ubuntu.com/community/AptGet/Howto"
+  - title: "Ubuntu Server — Package management"
+    url: "https://documentation.ubuntu.com/server/how-to/software/package-management/"
+---
+
+**APT** (Advanced Package Tool) — Debian va Ubuntu'da paketlarni yuklab olish, o'rnatish, yangilash va o'chirish uchun ishlatiladigan asosiy vosita. Bu darsda kundalik foydalanishda kerak bo'ladigan barcha asosiy buyruqlarni o'rganamiz.[¹](https://manpages.debian.org/bookworm/apt/apt.8.en.html)[²](https://help.ubuntu.com/community/AptGet/Howto)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `apt` va `apt-get` farqi.
+- Paket bazasini yangilash va paketlarni yangilash.
+- O'rnatish, o'chirish, qidirish.
+- Foydali maslahatlar va xavfsizlik amaliyoti.
+</Callout>
+
+## 1. apt va apt-get
+
+Tarixiy jihatdan Debian/Ubuntu'da paket boshqaruvi uchun bir nechta vosita bor:
+
+- `apt-get`, `apt-cache`, `apt-config` — eski, **skript** va avtomatlashtirish uchun barqaror interfeys.
+- `apt` — yangiroq (2014-yildan), **inson uchun qulay** birlashtirilgan interfeys; rangli chiqish va progress bar bilan.
+
+**Qaysini ishlatish kerak?** Foydalanuvchi sifatida — `apt`. Skriptlarda esa `apt-get` xavfsizroq, chunki uning chiqishi versiyadan versiyaga o'zgarmaydi.[¹](https://manpages.debian.org/bookworm/apt/apt.8.en.html)
+
+## 2. Paket bazasini yangilash
+
+Har qanday paket o'rnatish yoki yangilashdan oldin paket bazasini yangilang:
+
+```bash
+sudo apt update
+```
+
+Bu buyruq:
+- Sozlangan repozitoriylar (`/etc/apt/sources.list` va `/etc/apt/sources.list.d/*.list`) dan yangi paket ro'yxatlarini yuklab oladi.
+- **Hech qanday paketni o'rnatmaydi va yangilamaydi.**
+- Yangilanishi mumkin bo'lgan paketlar sonini ko'rsatadi.
+
+## 3. Paketlarni yangilash
+
+```bash
+# O'rnatilgan paketlarni yangilash
+sudo apt upgrade
+
+# To'liq yangilash — yangi paketlar qo'shilishi yoki eskilari o'chirilishi ham mumkin
+sudo apt full-upgrade
+```
+
+**Farqi:** `upgrade` ehtiyotkor bo'lib, agar yangilanish boshqa paketlarni o'chirishni talab qilsa, uni o'tkazib yuboradi. `full-upgrade` esa kerak bo'lsa, paketlarni qo'shadi/o'chiradi. Reliz yangilanishida `full-upgrade` ishlatiladi.
+
+Tipik kundalik foydalanish:
+
+```bash
+sudo apt update && sudo apt upgrade
+```
+
+## 4. Paket o'rnatish
+
+```bash
+# Bitta paket
+sudo apt install firefox
+
+# Bir nechta paket bir yo'la
+sudo apt install git vim curl
+
+# Tasdiqlamasdan (avtomatik "yes")
+sudo apt install -y htop
+```
+
+`-y` flag avtomatik ravishda hamma savollarga "yes" javob beradi — skriptlarda foydali.
+
+## 5. Paket o'chirish
+
+```bash
+# Faqat dasturni o'chirish (sozlama fayllari qoladi)
+sudo apt remove firefox
+
+# Dastur + uning konfiguratsiya fayllarini
+sudo apt purge firefox
+
+# Endi keraksiz bo'lgan paketlarni (bog'liqliklar) tozalash
+sudo apt autoremove
+```
+
+`autoremove` — bu boshqa paketlarning talabi sifatida o'rnatilgan, ammo endi kerak bo'lmagan paketlarni o'chiradi.
+
+## 6. Qidirish va ma'lumot olish
+
+```bash
+# Nom yoki tavsifda so'z bo'yicha qidirish
+apt search "media player"
+
+# Aniq paket haqida batafsil
+apt show vim
+
+# Paket o'rnatilganmi?
+apt list --installed | grep firefox
+
+# Hozir yangilanish mumkin bo'lgan paketlar
+apt list --upgradable
+```
+
+## 7. Repozitoriylar (sources)
+
+Ubuntu paket manbalari `/etc/apt/sources.list` va `/etc/apt/sources.list.d/` katalogida saqlanadi. Standart manbalar to'rt asosiy guruhga bo'lingan:
+
+| Guruh | Mazmuni |
+|---|---|
+| **main** | Canonical tomonidan to'liq qo'llab-quvvatlanadigan ochiq kodli dastur |
+| **restricted** | Maxsus drayverlar (NVIDIA va boshqalar) — Canonical yordami bilan |
+| **universe** | Hamjamiyat tomonidan paketlangan ochiq kodli dasturlar |
+| **multiverse** | Cheklangan litsenziyali dasturlar (kodek, mualliflik huquqiga ega ba'zi tarkibiy qismlar) |
+
+Qo'shimcha manbalarni qo'shish:
+
+```bash
+# Misol — "deadsnakes" PPA orqali yangi Python versiyalari
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+```
+
+<Callout type="warning">
+PPA (Personal Package Archive) va boshqa uchinchi tomon manbalarini faqat ishonchli loyihalardan qo'shing. Har bir qo'shimcha manba — bu sizning tizimingizga kirishning yangi yo'li.
+</Callout>
+
+## 8. Ishonchli ish jarayoni
+
+Kundalik yangilanish:
+
+```bash
+sudo apt update
+sudo apt upgrade
+sudo apt autoremove
+```
+
+Yangi dastur o'rnatish:
+
+```bash
+sudo apt update
+apt search <nom>          # avval qidiring
+apt show <paket>          # tavsifini o'qing
+sudo apt install <paket>
+```
+
+## 9. Amaliy misol
+
+VLC media playerni o'rnatamiz:
+
+```bash
+sudo apt update
+apt show vlc | head -20
+sudo apt install vlc
+```
+
+So'ng dasturlarni yangilab, keraksizlarini tozalaymiz:
+
+```bash
+sudo apt upgrade
+sudo apt autoremove
+```
+
+## 10. Mashqlar
+
+1. `apt list --upgradable` ni bajaring. Sizda nechta paket yangilanishga tayyor?
+2. `apt show bash` ni bajaring. `Maintainer` qatorida kim yozilgan? `Homepage` qaerga olib boradi?
+3. `htop` paketini o'rnating. So'ng o'chirib, `purge` va `autoremove` ham bajarib, tizimning toza ekanini tasdiqlang.
+
+## 11. Bilim sinovi
+
+**Savol 1.** Paket bazasini yangilash uchun qaysi buyruq?
+
+- a) `apt upgrade`
+- b) `apt refresh`
+- c) `apt update`
+- d) `apt list`
+
+<Callout type="success" title="Javob">
+**(c)** `apt update` paket bazasini yangilaydi — paketlarni emas.
+</Callout>
+
+**Savol 2.** `apt upgrade` va `apt full-upgrade` farqi nima?
+
+- a) `upgrade` butun tizimni yangilaydi, `full-upgrade` faqat yadroni
+- b) `upgrade` paket o'chmasligi shartida ishlaydi, `full-upgrade` kerak bo'lsa paketlarni o'chiradi
+- c) `upgrade` faqat oddiy paketlar, `full-upgrade` faqat Snap
+- d) Ular bir xil
+
+<Callout type="success" title="Javob">
+**(b)** `upgrade` ehtiyotkor — paket o'chmaydi. `full-upgrade` esa to'liq yangilash uchun kerak bo'lsa paketlarni o'chirishi mumkin.
+</Callout>
+
+**Savol 3.** Paket bilan birga sozlama fayllarini ham o'chirish uchun qaysi buyruq?
+
+- a) `apt remove`
+- b) `apt delete`
+- c) `apt purge`
+- d) `apt clean`
+
+<Callout type="success" title="Javob">
+**(c)** `apt purge` — paket + uning konfiguratsiya fayllari.
+</Callout>
+
+## Manbalar
+
+1. Debian — apt(8) manpage. [https://manpages.debian.org/bookworm/apt/apt.8.en.html](https://manpages.debian.org/bookworm/apt/apt.8.en.html)
+2. Ubuntu Community Help — AptGet/Howto. [https://help.ubuntu.com/community/AptGet/Howto](https://help.ubuntu.com/community/AptGet/Howto)
+3. Ubuntu Server — Package management. [https://documentation.ubuntu.com/server/how-to/software/package-management/](https://documentation.ubuntu.com/server/how-to/software/package-management/)
+
+## Keyingi qadam
+
+👉 [Snap paketlar](/ubuntu/snap)

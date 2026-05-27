@@ -1,0 +1,340 @@
+---
+title: "Loglar bilan ishlash"
+description: "Linux'da log fayllarni o'qish — systemd journal, /var/log, journalctl filtrlari va log rotation."
+order: 2
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/fundamentals/services"
+learning_objectives:
+  - "systemd journal va an'anaviy /var/log farqini bilish"
+  - "`journalctl` bilan loglarni filtrlash va qidirish"
+  - "logrotate orqali log fayllarni avtomatik aylantirish"
+tags: ["intermediate", "logs", "journalctl", "syslog", "logrotate"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "systemd-journald.service(8)"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html"
+  - title: "journalctl(1)"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/journalctl.html"
+  - title: "ArchWiki — systemd/Journal"
+    url: "https://wiki.archlinux.org/title/Systemd/Journal"
+  - title: "logrotate manpage"
+    url: "https://manpages.debian.org/bookworm/logrotate/logrotate.8.en.html"
+---
+
+Loglar — har bir Linux administratorining birinchi diagnostika vositasi. Muammo bo'lganda, javob deyarli har doim loglar ichida. Bu darsda zamonaviy `systemd-journald` va klassik `/var/log` ni o'rganamiz.[¹](https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- systemd journal va `/var/log` farqi.
+- `journalctl` filtrlari: xizmat, vaqt, prioritet.
+- Real-time kuzatish (`-f`).
+- logrotate — log fayllarini boshqarish.
+</Callout>
+
+## 1. Linux loglar tarixi
+
+| Davr | Tizim | Xususiyat |
+|---|---|---|
+| 1980s — | `syslog` | Matnli fayllar `/var/log/` |
+| 2000s — | `rsyslog`, `syslog-ng` | Kengaytirilgan filtrlar |
+| 2010s — | `systemd-journald` | Binar format, indekslangan |
+
+Hozir ko'p distributivlar `systemd-journald` + an'anaviy `/var/log/` — ikkalasini birga ishlatadi.
+
+## 2. systemd journal asoslari
+
+systemd-journald `/run/log/journal/` (RAM, vaqtinchalik) yoki `/var/log/journal/` (disk, persistent) joyida saqlaydi. Persistent yoqish:
+
+```bash
+sudo mkdir -p /var/log/journal
+sudo systemctl restart systemd-journald
+```
+
+## 3. `journalctl` — asosiy buyruqlar[²](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
+
+```bash
+# Hamma loglar (qadam ortga `space`/`b`, chiqish `q`)
+sudo journalctl
+
+# Real-time (tail -f kabi)
+sudo journalctl -f
+
+# Oxirgi 100 qator
+sudo journalctl -n 100
+
+# Joriy yuklanishdan beri
+sudo journalctl -b
+
+# Oldingi yuklanishdan
+sudo journalctl -b -1
+
+# Qaysi yuklanishlar mavjud
+sudo journalctl --list-boots
+
+# Aniq xizmat
+sudo journalctl -u ssh
+
+# Bir nechta xizmat
+sudo journalctl -u ssh -u nginx
+```
+
+## 4. Vaqt bo'yicha filtrlash
+
+```bash
+# Bugungi loglar
+sudo journalctl --since today
+
+# Oxirgi soat
+sudo journalctl --since "1 hour ago"
+
+# Aniq sana oralig'ida
+sudo journalctl --since "2026-05-20" --until "2026-05-25"
+
+# Aniq vaqtdan keyin
+sudo journalctl --since "2026-05-26 14:30:00"
+```
+
+## 5. Prioritet (`-p`)
+
+| Daraja | Nom | Tavsif |
+|---|---|---|
+| 0 | emerg | Tizim ishlamayapti |
+| 1 | alert | Darhol harakat kerak |
+| 2 | crit | Kritik xato |
+| 3 | err | Xato |
+| 4 | warning | Ogohlantirish |
+| 5 | notice | E'tibor talab qiluvchi |
+| 6 | info | Ma'lumot |
+| 7 | debug | Debug |
+
+```bash
+# Faqat xatolar va undan jiddiyroq
+sudo journalctl -p err
+
+# Faqat ma'lum daraja
+sudo journalctl -p warning..err
+```
+
+## 6. Foydalanuvchi va jarayon bo'yicha
+
+```bash
+# Bir aniq foydalanuvchi loglari
+sudo journalctl _UID=1000
+
+# Yoki PID bo'yicha
+sudo journalctl _PID=1234
+
+# Binary bo'yicha
+sudo journalctl /usr/bin/python3
+```
+
+## 7. Chiqish formati
+
+```bash
+# Default — odam o'qiy oladigan
+sudo journalctl -n 5
+
+# JSON
+sudo journalctl -n 5 -o json-pretty
+
+# Faqat xabar (metadata siz)
+sudo journalctl -n 5 -o cat
+
+# Sana qisqacha
+sudo journalctl -n 5 -o short-iso
+```
+
+## 8. Journal hajmi va tozalash
+
+```bash
+# Hozirgi hajm
+sudo journalctl --disk-usage
+
+# 100 MB dan kichik qilib siqib qisqartirish
+sudo journalctl --vacuum-size=100M
+
+# Yoki 30 kundan eski loglarni o'chirish
+sudo journalctl --vacuum-time=30d
+
+# Yoki 10 ta arxivlash faylini saqlash
+sudo journalctl --vacuum-files=10
+```
+
+Doimiy sozlama: `/etc/systemd/journald.conf`:
+
+```ini
+[Journal]
+SystemMaxUse=500M
+SystemKeepFree=1G
+MaxRetentionSec=1month
+```
+
+## 9. An'anaviy `/var/log/`
+
+Ko'p paketlar hali ham `/var/log/` ga yozadi:
+
+| Fayl | Mazmuni |
+|---|---|
+| `/var/log/syslog` (Debian/Ubuntu) | Umumiy tizim loglari |
+| `/var/log/messages` (RHEL/Fedora) | Umumiy tizim loglari |
+| `/var/log/auth.log` (Debian) | Autentifikatsiya — login, sudo |
+| `/var/log/secure` (RHEL) | Autentifikatsiya |
+| `/var/log/kern.log` | Yadro xabarlari |
+| `/var/log/dpkg.log` | dpkg paket boshqaruvi |
+| `/var/log/apt/` | apt loglari |
+| `/var/log/nginx/access.log` | Nginx HTTP loglari |
+| `/var/log/apache2/access.log` | Apache HTTP loglari |
+
+```bash
+# Klassik usul — `tail -f`
+sudo tail -f /var/log/syslog
+
+# Ko'p faylni bir vaqtda
+sudo tail -f /var/log/syslog /var/log/auth.log
+
+# Qidirish
+sudo grep "Failed password" /var/log/auth.log
+```
+
+## 10. `logrotate` — log fayllarini aylantirish
+
+Loglar cheksiz o'sib bormasligi uchun `logrotate` har kuni ishga tushadi va eski fayllarni siqadi/o'chiradi.[⁴](https://manpages.debian.org/bookworm/logrotate/logrotate.8.en.html)
+
+Sozlamalar: `/etc/logrotate.conf` va `/etc/logrotate.d/*`.
+
+Misol — `/etc/logrotate.d/nginx`:
+
+```
+/var/log/nginx/*.log {
+    daily
+    missingok
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        [ -f /var/run/nginx.pid ] && kill -USR1 `cat /var/run/nginx.pid`
+    endscript
+}
+```
+
+Asosiy parametrlar:
+
+| Parametr | Ma'no |
+|---|---|
+| `daily` / `weekly` / `monthly` | Aylantirish chastotalik |
+| `rotate N` | N ta eski fayl saqlash |
+| `compress` | gzip bilan siqish |
+| `delaycompress` | Faqat ikkinchi tsiklda siqish |
+| `notifempty` | Bo'sh faylni aylantirmaslik |
+| `create <mode> <user> <group>` | Yangi log fayl atributlari |
+| `postrotate` | Aylantirishdan keyin buyruq (masalan, nginx'ga signal yuborish) |
+
+```bash
+# Qo'lda sinash
+sudo logrotate -d /etc/logrotate.d/nginx     # debug rejimi
+sudo logrotate -f /etc/logrotate.d/nginx     # majburiy ishga tushirish
+```
+
+## 11. Amaliy misol — SSH login urinishlarini tahlil
+
+```bash
+# So'nggi 24 soatda SSH ga muvaffaqiyatsiz urinishlar
+sudo journalctl -u ssh --since "24 hours ago" | grep "Failed password"
+
+# Yoki klassik usul
+sudo grep "Failed password" /var/log/auth.log | tail -20
+
+# Eng faol IP manzillar (brute-force urinishlari)
+sudo grep "Failed password" /var/log/auth.log \
+  | awk '{print $(NF-3)}' \
+  | sort | uniq -c | sort -rn | head -10
+```
+
+## 12. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `journalctl` | Hamma loglar |
+| `journalctl -u <xizmat>` | Aniq xizmat loglari |
+| `journalctl -b` | Joriy yuklanishdan |
+| `journalctl -f` | Real-time |
+| `journalctl -p err` | Faqat xatolar |
+| `journalctl --since "1 hour ago"` | Vaqt filtri |
+| `journalctl --disk-usage` | Journal hajmi |
+| `journalctl --vacuum-time=30d` | Eski loglarni o'chirish |
+| `tail -f /var/log/syslog` | Klassik usul |
+| `sudo logrotate -d <conf>` | logrotate debug |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`journalctl` muhitiz** — odatda `sudo` kerak. Foydalanuvchi `systemd-journal` guruhida bo'lsa, sudo'siz ham ko'ra oladi.
+- **Journal hajmi cheksiz** — sozlama kerak. Default Ubuntu/Debian'da 10% disk yoki ko'pi bilan 4 GB.
+- **`/var/log/syslog` topilmaydi** — Ubuntu 22.10+ ba'zi konfiguratsiyalarda rsyslog default o'chirilgan. Faqat `journalctl` qoladi.
+- **logrotate ishlamaydi** — `/etc/logrotate.d/` fayli sintaksis xatosi. `logrotate -d` bilan debug.
+- **`tail -f` Ctrl+C ortidan terminal "stuck"** — to'g'risi `q` + `Enter` yoki yangi terminal oching.
+
+## 14. Eng yaxshi amaliyot
+
+- **Production server uchun central log** — `journalctl` lokal; uchinchi tomon vositalar (Loki, Elasticsearch, Splunk) bilan markazlashtiring.
+- **Logrotate har bir kuniylik xizmat uchun** — disk to'lib qolishidan saqlanish.
+- **Sezilarli loglarni audit qiling** — `/var/log/auth.log` haftalik tekshirish.
+- **`journalctl --no-pager` skriptlarda** — `less` ochilishidan saqlaydi.
+- **`-o json`** monitoring uchun — yapilgan loglar tahlilga osongina o'tadi.
+
+## 15. Bilim sinovi
+
+**Savol 1.** Joriy yuklanishdan boshlab loglarni ko'rish uchun:
+
+- a) `journalctl --boot`
+- b) `journalctl -b`
+- c) `journalctl --since boot`
+- d) Ikkalasi `a` va `b`
+
+<Callout type="success" title="Javob">
+**(d)** `-b` va `--boot` sinonim.[²](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
+</Callout>
+
+**Savol 2.** Journal disk hajmini cheklash uchun qaysi sozlama?
+
+- a) `SystemMaxUse` ichida `/etc/systemd/journald.conf`
+- b) `MaxLogSize` ichida `/etc/logrotate.conf`
+- c) `--disk-limit` flag
+- d) Sozlash mumkin emas
+
+<Callout type="success" title="Javob">
+**(a)** `SystemMaxUse` `/etc/systemd/journald.conf` da.[³](https://wiki.archlinux.org/title/Systemd/Journal)
+</Callout>
+
+**Savol 3.** Faqat xato darajadagi va undan jiddiy loglarni ko'rish:
+
+- a) `journalctl -p err`
+- b) `journalctl --error`
+- c) `journalctl --level err`
+- d) `journalctl --severity high`
+
+<Callout type="success" title="Javob">
+**(a)** `-p` (priority) — `err` va undan past raqamli darajalar (`crit`, `alert`, `emerg`).
+</Callout>
+
+## 16. Mashq
+
+1. `sudo journalctl -p err --since today | wc -l` — bugun nechta xato qator?
+2. `sudo journalctl --disk-usage` — sizdagi journal qancha disk joy ishlatadi?
+3. `sudo journalctl -u ssh -n 20` — SSH xizmatining oxirgi 20 ta log qator.
+4. `ls -la /etc/logrotate.d/` — qaysi paketlar logrotate ishlatadi?
+
+## Manbalar
+
+1. systemd-journald.service(8). [https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html](https://www.freedesktop.org/software/systemd/man/latest/systemd-journald.service.html)
+2. journalctl(1). [https://www.freedesktop.org/software/systemd/man/latest/journalctl.html](https://www.freedesktop.org/software/systemd/man/latest/journalctl.html)
+3. ArchWiki — systemd/Journal. [https://wiki.archlinux.org/title/Systemd/Journal](https://wiki.archlinux.org/title/Systemd/Journal)
+4. logrotate manpage. [https://manpages.debian.org/bookworm/logrotate/logrotate.8.en.html](https://manpages.debian.org/bookworm/logrotate/logrotate.8.en.html)
+
+## Keyingi qadam
+
+👉 [Muammolarni hal qilish](/fundamentals/troubleshooting)

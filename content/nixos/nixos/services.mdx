@@ -1,0 +1,155 @@
+---
+title: "Xizmatlarni boshqarish"
+description: "NixOS modullari orqali xizmatlarni yoqish va sozlash — nginx, postgresql, ssh."
+order: 3
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/nixos/nixos/configuration-basics"
+learning_objectives:
+  - "Mavjud `services.*` modullarini topish"
+  - "Tipik xizmatlar — nginx, postgresql, openssh"
+  - "Xizmat opsiyalarini izlash"
+tags: ["nixos", "services"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Options Search"
+    url: "https://search.nixos.org/options"
+  - title: "NixOS Manual — Services"
+    url: "https://nixos.org/manual/nixos/stable/"
+---
+
+NixOS'da xizmat yoqish — `services.<nom>.enable = true;`. Mavjud xizmatlar — yuzlab. Topish uchun [search.nixos.org/options](https://search.nixos.org/options).[¹](https://search.nixos.org/options)
+
+## 1. SSH
+
+```nix
+services.openssh = {
+  enable = true;
+  settings = {
+    PermitRootLogin = "no";
+    PasswordAuthentication = false;
+  };
+  ports = [ 22 ];
+};
+
+# Foydalanuvchi SSH kalitlari
+users.users.ali.openssh.authorizedKeys.keys = [
+  "ssh-ed25519 AAAA..."
+];
+```
+
+## 2. Nginx
+
+```nix
+services.nginx = {
+  enable = true;
+  recommendedProxySettings = true;
+  recommendedTlsSettings = true;
+
+  virtualHosts."example.com" = {
+    enableACME = true;       # Let's Encrypt
+    forceSSL = true;
+    locations."/" = {
+      proxyPass = "http://127.0.0.1:3000";
+      proxyWebsockets = true;
+    };
+  };
+};
+
+# Let's Encrypt uchun email
+security.acme = {
+  acceptTerms = true;
+  defaults.email = "admin@example.com";
+};
+
+networking.firewall.allowedTCPPorts = [ 80 443 ];
+```
+
+## 3. PostgreSQL
+
+```nix
+services.postgresql = {
+  enable = true;
+  package = pkgs.postgresql_15;
+  ensureDatabases = [ "mydb" ];
+  ensureUsers = [
+    {
+      name = "myapp";
+      ensureDBOwnership = true;
+    }
+  ];
+  authentication = pkgs.lib.mkOverride 10 ''
+    local all all trust
+    host all all 127.0.0.1/32 trust
+  '';
+};
+```
+
+## 4. Docker
+
+```nix
+virtualisation.docker.enable = true;
+
+users.users.ali.extraGroups = [ "docker" ];
+```
+
+## 5. systemd-timer
+
+```nix
+systemd.timers.my-backup = {
+  description = "Daily backup";
+  wantedBy = [ "timers.target" ];
+  timerConfig = {
+    OnCalendar = "*-*-* 03:00:00";
+    Persistent = true;
+  };
+};
+
+systemd.services.my-backup = {
+  description = "Daily backup script";
+  serviceConfig = {
+    Type = "oneshot";
+    ExecStart = "${pkgs.bash}/bin/bash /etc/scripts/backup.sh";
+  };
+};
+```
+
+## 6. Search.nixos.org/options
+
+[https://search.nixos.org/options](https://search.nixos.org/options) — barcha mavjud opsiyalar:
+
+- `services.<nom>` — xizmat
+- Sahifada `Type`, `Default`, `Description`.
+
+Misol: `services.nginx.virtualHosts.<name>.locations.<name>.proxyPass`.
+
+## 7. Mashq
+
+1. `services.openssh.enable = true;` ni configuration.nix ga qo'shing.
+2. `sudo nixos-rebuild switch` — qo'llang.
+3. SSH ishlayotganini tekshiring: `systemctl status sshd`.
+4. [search.nixos.org/options](https://search.nixos.org/options) da `services.fail2ban` ni qidiring. Yoqish opsiyasini ko'ring.
+
+## 8. Bilim sinovi
+
+**Savol 1.** Mavjud NixOS opsiyalarini qidirish uchun:
+
+- a) `nixos --help`
+- b) [search.nixos.org/options](https://search.nixos.org/options)
+- c) `man nixos`
+- d) GitHub'da qidirish
+
+<Callout type="success" title="Javob">
+**(b)** Rasmiy interaktiv qidiruv.[¹](https://search.nixos.org/options)
+</Callout>
+
+## Manbalar
+
+1. NixOS Options Search. [https://search.nixos.org/options](https://search.nixos.org/options)
+2. NixOS Manual — Services. [https://nixos.org/manual/nixos/stable/](https://nixos.org/manual/nixos/stable/)
+
+## Keyingi qadam
+
+👉 [Eng yaxshi amaliyotlar](/nixos/guides/best-practices)

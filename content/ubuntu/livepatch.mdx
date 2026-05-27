@@ -1,0 +1,167 @@
+---
+title: "Canonical Livepatch"
+description: "Ubuntu yadrosini qayta yuklamasdan xavfsizlik yangilanishlarini qo'llash texnologiyasi."
+order: 2
+level: "intermediate"
+estimated_minutes: 5
+prerequisites:
+  - "/ubuntu/lts-release-cycle"
+learning_objectives:
+  - "Livepatch nima va u qachon qo'llaniladi"
+  - "Livepatchni yoqish va statusni tekshirish"
+  - "Cheklovlar va shartlarni izohlash"
+tags: ["ubuntu", "livepatch", "kernel", "ubuntu-pro"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Canonical Livepatch service"
+    url: "https://ubuntu.com/security/livepatch"
+  - title: "Ubuntu Pro"
+    url: "https://ubuntu.com/pro"
+  - title: "Ubuntu Pro client — canonical/ubuntu-pro-client"
+    url: "https://github.com/canonical/ubuntu-pro-client"
+---
+
+**Canonical Livepatch** — bu Ubuntu yadrosining xavfsizlik yangilanishlarini **qayta yuklashsiz** qo'llash imkonini beruvchi xizmat. Server foydalanuvchilari uchun bu juda muhim, chunki har bir yadro yangilanishi uchun zarurat sezilarli ravishda kamaytiradi.[¹](https://ubuntu.com/security/livepatch)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Livepatch qanday ishlaydi va u nima qiladi.
+- Yoqish va sozlash.
+- Livepatch nimani yamaydi va nimani yamaytirmaydi.
+</Callout>
+
+## 1. Muammo: yadro yangilanishi nima uchun qayta yuklashni talab qiladi?
+
+An'anaviy ravishda, yadro paketi yangilanganda, **eski yadro xotirada ishlashda davom etadi**. Yangi yadro faqat keyingi qayta yuklanishda yuklanadi. Yadrodagi xavfsizlik kamchiligi tuzatilgan bo'lsa ham, qayta yuklanmagunicha tizim hali ham himoyasiz.
+
+Server muhitida buni hal qilish qiyin — yadrolarni darhol yangilash uchun rejalashtirilgan ish tartibini buzish kerak.
+
+## 2. Livepatch yechimi
+
+Livepatch yadroning ishlash vaqtidagi xotira sohasiga to'g'ridan-to'g'ri yamoq qo'shadi. Asosiy texnologiya — `livepatch` Linux yadrosi xususiyati. Canonical bu xususiyat ustida o'z xizmati va serverini qo'shadi.
+
+Yamalanadi:
+- **High** va **critical** darajadagi yadro xavfsizlik kamchiliklari.
+
+Yamalanmaydi:
+- Yadro faylida bo'lmagan xato tuzatishlari.
+- Yadroda bo'lgan oddiy bug-fixlar (faqat xavfsizlikka tegishlilari).
+- Boshqa paketlardagi xavfsizlik kamchiliklari — ular uchun odatdagi `apt` yangilanishlari kerak.
+
+## 3. Talablar
+
+- Ubuntu **LTS** versiyasi (interim relizda Livepatch yo'q).
+- 64-bit (`amd64` yoki `arm64`).
+- Internet ulanishi (Livepatch serverlari bilan aloqa uchun).
+- Ubuntu Pro obunasi (shaxsiy foydalanuvchilar uchun **bepul**, 5 ta mashinagacha).[²](https://ubuntu.com/pro)
+
+## 4. Livepatch yoqish
+
+<Steps>
+  <Step title="Ubuntu Pro obunasi olish">
+    [ubuntu.com/pro/dashboard](https://ubuntu.com/pro/dashboard) ga kiring (Canonical akkaunti orqali). Sizga **token** beriladi — bu sir saqlash kerak bo'lgan kalit.
+  </Step>
+  <Step title="Pro client'ni o'rnatish">
+    Ubuntu 18.04+ ga `ubuntu-pro-client` (eski nom: `ua`) avtomatik o'rnatilgan. Tekshirish:
+
+    ```bash
+    pro --version
+    ```
+
+    Yo'q bo'lsa:
+
+    ```bash
+    sudo apt install ubuntu-pro-client
+    ```
+  </Step>
+  <Step title="Tokenni biriktirish">
+    ```bash
+    sudo pro attach <YOUR_TOKEN>
+    ```
+
+    Bu Ubuntu Pro'ni faollashtiradi va `livepatch` xizmatini ham yoqadi.
+  </Step>
+  <Step title="Statusni tekshirish">
+    ```bash
+    sudo pro status
+    canonical-livepatch status
+    ```
+  </Step>
+</Steps>
+
+## 5. Livepatch buyruqlari
+
+```bash
+# Joriy status va o'rnatilgan yamoqlar
+canonical-livepatch status --verbose
+
+# Qo'lda yangilanish so'ratish
+sudo canonical-livepatch refresh
+
+# Vaqtincha o'chirish
+sudo pro disable livepatch
+
+# Qayta yoqish
+sudo pro enable livepatch
+```
+
+## 6. Livepatch chiqishi misoli
+
+```
+$ canonical-livepatch status
+last check: 2 minutes ago
+kernel: 5.15.0-119.129-generic
+server check-in frequency: 4h0m0s
+patch state: ✓ all applicable livepatches applied
+patch version: 119.1
+```
+
+`✓ all applicable livepatches applied` — barcha mavjud yamoqlar qo'llanilgan.
+
+## 7. Cheklovlar
+
+Livepatch — kuchli vosita, lekin u **yadroni almashtirmaydi**. Yamoqlar to'plangan bo'lsa va xizmat ko'p oy davomida o'rnatilmagan paketlarni "yashirayotgan" bo'lsa, oxir-oqibat **rejalashtirilgan qayta yuklash** zarur. Bu ham xavfsizlik nuqtai nazaridan to'g'ri amaliyot — yangi yadro to'liq sinovdan o'tgan va barqarorroq.
+
+<Callout type="tip">
+**Tavsiya etiladigan jadval:** server uchun har 3-6 oyda **rejalashtirilgan** qayta yuklash. Livepatch oraliq vaqtlarda himoya qiladi, lekin u o'rnini bosa olmaydi.
+</Callout>
+
+## 8. Mashqlar
+
+1. [Ubuntu Livepatch sahifasi](https://ubuntu.com/security/livepatch) ni o'qing. Hozir qaysi Ubuntu versiyalari Livepatchni qo'llab-quvvatlaydi?
+2. (LTS Ubuntu o'rnatilgan tizimda) `pro status` ni bajaring. Qaysi xizmatlar ro'yxatda bor?
+3. Livepatch qaysi turdagi yangilanishlar uchun ishlatilmaydi (oddiy bug-fix, xavfsizlik bo'lmagan)? Nima sababdan?
+
+## 9. Bilim sinovi
+
+**Savol 1.** Livepatch nima qiladi?
+
+- a) Tizimni butunlay yangilaydi
+- b) Yadro xavfsizlik yamoqlarini qayta yuklashsiz qo'llaydi
+- c) `apt upgrade` ning sinonimi
+- d) Faqat foydalanuvchi paketlarini yamaydi
+
+<Callout type="success" title="Javob">
+**(b)** Livepatch faqat yadro xavfsizlik yamoqlari uchun va qayta yuklashsiz ishlaydi.[¹](https://ubuntu.com/security/livepatch)
+</Callout>
+
+**Savol 2.** Shaxsiy foydalanuvchi nechta mashinaga Ubuntu Pro'ni bepul qo'shishi mumkin?
+
+- a) 1
+- b) 3
+- c) 5
+- d) 10
+
+<Callout type="success" title="Javob">
+**(c)** Shaxsiy foydalanuvchilar uchun 5 ta mashinagacha bepul.[²](https://ubuntu.com/pro)
+</Callout>
+
+## Manbalar
+
+1. Canonical Livepatch service. [https://ubuntu.com/security/livepatch](https://ubuntu.com/security/livepatch)
+2. Ubuntu Pro. [https://ubuntu.com/pro](https://ubuntu.com/pro)
+3. Ubuntu Pro client. [https://github.com/canonical/ubuntu-pro-client](https://github.com/canonical/ubuntu-pro-client)
+
+## Keyingi qadam
+
+👉 [GNOME ish stoli](/ubuntu/gnome-desktop)

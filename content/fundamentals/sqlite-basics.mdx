@@ -1,0 +1,507 @@
+---
+title: "SQLite — embedded database"
+description: "SQLite — server'siz, fayl asoslangan ma'lumotlar bazasi — eng tarqalgan DB Internet'da."
+order: 138
+level: "intermediate"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/file-operations"
+learning_objectives:
+  - "SQLite arxitekturasi va xususiyatlari"
+  - "CLI bilan ishlash"
+  - "Backup va WAL mode"
+  - "Application bilan integratsiya"
+tags: ["intermediate", "sqlite", "database", "sql"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "SQLite Documentation"
+    url: "https://www.sqlite.org/docs.html"
+  - title: "SQLite — When To Use"
+    url: "https://www.sqlite.org/whentouse.html"
+---
+
+**SQLite** — server'siz, **bitta fayl** ichida ma'lumotlar bazasi. Tarmoq, daemon, sozlash — kerak emas. Faqat kutubxona, faqat fayl. Mobile telefonlar, brauzerlar, embedded — hamma joyda. Internet'dagi eng ko'p ishlatiladigan DB.[¹](https://www.sqlite.org/docs.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- SQLite vs server-based DB.
+- CLI bilan ishlash.
+- WAL mode (Write-Ahead Logging).
+- Backup va replication.
+- Application bilan integratsiya.
+</Callout>
+
+## 1. SQLite vs PostgreSQL/MySQL
+
+| | SQLite | Server DB |
+|---|---|---|
+| Arxitektura | Embedded library | Client-server |
+| Sozlash | Yo'q | Murakkab |
+| Network | Yo'q | Asosiy |
+| Concurrent writers | Cheklangan | Ko'p |
+| Performance | Local — eng tez | Network overhead |
+| Backup | Fayl ko'chirish | pg_dump va boshqalar |
+| Foydalanish | Embedded, mobile, web app, prototypes | Production server'lar |
+
+[SQLite "when to use" rasmiy sahifasi](https://www.sqlite.org/whentouse.html) — qachon ishlatish va qachon ishlatmaslik.[²](https://www.sqlite.org/whentouse.html)
+
+## 2. O'rnatish
+
+```bash
+# Debian/Ubuntu
+sudo apt install sqlite3
+
+# Fedora
+sudo dnf install sqlite
+
+# Arch
+sudo pacman -S sqlite
+
+# Versiya
+sqlite3 --version
+```
+
+## 3. Birinchi database
+
+```bash
+# Yangi DB (yoki ochish)
+sqlite3 mydb.sqlite
+
+# Yoki to'g'ridan-to'g'ri shell ichida
+sqlite3
+```
+
+`sqlite>` prompt ko'rinadi.
+
+## 4. Asosiy SQL
+
+```sql
+-- Jadval yaratish
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    age INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert
+INSERT INTO users (name, email, age) VALUES ('Ali', 'ali@example.com', 25);
+INSERT INTO users (name, email, age) VALUES ('Bob', 'bob@example.com', 30);
+
+-- Select
+SELECT * FROM users;
+SELECT name FROM users WHERE age > 20;
+
+-- Update
+UPDATE users SET age = 26 WHERE id = 1;
+
+-- Delete
+DELETE FROM users WHERE id = 2;
+
+-- Drop
+DROP TABLE users;
+
+-- Chiqish
+.exit
+```
+
+## 5. `.commands` — SQLite shell
+
+```sql
+.help                          -- yordam
+.tables                        -- jadvallar ro'yxati
+.schema users                  -- jadval strukturasi
+.schema                        -- hammasi
+.indices                       -- indeks
+.databases                     -- DB fayllari
+.dump                          -- SQL dump
+.dump users                    -- aniq jadval
+.read script.sql               -- skript ishga tushirish
+.headers on                    -- ustun nomlari
+.mode column                   -- ustun ko'rinishi
+.mode csv                      -- CSV
+.output result.csv             -- faylga
+.output stdout                 -- terminalga
+.import data.csv users         -- CSV → jadval
+.backup backup.sqlite          -- backup
+.timer on                      -- query vaqti
+.exit                          -- chiqish
+```
+
+## 6. Aniq turlar
+
+SQLite'da turlar **dynamic** — har value o'z turi (column "type affinity").
+
+| Affinity | Misol turlar |
+|---|---|
+| `INTEGER` | INT, INTEGER, TINYINT |
+| `TEXT` | TEXT, CHAR, VARCHAR |
+| `REAL` | REAL, DOUBLE, FLOAT |
+| `NUMERIC` | NUMERIC, DECIMAL |
+| `BLOB` | BLOB, binary |
+
+```sql
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    price REAL,
+    stock INTEGER DEFAULT 0,
+    metadata TEXT       -- JSON sifatida saqlash
+);
+```
+
+## 7. Indeks
+
+```sql
+-- Yagona indeks
+CREATE INDEX idx_users_email ON users(email);
+
+-- Kompozit
+CREATE INDEX idx_users_name_age ON users(name, age);
+
+-- Unique
+CREATE UNIQUE INDEX idx_users_email_unique ON users(email);
+
+-- Indeks ro'yxati
+.indices users
+
+-- Tushuntirish (query planner)
+EXPLAIN QUERY PLAN SELECT * FROM users WHERE email = 'ali@example.com';
+```
+
+## 8. JOIN va boshqalar
+
+```sql
+-- Misol ikki jadval
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER,
+    product TEXT,
+    amount REAL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- INNER JOIN
+SELECT u.name, o.product, o.amount
+FROM users u
+INNER JOIN orders o ON u.id = o.user_id;
+
+-- LEFT JOIN
+SELECT u.name, COUNT(o.id) AS order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+GROUP BY u.id;
+
+-- Aggregations
+SELECT COUNT(*) FROM users;
+SELECT AVG(age) FROM users;
+SELECT MAX(amount) FROM orders;
+```
+
+## 9. WAL mode — concurrent reads
+
+Default SQLite — Journal mode (faqat bitta writer va reader bir vaqtda). **WAL** (Write-Ahead Log) — bir writer + ko'p reader.
+
+```sql
+PRAGMA journal_mode = WAL;
+```
+
+WAL fayli `mydb.sqlite-wal` paydo bo'ladi. WAL bilan:
+
+- Yozish — fast (faqat WAL'ga).
+- O'qish — eski versiya'dan (yozish blokirovka qilmaydi).
+- Periodik **checkpoint** — WAL → main DB ko'chirish.
+
+```sql
+PRAGMA wal_checkpoint(TRUNCATE);   -- darrov checkpoint
+```
+
+## 10. Performance optimizatsiya
+
+```sql
+-- Cache hajmi (KB, default 2000)
+PRAGMA cache_size = -100000;       -- 100 MB cache
+
+-- Sync mode (default FULL — eng xavfsiz)
+PRAGMA synchronous = NORMAL;       -- WAL bilan birga — yaxshi muvozanat
+
+-- Mmap (memory-mapped I/O)
+PRAGMA mmap_size = 268435456;      -- 256 MB
+
+-- Auto-vacuum
+PRAGMA auto_vacuum = INCREMENTAL;
+PRAGMA incremental_vacuum;
+```
+
+## 11. Transaction
+
+```sql
+BEGIN TRANSACTION;
+INSERT INTO orders VALUES (NULL, 1, 'Book', 25.50);
+INSERT INTO orders VALUES (NULL, 1, 'Pen', 5.00);
+UPDATE users SET age = age + 1 WHERE id = 1;
+COMMIT;
+
+-- Yoki ROLLBACK
+BEGIN;
+DELETE FROM users;
+-- Oops, butun jadval o'chdi
+ROLLBACK;    -- bekor
+```
+
+Transaction'siz har INSERT alohida — sekin. 1000 ta INSERT'ni transaction ichida — 100x tezroq.
+
+## 12. Backup
+
+```bash
+# Sodda — fayl nusxalash (SQLite ishlamasligi yaxshi)
+cp mydb.sqlite backup.sqlite
+
+# WAL bilan — `.backup` buyrug'i (online)
+sqlite3 mydb.sqlite ".backup '/backup/mydb.sqlite'"
+
+# SQL dump
+sqlite3 mydb.sqlite .dump > mydb.sql
+
+# Restore
+sqlite3 new.sqlite < mydb.sql
+```
+
+Online backup — DB ishlamoqda paytda ham xavfsiz. WAL'ni hisobga oladi.
+
+## 13. CSV import/export
+
+```bash
+# Export
+sqlite3 mydb.sqlite <<EOF
+.headers on
+.mode csv
+.output users.csv
+SELECT * FROM users;
+EOF
+
+# Import
+sqlite3 mydb.sqlite <<EOF
+CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, price REAL);
+.mode csv
+.import products.csv products
+EOF
+```
+
+## 14. Application bilan ishlash
+
+### Python
+
+```python
+import sqlite3
+
+conn = sqlite3.connect('mydb.sqlite')
+cur = conn.cursor()
+
+# Yaratish
+cur.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY,
+        name TEXT
+    )
+''')
+
+# Insert (parametrized — SQL injection'dan saqlash)
+cur.execute("INSERT INTO users (name) VALUES (?)", ("Ali",))
+conn.commit()
+
+# Select
+cur.execute("SELECT * FROM users WHERE name = ?", ("Ali",))
+for row in cur.fetchall():
+    print(row)
+
+conn.close()
+```
+
+### Node.js
+
+```javascript
+const sqlite3 = require('better-sqlite3');
+const db = sqlite3('mydb.sqlite');
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY,
+        name TEXT
+    )
+`);
+
+const insert = db.prepare("INSERT INTO users (name) VALUES (?)");
+insert.run("Ali");
+
+const users = db.prepare("SELECT * FROM users").all();
+console.log(users);
+```
+
+## 15. Tipik xato — concurrent writes
+
+```
+Error: database is locked
+```
+
+Sabab — bir writer paytida boshqa writer urunadi. Yechim:
+
+- WAL mode'ga o'tish.
+- Timeout o'rnatish: `PRAGMA busy_timeout = 5000;` (5 soniya).
+- Bir vaqtda bir writer holatini ta'minlash (application darajasida).
+
+## 16. SQLite qachon ishlatish
+
+✅ **Yaxshi:**
+
+- Embedded (mobile, IoT, brauzer).
+- Single-user desktop app.
+- Configuration storage.
+- Tests va prototypes.
+- Read-heavy (ko'p o'qish, kam yozish).
+- File format (Office, ArchiveBox, va boshqalar).
+
+❌ **Yomon:**
+
+- High concurrency writes (PostgreSQL).
+- Network access ko'p klient (server DB).
+- Replicated cluster.
+- Massive data (multi-TB).
+
+## 17. Misol — to'liq ish jarayoni
+
+```bash
+# DB yaratish
+sqlite3 myapp.sqlite <<EOF
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+PRAGMA cache_size = -100000;
+
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_users_email ON users(email);
+
+INSERT INTO users (email, password_hash) VALUES
+    ('ali@example.com', 'hash1'),
+    ('bob@example.com', 'hash2'),
+    ('carol@example.com', 'hash3');
+
+SELECT * FROM users;
+EOF
+```
+
+## 18. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sqlite3 file.sqlite` | DB ochish |
+| `.tables` | Jadvallar |
+| `.schema [table]` | Struktura |
+| `.headers on` | Ustun nomlari |
+| `.mode column` | Ustun ko'rinishi |
+| `.dump > file.sql` | SQL dump |
+| `.read file.sql` | Skript |
+| `.backup file.db` | Online backup |
+| `PRAGMA journal_mode = WAL;` | WAL mode |
+| `BEGIN; ...; COMMIT;` | Transaction |
+| `EXPLAIN QUERY PLAN` | Query analiz |
+
+## 19. Eng tez-tez uchraydigan xatolar
+
+- **`database is locked`** — concurrent writes. WAL mode.
+- **Transaction'siz ko'p INSERT** — juda sekin.
+- **SQL injection** — parameterized queries ishlatilsin (`?` placeholder).
+- **WAL fayli yo'qolib qoldi** — `mydb-wal` va `mydb-shm` faylllarni ham backup qiling.
+- **Server DB sifatida ishlatish** — SQLite mos emas.
+
+## 20. Eng yaxshi amaliyot
+
+- **WAL mode** har vaqt.
+- **`PRAGMA foreign_keys = ON;`** — FK'lar default'da o'chirilgan.
+- **Indeks foydali columns'da** — `WHERE` ishlatadigan.
+- **Transaction katta operatsiyalar uchun.**
+- **`.backup`** online backup.
+- **Application darajasidagi concurrency** — connection pool, single writer.
+- **Parameterized queries** — SQL injection'dan.
+- **VACUUM muntazam** — `PRAGMA auto_vacuum = INCREMENTAL` yoki manual `VACUUM`.
+
+## 21. Mashqlar
+
+1. **Yangi DB:** `sqlite3 test.db` — `users` jadvalini yarating, 3 ta foydalanuvchi qo'shing.
+2. **WAL:** `PRAGMA journal_mode = WAL;` yoqing va `mydb-wal` fayli paydo bo'lganini tasdiqlang.
+3. **CSV export:** `users` jadvalini CSV'ga eksport qiling.
+4. **Backup:** `.backup` orqali backup oling, asl DB'ni o'chirib backup'dan tiklang.
+5. **EXPLAIN:** `EXPLAIN QUERY PLAN SELECT ... WHERE email = '...'` — indeks ishlatilyaptimi?
+6. **Python:** Python orqali SQLite'ga ulanib, INSERT/SELECT qiling.
+
+## 22. Bilim sinovi
+
+**Savol 1.** SQLite va PostgreSQL asosiy farqi:
+
+- a) Til
+- b) SQLite — embedded (kutubxona + fayl); PostgreSQL — server
+- c) Bir xil
+- d) SQLite faqat Windows uchun
+
+<Callout type="success" title="Javob">
+**(b)** Arxitektura farqi.[¹](https://www.sqlite.org/docs.html)
+</Callout>
+
+**Savol 2.** WAL mode nima beradi?
+
+- a) Tezroq backup
+- b) Bir vaqtda yozish va o'qish (concurrent reads)
+- c) Hech narsa
+- d) Faqat encrypted DB
+
+<Callout type="success" title="Javob">
+**(b)** WAL — Write-Ahead Logging. Reader va writer parallel.
+</Callout>
+
+**Savol 3.** SQL injection'dan saqlanish:
+
+- a) Manual escape
+- b) Parameterized queries (`?` placeholder)
+- c) Faqat HTTPS
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Application code'da `?` va parametrlar.
+</Callout>
+
+**Savol 4.** SQLite qachon ishlatilmaydi:
+
+- a) Mobile app
+- b) High-concurrent write server (PostgreSQL kerak)
+- c) Embedded
+- d) Tests
+
+<Callout type="success" title="Javob">
+**(b)** SQLite — concurrent writes uchun cheklangan.
+</Callout>
+
+**Savol 5.** Online backup:
+
+- a) `cp file.db backup.db`
+- b) `sqlite3 file.db ".backup backup.db"`
+- c) `rsync`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** `.backup` — atomic, online (DB ishlamoqda paytda ham xavfsiz).
+</Callout>
+
+## Manbalar
+
+1. SQLite Documentation. [https://www.sqlite.org/docs.html](https://www.sqlite.org/docs.html)
+2. SQLite — When To Use. [https://www.sqlite.org/whentouse.html](https://www.sqlite.org/whentouse.html)
+
+## Keyingi qadam
+
+👉 [Brokerlar — Redis va RabbitMQ](/fundamentals/redis-rabbitmq)

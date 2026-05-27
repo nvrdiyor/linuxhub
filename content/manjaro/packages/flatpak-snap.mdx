@@ -1,0 +1,231 @@
+---
+title: "Flatpak va Snap"
+description: "Manjaro'da universal paket formatlari — Flatpak va Snap'ni o'rnatish va ishlatish."
+order: 4
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/manjaro/packages/pacman"
+  - "/fundamentals/package-wars"
+learning_objectives:
+  - "Flatpak va Snap'ni Manjaro'ga o'rnatish"
+  - "Flathub'dan paket o'rnatish"
+  - "Asosiy boshqaruv buyruqlari"
+tags: ["manjaro", "flatpak", "snap", "flathub"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Flatpak — Setup on Manjaro"
+    url: "https://flatpak.org/setup/Manjaro"
+  - title: "Snapcraft — Install on Manjaro"
+    url: "https://snapcraft.io/docs/installing-snap-on-manjaro"
+  - title: "Flathub"
+    url: "https://flathub.org/"
+---
+
+Flatpak va Snap — distributivga bog'liq bo'lmagan universal paket formatlari. Manjaro ikkalasini ham qo'llab-quvvatlaydi.[¹](https://flatpak.org/setup/Manjaro)[²](https://snapcraft.io/docs/installing-snap-on-manjaro)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Flatpak va Snap o'rnatish.
+- Flathub orqali paket olish.
+- Snap Store.
+- Pamac orqali GUI integratsiya.
+</Callout>
+
+## 1. Flatpak
+
+### O'rnatish
+
+Manjaro'da `flatpak` paketi default keladi (yo'q bo'lsa):
+
+```bash
+sudo pacman -S flatpak
+```
+
+### Flathub repozitoriya
+
+Asosiy Flatpak repo — Flathub:[³](https://flathub.org/)
+
+```bash
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+
+So'ng qayta loginlanish yoki tizimni qayta yuklash.
+
+### Foydalanish
+
+```bash
+# Qidirish
+flatpak search "video editor"
+
+# O'rnatish
+flatpak install flathub com.spotify.Client
+
+# Ishga tushirish
+flatpak run com.spotify.Client
+
+# Yoki ish stolida iconni ko'rasiz
+
+# Ro'yxat
+flatpak list
+
+# Yangilash
+flatpak update
+
+# O'chirish
+flatpak uninstall com.spotify.Client
+
+# Foydalanilmayotgan runtime'larni tozalash
+flatpak uninstall --unused
+```
+
+## 2. Snap
+
+### O'rnatish
+
+```bash
+# Snap rasmiy repo'da yo'q — AUR'dan
+yay -S snapd
+
+# Yoki: AUR helper bilan
+pamac install snapd
+
+# Yoqish
+sudo systemctl enable --now snapd.socket
+
+# Symlink (classic Snap'lar uchun)
+sudo ln -s /var/lib/snapd/snap /snap
+```
+
+So'ng logout va login (PATH yangilanishi uchun).
+
+### Foydalanish
+
+```bash
+# Qidirish
+snap find code
+
+# O'rnatish
+sudo snap install code --classic
+
+# Ro'yxat
+snap list
+
+# Yangilash
+sudo snap refresh
+
+# O'chirish
+sudo snap remove code
+```
+
+## 3. Pamac orqali GUI
+
+Pamac avtomatik Flatpak va Snap'ni qo'llab-quvvatlaydi. Yoqish:
+
+```
+Pamac → Preferences → Third Party → Enable Flatpak / Enable Snap → Apply
+```
+
+Endi qidirishda har bir natija manbai ko'rsatiladi: `Official`, `AUR`, `Flatpak`, `Snap`.
+
+## 4. Flatpak vs Snap vs AUR
+
+| | Flatpak | Snap | AUR |
+|---|---|---|---|
+| Manba | Flathub va boshqalar | Snap Store | Hamjamiyat (PKGBUILD) |
+| Markazlashtirilgan | Yo'q | Ha (Canonical) | Yo'q |
+| Hajm | Katta | Eng katta | Kichik (native) |
+| Tezlik | O'rta | Sekinroq (mount squashfs) | Eng tez (native) |
+| Sandbox | Bportland | AppArmor + namespace | Yo'q |
+| Manjaro integratsiya | Yaxshi | O'rta | Eng yaxshi |
+
+**Tavsiya Manjaro'da:** rasmiy repo > AUR > Flatpak > Snap.
+
+## 5. Misol: Spotify
+
+3 ta usul:
+
+```bash
+# AUR
+yay -S spotify
+
+# Flatpak
+flatpak install flathub com.spotify.Client
+
+# Snap
+sudo snap install spotify
+```
+
+Tezlik va integratsiya bo'yicha AUR > Flatpak > Snap.
+
+## 6. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `flatpak search <so'z>` | Flatpak qidirish |
+| `flatpak install flathub <id>` | Flatpak o'rnatish |
+| `flatpak list` | Ro'yxat |
+| `flatpak update` | Yangilash |
+| `flatpak uninstall --unused` | Tozalash |
+| `snap find <so'z>` | Snap qidirish |
+| `sudo snap install <paket>` | O'rnatish |
+| `sudo snap refresh` | Yangilash |
+| `snap list` | Ro'yxat |
+
+## 7. Eng tez-tez uchraydigan xatolar
+
+- **Flathub yoqilmagan** — `flatpak install` yangi paketga yo'q.
+- **Snap symlink yo'q** — `sudo ln -s /var/lib/snapd/snap /snap` kerak (classic snaplar uchun).
+- **Snap PATH'da yo'q** — logout va login yoki `source /etc/profile.d/apps-bin-path.sh`.
+- **Ikki manba'dan bir xil paket** — Pamac dublikatlarni ko'rsatadi, tanlash kerak.
+
+## 8. Eng yaxshi amaliyot
+
+- **Rasmiy repo birinchi** — eng tez va integratsiya.
+- **AUR ikkinchi** — agar repo'da yo'q.
+- **Flatpak uchinchi** — agar sandbox kerak yoki ko'p versiya.
+- **Snap eng oxir** — Manjaro'da kamroq integratsiya.
+- **Bir dasturni faqat bir formatda** — RAM va disk tejash.
+
+## 9. Bilim sinovi
+
+**Savol 1.** Flatpak'ning asosiy repo'si:
+
+- a) Snap Store
+- b) Flathub
+- c) AUR
+- d) PyPI
+
+<Callout type="success" title="Javob">
+**(b)** Flathub — eng katta va eng aktiv Flatpak repo.[³](https://flathub.org/)
+</Callout>
+
+**Savol 2.** Manjaro'da Snap o'rnatish uchun avval qaysi paketni qo'shish kerak?
+
+- a) flatpak
+- b) snapd (AUR'dan)
+- c) pacman
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Manjaro'da `snapd` rasmiy repo'da yo'q — AUR yoki Pamac orqali.[²](https://snapcraft.io/docs/installing-snap-on-manjaro)
+</Callout>
+
+## 10. Mashq
+
+1. `flatpak --version` — Manjaro'da Flatpak mavjudmi?
+2. `flatpak remote-list` — qaysi repo'lar yoqilgan?
+3. (Ixtiyoriy) `flatpak install flathub org.kde.krita` — Krita rasm muharririni Flatpak orqali o'rnating.
+4. Pamac'ni oching, Preferences → Third Party — Flatpak yoqilganmi?
+
+## Manbalar
+
+1. Flatpak — Setup on Manjaro. [https://flatpak.org/setup/Manjaro](https://flatpak.org/setup/Manjaro)
+2. Snapcraft — Install on Manjaro. [https://snapcraft.io/docs/installing-snap-on-manjaro](https://snapcraft.io/docs/installing-snap-on-manjaro)
+3. Flathub. [https://flathub.org/](https://flathub.org/)
+
+## Keyingi qadam
+
+Tabriklaymiz! Manjaro bo'limini tugatdingiz. Endi NixOS — boshqacha dunyo:
+
+- 👉 [NixOS](/nixos/introduction)

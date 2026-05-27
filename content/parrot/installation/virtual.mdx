@@ -1,0 +1,154 @@
+---
+title: "Virtual muhitda Parrot"
+description: "Parrot OS rasmiy OVA image va VirtualBox/VMware bilan virtual mashinada ishlatish."
+order: 3
+level: "beginner"
+estimated_minutes: 5
+prerequisites:
+  - "/parrot/installation/requirements"
+learning_objectives:
+  - "OVA va VDI farqi"
+  - "Parrot OVA'ni import qilish"
+  - "Snapshot va sozlash"
+tags: ["parrot", "vm", "virtualbox"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Parrot Documentation — Virtualization"
+    url: "https://docs.parrotsec.org/install/virtualization/"
+  - title: "Parrot Download"
+    url: "https://parrotsec.org/download/"
+---
+
+Parrot OS rasmiy ravishda **OVA** (VirtualBox/VMware ompatible) va **VDI** (VirtualBox disk) image'larini taqdim etadi.[¹](https://docs.parrotsec.org/install/virtualization/) Bu o'rnatish vaqtini sezilarli darajada qisqartiradi.
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- OVA va VDI farqi.
+- Parrot OVA import qilish.
+- Asosiy sozlash (snapshot, tarmoq).
+</Callout>
+
+## 1. OVA vs VDI
+
+| | OVA (Open Virtualization Appliance) | VDI (VirtualBox Disk Image) |
+|---|---|---|
+| Format | Standart, ko'p VM platformalar | Faqat VirtualBox |
+| Tarkib | Virtual disk + sozlamalar | Faqat disk |
+| O'rnatish | "Import" orqali | Yangi VM yaratib diskni biriktirish |
+| Hajm | Kichikroq (siqilgan) | Kattaroq |
+
+**Boshlovchilar uchun:** OVA — eng oson.
+
+## 2. OVA'ni import qilish (VirtualBox)
+
+1. [parrotsec.org/download](https://parrotsec.org/download/) — **VirtualBox 64-bit (OVA)** ni tanlab yuklab oling.
+2. VirtualBox'ni oching.
+3. **File → Import Appliance** (Ctrl+I).
+4. `.ova` faylni tanlang.
+5. Import sozlamalari (CPU, RAM, disk yo'l) — odatda default qoldirish mumkin.
+6. **Import** — 3-5 daqiqa.
+
+## 3. Birinchi ishga tushirish
+
+Default kirish ma'lumotlari OVA bilan keladi:
+
+- **Username:** `parrot`
+- **Password:** `parrot`
+
+<Callout type="danger">
+**DARHOL parolni o'zgartiring:**
+
+```bash
+passwd
+```
+</Callout>
+
+## 4. Sozlash — resurslar
+
+VirtualBox'da VM ni tanlab **Settings**:
+
+- **System → Motherboard → Base Memory:** 4096 MB (4 GB).
+- **System → Processor:** 2 yadro.
+- **Display → Video Memory:** 128 MB.
+- **Storage → Disk** — yetarli hajm (50 GB).
+
+## 5. Tarmoq
+
+| Tur | Ishlatish |
+|---|---|
+| NAT (default) | Internet uchun, eng xavfsiz |
+| Bridged | LAN'da to'g'ridan-to'g'ri (ehtiyot bilan) |
+| Host-only | Faqat host bilan, internetsiz |
+| Internal | VM'lar o'rtasida lab |
+
+Boshlovchilar uchun: **NAT**.
+
+## 6. Snapshot — backup
+
+```
+Machine → Take Snapshot (Ctrl+Shift+T)
+Nom: "Toza o'rnatish"
+```
+
+Har jiddiy o'zgartirishdan oldin yangi snapshot oling. Kerak bo'lsa restore qiling.
+
+## 7. Guest Additions
+
+VirtualBox Guest Additions — copy-paste, fayllar drag-drop, ekran o'lchamini avtomatik moslash uchun.
+
+```bash
+# Parrot'da
+sudo apt install virtualbox-guest-additions-iso
+sudo apt install virtualbox-guest-x11
+```
+
+So'ng VirtualBox menyusida **Devices → Insert Guest Additions CD image** orqali to'liq sozlash.
+
+## 8. Yangilanish
+
+```bash
+sudo parrot-upgrade
+# yoki
+sudo apt update && sudo apt full-upgrade -y
+```
+
+## 9. Mashqlar
+
+1. Parrot OVA'ni yuklab oling va VirtualBox'da import qiling.
+2. Birinchi loginingizdan keyin parolni o'zgartiring.
+3. Snapshot oling — `Toza o'rnatish`.
+4. `parrot-upgrade` ni bajaring va yana snapshot oling — `Yangilangan`.
+5. `ip a` natijasini ko'ring.
+
+## 10. Bilim sinovi
+
+**Savol 1.** Parrot default username/parol:
+
+- a) root / parrot
+- b) parrot / parrot
+- c) admin / admin
+- d) user / 1234
+
+<Callout type="success" title="Javob">
+**(b)** `parrot` / `parrot` — darhol o'zgartirish kerak.
+</Callout>
+
+**Savol 2.** OVA fayl nimani o'z ichiga oladi?
+
+- a) Faqat ISO
+- b) Virtual disk + VM sozlamalari (CPU, RAM, tarmoq)
+- c) Faqat dasturlar
+- d) Hech narsa, bu format eskirgan
+
+<Callout type="success" title="Javob">
+**(b)** OVA — standart container, virtual diskni va konfiguratsiyani birga olib yuradi.
+</Callout>
+
+## Manbalar
+
+1. Parrot Documentation — Virtualization. [https://docs.parrotsec.org/install/virtualization/](https://docs.parrotsec.org/install/virtualization/)
+2. Parrot Download. [https://parrotsec.org/download/](https://parrotsec.org/download/)
+
+## Keyingi qadam
+
+👉 [Anonimlik (Tor, AnonSurf)](/parrot/tools/anonymity)

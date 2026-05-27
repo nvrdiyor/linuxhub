@@ -1,0 +1,496 @@
+---
+title: "Globbing va wildcards"
+description: "Linux shell'da fayl nomlari uchun namuna tanlash — *, ?, [], {}, brace expansion va kengaytirilgan globbing."
+order: 104
+level: "beginner"
+estimated_minutes: 11
+prerequisites:
+  - "/fundamentals/basic-commands"
+  - "/fundamentals/shell"
+learning_objectives:
+  - "Asosiy glob simvollari: `*`, `?`, `[abc]`"
+  - "Brace expansion: `{a,b,c}`, `{1..10}`"
+  - "Bash extended globbing"
+  - "Globbing'ni xavfsiz ishlatish"
+tags: ["beginner", "globbing", "wildcards", "bash"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "GNU Bash — Pattern Matching"
+    url: "https://www.gnu.org/software/bash/manual/bash.html#Pattern-Matching"
+  - title: "Bash Brace Expansion"
+    url: "https://www.gnu.org/software/bash/manual/bash.html#Brace-Expansion"
+  - title: "ArchWiki — Bash"
+    url: "https://wiki.archlinux.org/title/Bash"
+---
+
+**Globbing** — fayl nomlari uchun namuna tanlash mexanizmi. `ls *.txt`'dagi `*` — bu glob. Regex emas (oddiyroq), lekin shell tomonidan **birlamchi qayta ishlanadi** — buyruq bajarilishdan oldin.[¹](https://www.gnu.org/software/bash/manual/bash.html#Pattern-Matching)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `*`, `?`, `[]` — asosiy glob.
+- Brace expansion `{a,b,c}`, `{1..10}`.
+- Bash extended globbing (`extglob`).
+- Globbing'ning ichki ishlash mexanizmi.
+- Xavfsiz ishlatish.
+</Callout>
+
+## 1. Globbing — qanday ishlaydi
+
+Shell quyidagini bajarganda:
+
+```bash
+ls *.txt
+```
+
+Bu uch bosqichli:
+
+1. **Shell** `*.txt`'ni joriy katalogga mos kelgan fayllarga **kengaytiradi**:
+   ```
+   ls fayl1.txt fayl2.txt notes.txt
+   ```
+2. Kengaytirilgan natija `ls`'ga argument sifatida o'tadi.
+3. `ls` har bir argumentni ko'rsatadi.
+
+`ls` `*.txt` ni hech qachon **ko'rmaydi**! Shell uni allaqachon o'zgartirgan.
+
+## 2. Asosiy glob simvollari
+
+| Simvol | Mos keladi |
+|---|---|
+| `*` | Har qanday belgi(lar), shu jumladan bo'shliq (lekin `/` emas) |
+| `?` | Bitta belgi (lekin `/` emas) |
+| `[abc]` | `a`, `b` yoki `c` belgilaridan biri |
+| `[a-z]` | `a` dan `z` gacha diapazon |
+| `[!abc]` yoki `[^abc]` | `a`, `b`, `c` ga teng EMAS |
+| `[[:class:]]` | POSIX character class |
+
+### Misollar
+
+```bash
+# Hammaga
+ls *
+
+# .txt fayllar
+ls *.txt
+
+# 3 belgili
+ls ???
+
+# A, B yoki C bilan boshlangan
+ls [ABC]*
+
+# Faqat raqamlar
+ls [0-9]*
+
+# `.` bilan boshlangan (yashirin) fayllarga TUSHMAYDI
+ls *           # `.git` ko'rsatilmaydi
+
+# Yashirinlarga ham
+ls .* *
+```
+
+### POSIX character class
+
+```bash
+[[:alpha:]]    # a-z, A-Z
+[[:digit:]]    # 0-9
+[[:alnum:]]    # a-z, A-Z, 0-9
+[[:lower:]]    # a-z
+[[:upper:]]    # A-Z
+[[:space:]]    # bo'sh joy, tab, newline
+[[:punct:]]    # tinish belgilar
+```
+
+Misol:
+
+```bash
+ls [[:upper:]]*    # Katta harf bilan boshlangan
+```
+
+## 3. Brace expansion — `{a,b,c}`
+
+Bash xususiyati (POSIX emas). **Globbing'dan oldin** ishlaydi va fayl tizimini tekshirmaydi.[²](https://www.gnu.org/software/bash/manual/bash.html#Brace-Expansion)
+
+```bash
+# Aniq variantlar
+echo {a,b,c}
+# a b c
+
+# Birlashtirilgan
+echo file{1,2,3}.txt
+# file1.txt file2.txt file3.txt
+
+# Diapazon
+echo {1..5}
+# 1 2 3 4 5
+
+# Teskari
+echo {10..1}
+# 10 9 8 7 6 5 4 3 2 1
+
+# Qadam bilan
+echo {0..20..5}
+# 0 5 10 15 20
+
+# Harf diapazon
+echo {a..e}
+# a b c d e
+
+# Ichki
+echo {a,b}{1,2}
+# a1 a2 b1 b2
+```
+
+### Amaliy misollar
+
+```bash
+# Bir nechta katalog yaratish
+mkdir -p project/{src,tests,docs,config}
+
+# Fayl nusxalash backup uchun
+cp config.yaml{,.bak}
+# = cp config.yaml config.yaml.bak
+
+# Bir nechta faylni o'chirish
+rm log{1,2,3,4,5}.txt
+
+# Sequence yaratish
+touch test{01..10}.txt
+ls test*.txt
+# test01.txt test02.txt ... test10.txt
+```
+
+## 4. Globbing va Brace expansion farqi
+
+```bash
+# Globbing — mavjud fayllarga mos
+ls *.txt        # faqat mavjud .txt fayllar
+
+# Brace — adabiy kengaytirish (mavjudligi tekshirilmaydi)
+echo file{1..5}.txt
+# file1.txt file2.txt file3.txt file4.txt file5.txt
+# (hech qaysisi mavjud bo'lmasa ham)
+```
+
+Birga ishlatish mumkin:
+
+```bash
+# Hamma .txt va .md fayllar
+ls *.{txt,md}
+
+# Bir nechta katalogda .conf fayllar
+ls /etc/{nginx,apache2,postgresql}/*.conf
+```
+
+## 5. Bash extended globbing (`extglob`)
+
+Yoqilgandan keyin (`shopt -s extglob`) — regex'ga o'xshash kuchli namunalar.
+
+```bash
+shopt -s extglob
+
+# Sintaksis
+?(pattern-list)    # 0 yoki 1 marotaba
+*(pattern-list)    # 0 yoki ko'p
++(pattern-list)    # 1 yoki ko'p
+@(pattern-list)    # aniq bir marta
+!(pattern-list)    # AGAR mos kelmasa
+```
+
+### Misollar
+
+```bash
+# .txt va .md dan tashqari hamma
+ls !(*.txt|*.md)
+
+# `image` bilan boshlanmagan
+ls !(image*)
+
+# .jpg yoki .png
+ls *.@(jpg|png)
+
+# 1 yoki ko'p raqam bilan boshlangan
+ls +([0-9])*
+```
+
+### Doimiy yoqish
+
+```bash
+echo "shopt -s extglob" >> ~/.bashrc
+```
+
+## 6. Dotfiles (yashirin fayllar) va globbing
+
+Default'da `*` `.` bilan boshlangan fayllarni topmaydi:
+
+```bash
+ls *      # .git ko'rsatilmaydi
+ls .*     # faqat yashirin fayllar (`.`, `..` ham)
+ls .[^.]* # `.` va `..` siz yashirin fayllar
+```
+
+### `dotglob` yoqish
+
+```bash
+shopt -s dotglob
+ls *      # endi yashirinlar ham
+```
+
+## 7. Globstar (`**`)
+
+Bash 4.0+ `globstar` — rekursiv glob:
+
+```bash
+shopt -s globstar
+
+# Joriy katalog va barcha ichki kataloglarda .txt
+ls **/*.txt
+
+# Faqat kataloglar (oxirida /)
+ls **/
+```
+
+`find` ishlatish o'rniga ko'pincha sodda variant.
+
+## 8. Globbing xavfsizligi
+
+### Qo'shtirnoq bilan to'sish
+
+```bash
+# YOMON — `*.txt` shell tomonidan kengayadi
+echo Hamma faylim: *.txt
+
+# YAXSHI — literal string
+echo 'Hamma faylim: *.txt'
+```
+
+### `find` bilan o'zaro
+
+```bash
+# YOMON — Shell glob (`*` 10000 fayl bo'lsa, argument limit oshib ketadi)
+ls *.log | wc -l
+
+# YAXSHI — find
+find . -name "*.log" | wc -l
+```
+
+### Bo'sh natija
+
+```bash
+# Bo'sh natija bilan glob — shell odatda literal qoldiradi
+ls *.xyz
+# ls: cannot access '*.xyz': No such file or directory
+
+# `nullglob` — bo'sh natija = bo'sh argument
+shopt -s nullglob
+ls *.xyz    # hech narsa ko'rsatmaydi
+```
+
+### `failglob`
+
+```bash
+shopt -s failglob
+
+ls *.xyz    # error: no match — buyruq bajarilmaydi
+```
+
+## 9. Misol — log rotation
+
+```bash
+#!/bin/bash
+# Eski log fayllarni siqish
+
+# Brace expansion bilan oldindan tayyorlangan ro'yxat
+for service in {nginx,apache2,postgresql,mysql}; do
+    if [ -d /var/log/$service ]; then
+        find /var/log/$service -name "*.log.[0-9]*" \
+             -mtime +30 \
+             -exec gzip {} \;
+    fi
+done
+```
+
+## 10. Misol — fayl yaratish va tashkillash
+
+```bash
+# Loyiha skeleti
+mkdir -p ~/projects/myapp/{src/{components,utils,api},tests,docs,config,scripts}
+
+# Hammasi:
+# myapp/src/components
+# myapp/src/utils
+# myapp/src/api
+# myapp/tests
+# myapp/docs
+# myapp/config
+# myapp/scripts
+
+# 12 oy uchun papkalar
+mkdir 2026-{01..12}
+
+# Yangi hisobot fayli har kun uchun bir oyga
+touch report-2026-05-{01..31}.md
+```
+
+## 11. Globbing va `rm` — xavfli birikma
+
+```bash
+# `*` o'chirish — har doim oldindan tekshirish
+rm *.log      # avval `ls *.log` bilan ko'ring
+
+# Eng yomon xato — `rm -rf .git/* /` (bo'shliq xato bilan)
+# `rm -rf ./*` — kataloglar ichi
+# `rm -rf /` — TIZIM o'lim
+
+# Xavfsiz amaliyot
+echo rm *.log        # avval `echo` bilan tekshirish
+ls -la *.log         # yoki ko'rish
+```
+
+`rm -i` foydali:
+
+```bash
+alias rm='rm -i'
+```
+
+## 12. Globbing va katta katalog
+
+```bash
+# 10000+ fayl bo'lganda
+ls *.log    # "argument list too long"
+
+# Yechim — find bilan ishlash
+find . -maxdepth 1 -name "*.log" -delete
+
+# Yoki xargs
+ls | grep '\.log$' | xargs rm    # bo'sh joy bilan yomon
+find . -maxdepth 1 -name "*.log" -print0 | xargs -0 rm
+```
+
+## 13. Asosiy `shopt` opsiyalari globbing uchun
+
+```bash
+# Ko'rish
+shopt | grep glob
+
+# Yoqish
+shopt -s extglob      # Extended globbing
+shopt -s globstar     # ** rekursiv
+shopt -s nullglob     # Bo'sh natija = hech narsa
+shopt -s dotglob      # Yashirin fayllarni ham
+shopt -s nocaseglob   # Case-insensitive
+
+# O'chirish
+shopt -u dotglob
+```
+
+## 14. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `ls *.txt` | Mavjud `.txt` fayllar |
+| `ls ?` | Bitta belgili fayl/katalog nomlari |
+| `ls [a-z]*` | Kichik harf bilan boshlangan |
+| `echo {a,b,c}` | Brace expansion |
+| `echo {1..10}` | Diapazon |
+| `mkdir -p dir/{sub1,sub2}` | Birga ko'p katalog |
+| `cp file{,.bak}` | Backup yaratish |
+| `shopt -s extglob` | Extended globbing yoqish |
+| `shopt -s globstar` | `**` rekursiv |
+| `echo *.xyz` | Bo'sh natija — literal `*.xyz` qoladi |
+
+## 15. Eng tez-tez uchraydigan xatolar
+
+- **Glob va regex'ni aralashtirish.** `*.txt` glob, `.*\.txt` regex. Ular boshqacha sintaksis.
+- **`*` tirnoq ichida** — kengayish ishlamaydi. `ls "*.txt"` adabiy `*.txt` faylni qidiradi.
+- **Yashirin fayllarni unutish.** `cp -r source/* dest/` — yashirin fayllar ko'chirilmaydi. `cp -rT source/ dest/` yoki `dotglob`.
+- **`rm -rf $VAR/*`** — `$VAR` bo'sh bo'lsa, `rm -rf /*` — falokat. Doim `set -u` skriptda.
+- **Brace expansion va katta diapazon** — `{1..1000000}` xotirani yutadi. Faqat zarurat bo'lsa.
+- **`*.log` ko'p fayl bo'lsa argument limit** — `find` ishlating.
+
+## 16. Eng yaxshi amaliyot
+
+- **`echo`** bilan oldindan tekshirish: `echo rm *.log` → keyin `rm *.log`.
+- **`set -u`** skriptda — aniqlanmagan o'zgaruvchini xato deb hisoblash.
+- **`set -o noglob` (`set -f`)** ba'zi joylarda — globbing'ni o'chirish.
+- **`shopt -s extglob`** `.bashrc`'da — qulay extended namunalar.
+- **`find` katta katalog uchun** — globbing limit'idan saqlanish.
+- **Brace expansion uchun bo'sh joy ehtiyot** — `{1, 2}` (bo'sh joy bilan) ishlamaydi. `{1,2}` to'g'ri.
+- **Pattern'larni qo'shtirnoq ichida** — adabiy ishlatish kerak bo'lganda.
+
+## 17. Mashqlar
+
+1. **Sequence:** `touch test{01..10}.txt` bilan 10 ta fayl yarating. `ls test*.txt` bilan ko'ring.
+2. **Brace:** `mkdir -p photos/{2024,2025,2026}/{01..12}` — 36 ta katalog yaratiladimi?
+3. **Backup pattern:** `cp /etc/hosts /etc/hosts.bak` ni brace expansion bilan bir buyruqda yozing.
+4. **Extended glob:** `shopt -s extglob` yoqing. `ls !(test*).txt` — `test` bilan boshlanmagan `.txt` fayllar.
+5. **Globstar:** `shopt -s globstar`. `ls **/*.md` — barcha ichki kataloglarda `.md` fayllar.
+6. **POSIX class:** `ls [[:upper:]]*` — katta harf bilan boshlangan fayl/katalog. Sizda topildi mi?
+7. **Xavfsiz `rm`:** `echo rm *.txt` ni ishga tushiring (`echo` bilan!) — qaysi fayllar o'chiriladi?
+
+## 18. Bilim sinovi
+
+**Savol 1.** `ls *.txt` buyrug'idan oldin nima sodir bo'ladi?
+
+- a) `ls` `*.txt` ni o'qiydi
+- b) Shell `*.txt` ni mavjud fayllarga kengaytiradi va `ls`'ga uzatadi
+- c) Hech narsa, faqat `*.txt` ko'rsatiladi
+- d) Xato
+
+<Callout type="success" title="Javob">
+**(b)** Shell glob kengayishini bajaradi, so'ng buyruqni chaqiradi.[¹](https://www.gnu.org/software/bash/manual/bash.html#Pattern-Matching)
+</Callout>
+
+**Savol 2.** `echo {1..5}` natijasi:
+
+- a) `{1..5}`
+- b) `1 2 3 4 5`
+- c) `1..5`
+- d) `[1, 5]`
+
+<Callout type="success" title="Javob">
+**(b)** Brace expansion diapazon.[²](https://www.gnu.org/software/bash/manual/bash.html#Brace-Expansion)
+</Callout>
+
+**Savol 3.** `cp file{,.bak}` — bu nima qiladi?
+
+- a) Faylni siqadi
+- b) `file` ni `file.bak` ga nusxalaydi (backup)
+- c) Ikki yangi fayl yaratadi
+- d) Xato
+
+<Callout type="success" title="Javob">
+**(b)** Brace expansion `file` va `file.bak` ga aylanadi → `cp file file.bak`.
+</Callout>
+
+**Savol 4.** `*` qaysi belgilarni topmaydi?
+
+- a) Raqamlar
+- b) Yashirin fayllar (`.bashrc` kabi) va `/` belgisi
+- c) Tinish belgilar
+- d) Bo'sh joy
+
+<Callout type="success" title="Javob">
+**(b)** Default'da yashirin fayl va `/`'siz. `dotglob` bilan yashirinlar ham.
+</Callout>
+
+**Savol 5.** `**/*.txt` ishlashi uchun nima yoqilgan bo'lishi kerak?
+
+- a) `extglob`
+- b) `globstar`
+- c) `dotglob`
+- d) Hech narsa, default
+
+<Callout type="success" title="Javob">
+**(b)** `shopt -s globstar`.
+</Callout>
+
+## Manbalar
+
+1. GNU Bash — Pattern Matching. [https://www.gnu.org/software/bash/manual/bash.html#Pattern-Matching](https://www.gnu.org/software/bash/manual/bash.html#Pattern-Matching)
+2. Bash Brace Expansion. [https://www.gnu.org/software/bash/manual/bash.html#Brace-Expansion](https://www.gnu.org/software/bash/manual/bash.html#Brace-Expansion)
+3. ArchWiki — Bash. [https://wiki.archlinux.org/title/Bash](https://wiki.archlinux.org/title/Bash)
+
+## Keyingi qadam
+
+👉 [I/O redirection va pipes](/fundamentals/io-redirection)

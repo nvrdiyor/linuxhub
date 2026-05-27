@@ -1,0 +1,70 @@
+---
+title: "Ko'p so'raladigan savollar"
+description: "NixOS yangi boshlovchilarning eng tez-tez beradigan savollari."
+order: 3
+level: "beginner"
+estimated_minutes: 4
+prerequisites:
+  - "/nixos/introduction"
+tags: ["nixos", "faq"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Wiki — FAQ"
+    url: "https://nixos.wiki/wiki/FAQ"
+---
+
+## NixOS Ubuntu'dan qiyinroqmi?
+
+Boshlanishida — ha. Lekin tushungandan keyin — ancha oson va ishonchli.
+
+## `nix-env -i` va `environment.systemPackages` farqi?
+
+- `nix-env -i` — imperative, faqat sizning foydalanuvchi profilingiz uchun.
+- `environment.systemPackages` — deklarativ, butun tizim uchun.
+
+Tavsiya: tizim paketlar uchun `configuration.nix`. Foydalanuvchi paketlar uchun **Home Manager** (alohida loyiha).
+
+## Flake'lar tavsiya etiladimi?
+
+Hozir — ko'pchilik **ha** deydi. Flake'lar — pin avtomatik, struktura aniq. Yangi loyihalar boshlash uchun.
+
+## Channel'lar nima?
+
+Channel — Nixpkgs ning ma'lum versiyasiga ishora. Misol:
+
+- `nixos-24.05` — barqaror
+- `nixos-unstable` — yangi paketlar
+
+Flake'lar bilan channel'lar kerak emas.
+
+## Disk to'lgan — nima qilish?
+
+```bash
+sudo nix-collect-garbage --delete-older-than 7d
+```
+
+## Rolling release'mi?
+
+Yo'q — NixOS **stable release model**: har 6 oyda yangi versiya (24.05, 24.11 va h.k.). `unstable` channel — rolling.
+
+## Eski generatsiyaga qaytish qanday?
+
+GRUB menyusida tanlang, yoki:
+
+```bash
+sudo nixos-rebuild switch --rollback
+```
+
+## Hech qanday Imperative o'rnatishlarga ruxsat berilmaydimi?
+
+Foydalanuvchi sifatida `nix-env -i` ishlatishingiz mumkin, lekin bu reproducibility'ni buzadi. Tavsiya — `home-manager`.
+
+## Manbalar
+
+- [NixOS Wiki FAQ](https://nixos.wiki/wiki/FAQ)
+- [NixOS Discourse](https://discourse.nixos.org/)
+
+## Keyingi qadam
+
+👉 [Ma'lumotnoma — Lug'at](/nixos/reference/glossary)

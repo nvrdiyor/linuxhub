@@ -1,0 +1,349 @@
+---
+title: "Cron va rejalashtirilgan ishlar"
+description: "Linux'da vaqt asosida ishlarni avtomatlashtirish — cron, systemd-timer va asosiy vaqt formatlari."
+order: 4
+level: "intermediate"
+estimated_minutes: 7
+prerequisites:
+  - "/fundamentals/services"
+learning_objectives:
+  - "cron va crontab formatini o'qish va yozish"
+  - "User va system cron farqini bilish"
+  - "systemd-timer alternativ sifatida ishlatish"
+tags: ["intermediate", "cron", "crontab", "systemd-timer", "scheduling"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Debian — cron(8) manpage"
+    url: "https://manpages.debian.org/bookworm/cron/cron.8.en.html"
+  - title: "Debian — crontab(5) manpage"
+    url: "https://manpages.debian.org/bookworm/cron/crontab.5.en.html"
+  - title: "ArchWiki — cron"
+    url: "https://wiki.archlinux.org/title/Cron"
+  - title: "systemd.timer(5)"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html"
+---
+
+**Cron** — Unix dunyosida 1970-yillardan beri ishlayotgan vaqt asoslangan ish rejalashtirgich. Backup, log rotation, monitoring — barchasi cron orqali avtomatlashtiriladi.[¹](https://manpages.debian.org/bookworm/cron/cron.8.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- crontab formati va vaqt belgilari.
+- User crontab (`crontab -e`) va system cron (`/etc/cron.d/`).
+- Maxsus `@reboot`, `@daily` va boshqalar.
+- systemd-timer — zamonaviy alternativ.
+</Callout>
+
+## 1. crontab formati
+
+Har bir cron yozuvi 6 ustun:
+
+```
+*  *  *  *  *  command-to-execute
+│  │  │  │  │
+│  │  │  │  └── Hafta kuni (0-6, 0 = Yakshanba)
+│  │  │  └───── Oy (1-12)
+│  │  └──────── Oy kuni (1-31)
+│  └─────────── Soat (0-23)
+└────────────── Daqiqa (0-59)
+```
+
+[²](https://manpages.debian.org/bookworm/cron/crontab.5.en.html)
+
+### Misollar
+
+| Format | Ma'no |
+|---|---|
+| `* * * * * cmd` | Har daqiqa |
+| `0 * * * * cmd` | Har soat boshida |
+| `0 3 * * * cmd` | Har kuni 03:00 da |
+| `30 2 * * 0 cmd` | Har yakshanba 02:30 da |
+| `*/15 * * * * cmd` | Har 15 daqiqada |
+| `0 9-17 * * 1-5 cmd` | Du-Ju 9-17 soatlar oralig'ida har soatda |
+| `0 0 1 * * cmd` | Har oyning birinchi kuni |
+| `0 0 1 1 * cmd` | Har yilning 1-yanvar |
+
+## 2. Maxsus belgilar
+
+| Belgi | Ma'no |
+|---|---|
+| `@reboot` | Tizim yuklanganda bir marta |
+| `@yearly` / `@annually` | `0 0 1 1 *` — har yil |
+| `@monthly` | `0 0 1 * *` — har oy |
+| `@weekly` | `0 0 * * 0` — har yakshanba |
+| `@daily` / `@midnight` | `0 0 * * *` — har kuni yarim tunda |
+| `@hourly` | `0 * * * *` — har soat |
+
+## 3. User crontab
+
+```bash
+# Joriy foydalanuvchining crontab'ini tahrirlash
+crontab -e
+
+# Ro'yxat
+crontab -l
+
+# Tozalash
+crontab -r
+
+# Boshqa foydalanuvchi uchun (root sifatida)
+sudo crontab -u ali -e
+```
+
+Birinchi marta `crontab -e` ishga tushgan da, sizdan muharrir tanlash so'raladi (nano, vim).
+
+Misol qator:
+
+```
+# Har kuni 03:00 da backup
+0 3 * * * /home/ali/bin/backup.sh
+
+# Har 5 daqiqada disk holatini logga yozish
+*/5 * * * * df -h >> /var/log/disk-check.log
+```
+
+## 4. System cron — `/etc/cron.*`
+
+Ko'p distributivlar quyidagi standart kataloglarni o'rnatadi:
+
+```
+/etc/cron.hourly/   — har soat skriptlari
+/etc/cron.daily/    — har kuni
+/etc/cron.weekly/   — har hafta
+/etc/cron.monthly/  — har oy
+```
+
+Faqat bajariladigan skript faylni shu katalogga qo'ying — cron uni avtomatik ishlatadi.
+
+```bash
+# Misol — har kuni log fayllarni siqish
+sudo nano /etc/cron.daily/compress-logs
+
+#!/bin/bash
+find /var/log -name "*.log" -mtime +7 -exec gzip {} \;
+
+sudo chmod +x /etc/cron.daily/compress-logs
+```
+
+## 5. `/etc/cron.d/` — paket o'rnatgan cron yozuvlari
+
+Bu katalogdagi fayllar `/etc/crontab` formatida (7 ustunli — `user` qo'shilgan):
+
+```
+# /etc/cron.d/myapp
+
+#   m    h    dom mon dow user  command
+    */5  *    *   *   *   ali   /usr/local/bin/check.sh
+```
+
+7-ustun — `user`. Bu user crontab'dan farqli.
+
+## 6. Cron muhiti
+
+<Callout type="warning">
+**Cron juda cheklangan muhitda ishlaydi.** Sizning `$PATH` o'zgaruvchingiz, `cd` katalogingiz, `alias` lar — barchasi yo'q. Skriptlarda **to'liq yo'lni** ishlating.
+</Callout>
+
+```bash
+# YOMON — `python` qaerdaligini cron bilmaydi
+0 3 * * * python /home/ali/backup.py
+
+# YAXSHI — to'liq yo'l
+0 3 * * * /usr/bin/python3 /home/ali/backup.py
+
+# Yoki crontab boshida PATH o'rnatish
+PATH=/usr/local/bin:/usr/bin:/bin
+0 3 * * * python3 /home/ali/backup.py
+```
+
+## 7. Chiqish va xatolarni saqlash
+
+Default holatida cron buyruq chiqishini foydalanuvchining mail'iga yuboradi. Bu odatda noqulay. Faylga yo'naltirish:
+
+```bash
+# Chiqish va xato faylga
+0 3 * * * /home/ali/bin/backup.sh > /var/log/backup.log 2>&1
+
+# Chiqishni tashlab yuborish, xatolarni saqlash
+0 3 * * * /home/ali/bin/backup.sh > /dev/null 2>> /var/log/backup-err.log
+```
+
+## 8. Loglar
+
+Cron ishlarining ijro yozuvlari syslog'ga tushadi:
+
+```bash
+sudo journalctl -u cron       # Debian/Ubuntu
+sudo journalctl -u crond      # Fedora/RHEL
+
+# Yoki an'anaviy
+sudo grep CRON /var/log/syslog
+```
+
+## 9. systemd-timer — zamonaviy alternativ
+
+systemd-timer cron'ga muqobil. Afzalliklari:[⁴](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)
+
+- Logging — `journalctl` bilan to'liq integratsiya.
+- Tushib qolgan ishlar uchun `Persistent=true` (kompyuter o'chiq paytda o'tkazib yuborilgan ishlarni keyin bajaradi).
+- Murakkab vaqt formatlari.
+
+### Misol
+
+`/etc/systemd/system/backup.service`:
+
+```ini
+[Unit]
+Description=Daily backup
+
+[Service]
+Type=oneshot
+ExecStart=/home/ali/bin/backup.sh
+User=ali
+```
+
+`/etc/systemd/system/backup.timer`:
+
+```ini
+[Unit]
+Description=Run backup daily at 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now backup.timer
+
+# Holatni ko'rish
+systemctl list-timers
+```
+
+### `OnCalendar` formatlari
+
+| Format | Ma'no |
+|---|---|
+| `*-*-* 03:00:00` | Har kuni 03:00 |
+| `Mon..Fri 09:00` | Du-Ju 09:00 |
+| `*-*-01 02:00` | Har oyning 1-kuni |
+| `hourly` | Har soat |
+| `daily` | Har kun yarim tunda |
+
+## 10. Amaliy misol: kunlik backup
+
+```bash
+# 1. Backup skripti
+nano ~/bin/backup.sh
+```
+
+```bash
+#!/bin/bash
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DEST="/backup/home-$TIMESTAMP.tar.gz"
+
+tar -czf "$DEST" /home/ali \
+    --exclude=/home/ali/.cache \
+    --exclude=/home/ali/Downloads
+
+# 30 kundan eski backuplarni o'chirish
+find /backup -name "home-*.tar.gz" -mtime +30 -delete
+```
+
+```bash
+chmod +x ~/bin/backup.sh
+
+# Cron'ga qo'shish
+crontab -e
+```
+
+Quyidagi qatorni qo'shing:
+
+```
+# Har kuni 03:00 da backup
+0 3 * * * /home/ali/bin/backup.sh >> /var/log/backup.log 2>&1
+```
+
+## 11. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `crontab -e` | User crontab tahrirlash |
+| `crontab -l` | Ro'yxat |
+| `crontab -r` | Hammasini o'chirish |
+| `sudo crontab -u <foydalanuvchi>` | Boshqa foydalanuvchi |
+| `systemctl list-timers` | Faol systemd timerlar |
+| `journalctl -u cron` | Cron loglari |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Skript ishlamaydi cron ichida** — odatda `$PATH` muammosi. To'liq yo'l ishlatilsin.
+- **Skript bajaramaydi** — `chmod +x` qilishni unutish.
+- **Vaqt mintaqasi noto'g'ri** — cron tizim vaqt mintaqasidan foydalanadi. `timedatectl` orqali tekshiring.
+- **`%` belgisi** — crontab'da `%` maxsus belgi (newline). Buyruqda `\%` shaklida escape qiling.
+- **Hech qanday chiqish ko'rsatilmagan** — `> /dev/null 2>&1` qo'ying yoki loglarga yo'naltiring.
+
+## 13. Eng yaxshi amaliyot
+
+- **Doim to'liq yo'l** — `/usr/bin/python3`, mas. `python` emas.
+- **Chiqishni logga** — `> /var/log/myjob.log 2>&1` yoki `journalctl` (systemd-timer uchun).
+- **Skriptni alohida fayl** — crontab ichiga uzun buyruqlar yozmang.
+- **Avval sinab ko'ring** — qo'lda ishga tushiring, keyin cron'ga qo'shing.
+- **Yangi loyihalar uchun systemd-timer** — yaxshiroq logging va backwards-compatibility.
+- **Backup uchun random soniya** — agar ko'p mashinada 03:00 bo'lsa, server zo'riqishi mumkin. `OnCalendar=` da `OnCalendar=*-*-* 03:00:00 RandomizedDelaySec=15min` qo'shing.
+
+## 14. Bilim sinovi
+
+**Savol 1.** `0 3 * * 0 cmd` qachon ishlaydi?
+
+- a) Har kuni 03:00 da
+- b) Har yakshanba 03:00 da
+- c) Har 3 daqiqada
+- d) Har oyning 3-kuni
+
+<Callout type="success" title="Javob">
+**(b)** `0 3` — soat 3:00; `* *` — har oy va oy kuni; `0` — yakshanba.[²](https://manpages.debian.org/bookworm/cron/crontab.5.en.html)
+</Callout>
+
+**Savol 2.** Cron muhitida nima yo'q?
+
+- a) Internet
+- b) Foydalanuvchi muhit o'zgaruvchilari (`$PATH`, alias va h.k.)
+- c) Disk
+- d) RAM
+
+<Callout type="success" title="Javob">
+**(b)** Cron juda minimal muhitda ishlaydi — `$PATH` defaultda juda qisqa.
+</Callout>
+
+**Savol 3.** systemd-timer cron'dan qaysi afzallikka ega?
+
+- a) Tushib qolgan ishlarni keyin bajara olishi (`Persistent=true`)
+- b) Faqat root uchun
+- c) Cron'dan tezroq
+- d) Maxsus tarmoq talab qiladi
+
+<Callout type="success" title="Javob">
+**(a)** `Persistent=true` orqali kompyuter o'chiq bo'lganida o'tkazib yuborilgan ishlarni keyin bajaradi.[⁴](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)
+</Callout>
+
+## 15. Mashq
+
+1. `crontab -l` natijasini ko'ring. Sizda nechta cron yozuvi bor?
+2. Test cron yozuvi yarating — har daqiqada `/tmp/test.log` ga sana yozsin: `* * * * * date >> /tmp/test.log`. 5 daqiqadan keyin faylni ko'ring.
+3. Test yozuvni o'chiring (`crontab -e` orqali).
+4. `systemctl list-timers` natijasi nima? Sizda nechta timer faol?
+
+## Manbalar
+
+1. Debian — cron(8) manpage. [https://manpages.debian.org/bookworm/cron/cron.8.en.html](https://manpages.debian.org/bookworm/cron/cron.8.en.html)
+2. Debian — crontab(5) manpage. [https://manpages.debian.org/bookworm/cron/crontab.5.en.html](https://manpages.debian.org/bookworm/cron/crontab.5.en.html)
+3. ArchWiki — cron. [https://wiki.archlinux.org/title/Cron](https://wiki.archlinux.org/title/Cron)
+4. systemd.timer(5). [https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html)
+
+## Keyingi qadam
+
+👉 [Tarmoq asoslari](/fundamentals/networking)

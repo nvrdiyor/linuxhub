@@ -1,0 +1,82 @@
+---
+title: "Cross-compilation platformalari"
+description: "pkgsCross yordamida mavjud target platformalar ro'yxati."
+order: 2
+level: "advanced"
+estimated_minutes: 3
+prerequisites:
+  - "/nixos/cross-compilation/requirements"
+learning_objectives:
+  - "Eng tez-tez ishlatiladigan target'lar"
+  - "GNU triple format"
+tags: ["nixos", "cross-compilation"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Cross compilation"
+    url: "https://nix.dev/tutorials/cross-compilation.html"
+---
+
+Nixpkgs juda ko'p `pkgsCross` target'larini taqdim etadi.[¹](https://nix.dev/tutorials/cross-compilation.html)
+
+## 1. Mashhur target'lar
+
+| Attribute | Triple | Maqsad |
+|---|---|---|
+| `aarch64-multiplatform` | `aarch64-unknown-linux-gnu` | ARM64 Linux (Raspberry Pi 4+, ARM serverlar) |
+| `armv6l-multiplatform` | `armv6l-unknown-linux-gnueabihf` | Raspberry Pi Zero/1 |
+| `armv7l-hf-multiplatform` | `armv7l-unknown-linux-gnueabihf` | Raspberry Pi 2 |
+| `raspberryPi` | `armv6l-unknown-linux-gnueabihf` | Raspberry Pi 1 |
+| `mingwW64` | `x86_64-w64-mingw32` | Windows 64-bit |
+| `riscv64` | `riscv64-unknown-linux-gnu` | RISC-V |
+| `wasi32` | `wasm32-unknown-wasi` | WebAssembly + WASI |
+
+## 2. GNU triple format
+
+```
+<arch>-<vendor>-<os>-<abi>
+```
+
+Misol: `aarch64-unknown-linux-gnu`
+
+- arch: `aarch64`
+- vendor: `unknown`
+- os: `linux`
+- abi: `gnu` (yoki `musl`, `gnueabihf`)
+
+## 3. Misol — Raspberry Pi 4 uchun
+
+```bash
+nix-build '<nixpkgs>' -A pkgsCross.aarch64-multiplatform.hello
+```
+
+Natija: ARM64 binary.
+
+## 4. Cross-compile musl bilan
+
+```bash
+nix-build '<nixpkgs>' -A pkgsCross.aarch64-multiplatform-musl.hello
+```
+
+`musl` libc — statik binary uchun yaxshi.
+
+## 5. Bilim sinovi
+
+**Savol 1.** Raspberry Pi 4 uchun cross-compile target:
+
+- a) `mingwW64`
+- b) `aarch64-multiplatform`
+- c) `riscv64`
+- d) `wasi32`
+
+<Callout type="success" title="Javob">
+**(b)** Raspberry Pi 4 — ARM64 — `aarch64-multiplatform`.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Cross compilation. [https://nix.dev/tutorials/cross-compilation.html](https://nix.dev/tutorials/cross-compilation.html)
+
+## Keyingi qadam
+
+👉 [Amaliyot](/nixos/cross-compilation/practice)

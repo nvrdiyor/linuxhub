@@ -1,0 +1,100 @@
+---
+title: "Paketlarni topish"
+description: "Nixpkgs'da paketlarni qidirish — search.nixos.org va `nix search`."
+order: 4
+level: "beginner"
+estimated_minutes: 3
+prerequisites:
+  - "/nixos/introduction"
+learning_objectives:
+  - "search.nixos.org bilan ishlash"
+  - "`nix search` CLI"
+tags: ["nixos", "search", "packages"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "search.nixos.org"
+    url: "https://search.nixos.org/packages"
+  - title: "nix.dev — Nixpkgs Manual"
+    url: "https://nixos.org/manual/nixpkgs/stable/"
+---
+
+[search.nixos.org](https://search.nixos.org/packages) — Nixpkgs paketlarini qidirish uchun rasmiy veb-saytt. Bu darsda undan va `nix search` CLI'dan foydalanish.[¹](https://search.nixos.org/packages)
+
+## 1. Veb orqali
+
+[https://search.nixos.org/packages](https://search.nixos.org/packages) — keng qidiruv:
+
+- Paket nomi
+- Tavsif bo'yicha
+- Channel tanlash (unstable, 24.05, ...)
+
+Misol: "video editor" qidirsangiz, ko'p natija — har birida:
+
+- **Attribute name** (`pkgs.<...>`) — bu kerak.
+- **Version**
+- **Description**
+- **Homepage**
+- **Source** — Nixpkgs'da qaerda.
+
+## 2. CLI — `nix search`
+
+```bash
+# Eski usul (channel asosida)
+nix-env -qaP firefox
+
+# Yangi (flake)
+nix search nixpkgs firefox
+```
+
+Misol natija:
+
+```
+* nixpkgs.firefox (firefox-128.0)
+  Mozilla Firefox, free web browser
+```
+
+## 3. `nix-locate` — fayl orqali
+
+`nix-locate` o'rnatish:
+
+```bash
+nix-env -iA nixpkgs.nix-index
+nix-index    # birinchi marotaba — DB tuzish
+```
+
+So'ng:
+
+```bash
+nix-locate bin/htop
+# nixpkgs.htop.out  100,000  /nix/store/.../bin/htop
+```
+
+Bu — "qaysi paket bu faylni beradi?" savoliga javob.
+
+## 4. Mashq
+
+1. [search.nixos.org](https://search.nixos.org/packages) ga kiring va `chrome` qidiring. Qaysi attribute name'ga e'tibor bering?
+2. `nix-env -qaP | grep firefox` — terminal orqali natija.
+
+## 5. Bilim sinovi
+
+**Savol 1.** Paketni nomi bo'yicha qidirish uchun rasmiy sayt:
+
+- a) packages.nixos.org
+- b) search.nixos.org
+- c) nixpkgs.org
+- d) nix-store.org
+
+<Callout type="success" title="Javob">
+**(b)** [search.nixos.org](https://search.nixos.org/packages).[¹](https://search.nixos.org/packages)
+</Callout>
+
+## Manbalar
+
+1. search.nixos.org. [https://search.nixos.org/packages](https://search.nixos.org/packages)
+2. nix.dev — Nixpkgs Manual. [https://nixos.org/manual/nixpkgs/stable/](https://nixos.org/manual/nixpkgs/stable/)
+
+## Keyingi qadam
+
+👉 [Build xatolarini tuzatish](/nixos/packaging/fixing-build-failures)

@@ -1,0 +1,166 @@
+---
+title: "Build xatolarini tuzatish"
+description: "Nix paketni build qilishda yuzaga keladigan xatolar va ularning yechimlari."
+order: 5
+level: "advanced"
+estimated_minutes: 5
+prerequisites:
+  - "/nixos/packaging/dependencies"
+learning_objectives:
+  - "Tipik build xatolar"
+  - "`--keep-failed` va `nix-shell` orqali debug"
+  - "Patch'lar bilan tuzatish"
+tags: ["nixos", "packaging", "debugging"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Packaging"
+    url: "https://nix.dev/tutorials/packaging-existing-software.html"
+---
+
+Build xato — tabiiy holat. Nix sizga debug uchun yaxshi vositalar beradi.[¹](https://nix.dev/tutorials/packaging-existing-software.html)
+
+## 1. `--keep-failed` flag
+
+Build xato bo'lganda Nix odatda muvaqqat katalogni tozalaydi. Saqlash uchun:
+
+```bash
+nix-build --keep-failed
+# yoki -K qisqacha
+```
+
+Build to'xtagandan keyin Nix yo'lni ko'rsatadi:
+
+```
+note: keeping build directory '/tmp/nix-build-xxx.drv-0'
+```
+
+So'ng:
+
+```bash
+cd /tmp/nix-build-xxx.drv-0
+ls    # source code, build logs
+```
+
+## 2. `nix-shell` orqali debug
+
+```bash
+# Paket muhitiga kirish
+nix-shell --pure default.nix
+
+# Qo'lda phases'larni ishga tushirish
+unpackPhase
+cd <source-dir>
+configurePhase
+buildPhase
+# Xatoni ko'rasiz
+```
+
+## 3. Tipik xatolar
+
+### "command not found"
+
+`nativeBuildInputs` yetishmagan:
+
+```nix
+nativeBuildInputs = [ cmake pkg-config gcc ];
+```
+
+### "cannot find -lssl"
+
+Linker openssl ni topa olmadi:
+
+```nix
+buildInputs = [ openssl ];
+```
+
+### "undefined reference to ..."
+
+Library yetishmagan yoki versiya nomos. `pkg-config` bilan tekshiring.
+
+### Source o'zgargan (sha256 noto'g'ri)
+
+```
+error: hash mismatch in fixed-output derivation
+  wanted: sha256-abc...
+  got:    sha256-xyz...
+```
+
+`sha256` ni yangi qiymatga o'zgartiring (`got:` dagi).
+
+### "Cannot patchelf"
+
+Pre-built binary'da `RPATH` to'g'rilash:
+
+```nix
+nativeBuildInputs = [ autoPatchelfHook ];
+```
+
+## 4. Patch'lar bilan tuzatish
+
+Manba kodida xato bo'lsa, patch yuborish:
+
+```nix
+patches = [
+  ./fix-build.patch
+  (fetchpatch {
+    url = "https://github.com/.../commit/abc.patch";
+    sha256 = "sha256-...";
+  })
+];
+```
+
+Patch tipik diff fayl:
+
+```diff
+--- a/Makefile
++++ b/Makefile
+@@ -1 +1 @@
+-CC=cc
++CC=gcc
+```
+
+## 5. Verbose log
+
+```bash
+nix-build --verbose -L
+```
+
+`-L` — har build log'ini real-time ko'rsatadi.
+
+## 6. Mashq
+
+Atayin xato `default.nix`:
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+pkgs.stdenv.mkDerivation {
+  name = "test";
+  src = ./.;
+  buildPhase = "this-command-does-not-exist";
+  installPhase = "mkdir -p $out";
+}
+```
+
+`nix-build -K` qiling. Xato kabel chiqishi bilan tanishing.
+
+## 7. Bilim sinovi
+
+**Savol 1.** Build muvaqqat katalogini saqlash uchun:
+
+- a) `nix-build --debug`
+- b) `nix-build --keep-failed` yoki `-K`
+- c) `nix-build --verbose`
+- d) `nix-build --no-clean`
+
+<Callout type="success" title="Javob">
+**(b)** `--keep-failed` yoki `-K`.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Packaging. [https://nix.dev/tutorials/packaging-existing-software.html](https://nix.dev/tutorials/packaging-existing-software.html)
+
+## Keyingi qadam
+
+👉 [callPackage — Umumiy ko'rinish](/nixos/callpackage/overview)

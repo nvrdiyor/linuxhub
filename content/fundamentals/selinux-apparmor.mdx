@@ -1,0 +1,443 @@
+---
+title: "SELinux va AppArmor — MAC"
+description: "Mandatory Access Control — SELinux (Red Hat) va AppArmor (Ubuntu/SUSE) himoyasi."
+order: 125
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/permissions"
+  - "/fundamentals/security-basics"
+learning_objectives:
+  - "DAC va MAC farqi"
+  - "SELinux mode'lari va context'lari"
+  - "AppArmor profiles"
+  - "Troubleshooting va audit"
+tags: ["advanced", "selinux", "apparmor", "security", "mac"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "SELinux Project Wiki"
+    url: "https://github.com/SELinuxProject/selinux-notebook"
+  - title: "Red Hat — SELinux"
+    url: "https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/using_selinux/index"
+  - title: "AppArmor Wiki"
+    url: "https://gitlab.com/apparmor/apparmor/-/wikis/home"
+---
+
+Standart Linux ruxsatlar (DAC — chmod, chown) — har bir foydalanuvchi o'z fayllariga ruxsat beradi. **MAC** (Mandatory Access Control) — siyosat orqali yadro darajasidagi qattiq cheklov. Bu darsda SELinux va AppArmor'ni ko'rib chiqamiz.[¹](https://github.com/SELinuxProject/selinux-notebook)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- DAC vs MAC.
+- SELinux: mode'lar, context'lar, policies.
+- AppArmor: profiles, complain/enforce.
+- Audit va troubleshooting.
+</Callout>
+
+## 1. DAC vs MAC
+
+### DAC (Discretionary Access Control)
+
+Klassik Unix ruxsat tizimi:
+
+- Fayl egasi ruxsatlarni belgilaydi (`chmod`, `chown`).
+- Root — har narsaga ruxsat.
+- Buzilgan dastur (`bug`, `exploit`) — root sifatida xohlagan ishni qiladi.
+
+### MAC (Mandatory Access Control)
+
+Yadro darajasidagi qattiq siyosat:
+
+- Foydalanuvchi yoki dastur **siyosatni o'zgartirish ucha olmaydi**.
+- Root ham cheklangan.
+- Buzilgan dastur — faqat o'ziga ruxsat berilgan narsalarga.
+
+Misol: Web server hacklandi → kerakli faqat veb fayllarga kira oladi → `/etc/passwd` ni o'qib bo'lmaydi.
+
+## 2. SELinux — NSA loyihasi
+
+**SELinux** (Security-Enhanced Linux) — 1990s NSA tomonidan boshlangan. Red Hat oilasida default.
+
+### Mode'lar
+
+| Mode | Tavsif |
+|---|---|
+| `enforcing` | Siyosat majbur, qoidani buzgan ish bloklanadi |
+| `permissive` | Faqat log qiladi (debug uchun) |
+| `disabled` | O'chirilgan |
+
+```bash
+# Joriy mode
+getenforce
+sudo sestatus
+
+# Vaqtinchalik o'zgartirish
+sudo setenforce 0    # permissive
+sudo setenforce 1    # enforcing
+
+# Doimiy — /etc/selinux/config
+SELINUX=enforcing    # yoki permissive yoki disabled
+```
+
+## 3. SELinux context
+
+Har bir fayl va jarayon **security context**'ga ega:
+
+```
+user:role:type:level
+```
+
+Misol:
+
+```bash
+ls -lZ /var/www/html
+# system_u:object_r:httpd_sys_content_t:s0   ./index.html
+
+ps -Z
+# system_u:system_r:httpd_t:s0   /usr/sbin/httpd
+```
+
+| Maydon | Misol |
+|---|---|
+| `user` | `system_u`, `unconfined_u` |
+| `role` | `object_r` (file), `system_r` (process) |
+| `type` | `httpd_t` (httpd jarayon), `httpd_sys_content_t` (httpd kontent) |
+| `level` | MLS (Multi-Level Security) — odatda `s0` |
+
+## 4. SELinux qoidalari
+
+Apache (`httpd_t`) — faqat `httpd_sys_content_t` markaziga kira oladi. `user_home_t` ga — yo'q.
+
+Bu shu sababli `/var/www/html`'ga fayl qo'ysangiz va u boshqa joydan ko'chirilgan bo'lsa — context noto'g'ri:
+
+```bash
+ls -lZ /var/www/html/myfile.html
+# unconfined_u:object_r:user_home_t:s0   myfile.html
+
+# Apache shu fayl uchun "Permission denied" beradi
+```
+
+### Tuzatish — context o'zgartirish
+
+```bash
+# Bitta fayl
+sudo chcon -t httpd_sys_content_t /var/www/html/myfile.html
+
+# Yoki butun katalog
+sudo chcon -R -t httpd_sys_content_t /var/www/html/
+
+# Doimiy (semanage orqali)
+sudo semanage fcontext -a -t httpd_sys_content_t "/var/www/html(/.*)?"
+sudo restorecon -Rv /var/www/html
+```
+
+## 5. SELinux boolean'lar
+
+Boolean — siyosatning yoqilgan/o'chirilgan xususiyatlari:
+
+```bash
+# Hammasi
+getsebool -a
+
+# Aniq biri
+getsebool httpd_can_network_connect
+
+# Yoqish
+sudo setsebool -P httpd_can_network_connect on
+# `-P` — persistent
+
+# Misol — Samba uchun foydalanuvchi home katalog'ini sharing
+sudo setsebool -P samba_enable_home_dirs on
+```
+
+## 6. SELinux audit va log
+
+```bash
+# Yaqindagi denylar
+sudo ausearch -m AVC -ts recent
+
+# AVC tahlili (yechim taklif qiladi)
+sudo sealert -a /var/log/audit/audit.log
+
+# yoki real-time
+sudo journalctl -t setroubleshoot -f
+```
+
+Misol natija:
+
+```
+SELinux is preventing httpd from getattr access on the file myfile.html.
+
+Suggested solutions:
+1. Restore the file: restorecon -v /var/www/html/myfile.html
+2. Report a bug
+```
+
+## 7. AppArmor — Ubuntu/SUSE standart
+
+**AppArmor** — Canonical (Novell) tomonidan ishlab chiqilgan, **path-based** MAC. SELinux'dan oddiyroq, lekin kuchli.
+
+### Status
+
+```bash
+sudo aa-status
+```
+
+Misol natija:
+
+```
+apparmor module is loaded.
+30 profiles are loaded.
+22 profiles are in enforce mode.
+8 profiles are in complain mode.
+4 processes have profiles defined.
+```
+
+### Profile lar joylashuvi
+
+```bash
+ls /etc/apparmor.d/
+# usr.sbin.dhcpd
+# usr.bin.firefox
+# usr.bin.evince
+# ...
+```
+
+Profile nomi — binary yo'l (`/usr/sbin/dhcpd` → `usr.sbin.dhcpd`).
+
+### Misol profile
+
+```
+# /etc/apparmor.d/usr.sbin.dhcpd
+
+#include <tunables/global>
+
+/usr/sbin/dhcpd {
+    #include <abstractions/base>
+    #include <abstractions/nameservice>
+
+    capability net_bind_service,
+    capability net_raw,
+
+    /etc/dhcp/dhcpd.conf r,
+    /var/lib/dhcp/dhcpd.leases* rw,
+    /var/log/dhcp.log rw,
+
+    network inet dgram,
+    network inet stream,
+}
+```
+
+`r` = read, `w` = write, `x` = execute.
+
+## 8. AppArmor mode'lar
+
+| Mode | Tavsif |
+|---|---|
+| `enforce` | Siyosat majbur |
+| `complain` | Faqat log (training uchun) |
+| `disable` | O'chirilgan |
+
+```bash
+# Profile mode'ni o'zgartirish
+sudo aa-complain /usr/sbin/dhcpd
+sudo aa-enforce /usr/sbin/dhcpd
+sudo aa-disable /usr/sbin/dhcpd
+```
+
+## 9. AppArmor yangi profile yaratish
+
+```bash
+# Skeleton yaratish
+sudo aa-genprof /usr/bin/myapp
+
+# Yoki to'liq audit asoslangan
+sudo aa-logprof
+```
+
+Interaktiv:
+
+- Dasturni ishga tushiring.
+- `aa-genprof` o'qiydi va har xil ruxsat so'roqlari.
+- "Allow", "Deny", "Glob", "More info" tanlang.
+
+## 10. AppArmor log
+
+```bash
+# Faol denylar
+sudo journalctl -k | grep apparmor
+
+# Yoki audit log
+sudo aa-status
+sudo cat /var/log/audit/audit.log | grep apparmor
+
+# `dmesg`
+sudo dmesg | grep -i denied
+```
+
+Misol:
+
+```
+audit: type=1400 audit(1234567890.123:456): apparmor="DENIED" operation="open"
+  profile="/usr/bin/firefox" name="/etc/shadow" pid=1234 ...
+```
+
+## 11. SELinux vs AppArmor
+
+| | SELinux | AppArmor |
+|---|---|---|
+| Asoschi | NSA, Red Hat | Canonical (Novell) |
+| Default | Fedora, RHEL, CentOS | Ubuntu, SUSE, Debian |
+| Path va label | Label-based (security context) | Path-based |
+| Kompleks | Yuqori | O'rta |
+| Granular | Juda | O'rta |
+| Foydalanish | Asboblar kerak | Oddiy text profile |
+
+Modern Linux'da ikkalasi ham yaxshi — distributiv tanlovi.
+
+## 12. Misol — nginx uchun custom
+
+### SELinux
+
+```bash
+# Non-standard port (8080)
+sudo semanage port -a -t http_port_t -p tcp 8080
+
+# Custom DocumentRoot
+sudo semanage fcontext -a -t httpd_sys_content_t "/srv/www(/.*)?"
+sudo restorecon -Rv /srv/www
+```
+
+### AppArmor
+
+```bash
+# Profile mavjudligi
+ls /etc/apparmor.d/ | grep nginx
+
+# Reload profile o'zgartirgandan keyin
+sudo apparmor_parser -r /etc/apparmor.d/usr.sbin.nginx
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+### SELinux
+
+| Buyruq | Vazifa |
+|---|---|
+| `getenforce` | Joriy mode |
+| `setenforce 0/1` | Vaqtinchalik mode |
+| `sestatus` | To'liq status |
+| `ls -lZ` | Fayl context |
+| `ps -Z` | Process context |
+| `chcon -t TYPE FILE` | Context o'zgartirish (vaqtinchalik) |
+| `restorecon -Rv DIR` | Default context'larni qaytarish |
+| `semanage fcontext` | Doimiy context qoidalari |
+| `getsebool -a` | Boolean'lar |
+| `setsebool -P BOOL on/off` | Boolean toggle (doimiy) |
+| `ausearch -m AVC` | Recent denylar |
+| `sealert -a` | Avtomatik tahlil |
+
+### AppArmor
+
+| Buyruq | Vazifa |
+|---|---|
+| `aa-status` | Status |
+| `aa-enforce /path/to/binary` | Profile'ni enforce |
+| `aa-complain` | Complain mode |
+| `aa-disable` | O'chirish |
+| `aa-genprof` | Yangi profile |
+| `aa-logprof` | Loglar asosida profile yaratish |
+| `apparmor_parser -r <profile>` | Profile reload |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **SELinux'ni disable qilish** — xavfsizlik darajasini juda tushiradi. Aksincha, `permissive` rejimda sozlang.
+- **`chcon`** vaqtinchalik — relabel'dan keyin yo'qoladi. `semanage fcontext` ishlatilsin.
+- **AppArmor profile reload qilmaslik** — o'zgarish ishlamaydi.
+- **`/var/log/audit/audit.log`** ni o'qimaslik — debug muammosi.
+- **MAC bug deb hisoblash** — odatda siyosat to'g'ri, dastur noto'g'ri konfiguratsiya.
+
+## 15. Eng yaxshi amaliyot
+
+- **MAC'ni o'chirmang** — `permissive` qilib audit qiling.
+- **`audit2allow` (SELinux)** — yangi siyosat qoidalarini avtomatik generatsiya.
+- **`aa-logprof` (AppArmor)** — interaktiv profile yaratish.
+- **Custom dasturlar uchun profile yozing.**
+- **Production'da `enforce`.**
+- **`semanage`** doimiy o'zgarishlar uchun (vaqtinchalik `chcon` o'rniga).
+- **Loglarni monitor qiling** — har deny xavfsizlik signal'i.
+
+## 16. Mashqlar
+
+1. **SELinux holati:** `getenforce` va `sestatus`. Sizda yoqilganmi?
+2. **AppArmor:** `sudo aa-status` — qancha profile faol?
+3. **Context:** `ls -lZ /var/www` (yoki shunga o'xshash katalog). Qaysi type?
+4. **Boolean (Fedora):** `getsebool httpd_can_network_connect` — qiymat nima?
+5. **Profile (Ubuntu):** `ls /etc/apparmor.d/` — qaysi dasturlar uchun profile bor?
+6. **Audit:** `sudo journalctl | grep -i 'apparmor\|selinux' | tail -20` — yaqindagi xabarlar.
+
+## 17. Bilim sinovi
+
+**Savol 1.** DAC va MAC farqi:
+
+- a) Bir xil
+- b) DAC — foydalanuvchi belgilaydi (chmod), MAC — siyosat orqali yadro darajasidagi cheklov
+- c) MAC faqat Apple uchun
+- d) DAC zamonaviyroq
+
+<Callout type="success" title="Javob">
+**(b)** Discretionary vs Mandatory.[¹](https://github.com/SELinuxProject/selinux-notebook)
+</Callout>
+
+**Savol 2.** SELinux fayl context'ini doimiy o'zgartirish:
+
+- a) `chcon`
+- b) `semanage fcontext` + `restorecon`
+- c) `chmod`
+- d) `chown`
+
+<Callout type="success" title="Javob">
+**(b)** `semanage` doimiy, `chcon` vaqtinchalik.
+</Callout>
+
+**Savol 3.** AppArmor profile reload:
+
+- a) Tizimni qayta yuklash
+- b) `apparmor_parser -r <profile-fayl>`
+- c) `aa-reload`
+- d) Hech qanday — avtomatik
+
+<Callout type="success" title="Javob">
+**(b)** `apparmor_parser -r`.
+</Callout>
+
+**Savol 4.** SELinux `permissive` mode:
+
+- a) Hammasini bloklab qo'yish
+- b) Faqat log qiladi, bloklash yo'q (debug uchun)
+- c) Tizim o'chirish
+- d) Hech qanday farq
+
+<Callout type="success" title="Javob">
+**(b)** Audit + ishlash — yangi siyosat sozlash uchun ideal.
+</Callout>
+
+**Savol 5.** SELinux'ni disable qilish — yaxshi amaliyotmi?
+
+- a) Ha, sodda
+- b) Yo'q — xavfsizlik darajasi tushiradi. `permissive` afzal
+- c) Faqat root uchun
+- d) Faqat eski tizimlarda
+
+<Callout type="success" title="Javob">
+**(b)** Disable qilish — oxirgi chora. Avval permissive bilan o'rganing.
+</Callout>
+
+## Manbalar
+
+1. SELinux Project Wiki. [https://github.com/SELinuxProject/selinux-notebook](https://github.com/SELinuxProject/selinux-notebook)
+2. Red Hat — SELinux. [https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/using_selinux/index](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/using_selinux/index)
+3. AppArmor Wiki. [https://gitlab.com/apparmor/apparmor/-/wikis/home](https://gitlab.com/apparmor/apparmor/-/wikis/home)
+
+## Keyingi qadam
+
+👉 [Linux capabilities va privileged operations](/fundamentals/capabilities)

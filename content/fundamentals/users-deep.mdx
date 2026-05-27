@@ -1,0 +1,472 @@
+---
+title: "Foydalanuvchi boshqaruvi — chuqurroq"
+description: "Linux foydalanuvchi tizimi — UID/GID, /etc/passwd va shadow ichkarisi, login.defs, PAM."
+order: 145
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/users-groups"
+learning_objectives:
+  - "UID diapazonlari va system vs normal user'lar"
+  - "/etc/shadow strukturasi"
+  - "login.defs sozlash"
+  - "PAM stack chuqurroq"
+tags: ["advanced", "users", "shadow", "pam"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "passwd(5)"
+    url: "https://manpages.debian.org/bookworm/manpages/passwd.5.en.html"
+  - title: "shadow(5)"
+    url: "https://manpages.debian.org/bookworm/passwd/shadow.5.en.html"
+  - title: "Linux PAM"
+    url: "https://www.kernel.org/pub/linux/libs/pam/"
+---
+
+Foydalanuvchi boshqaruvi — Linux administrator'ning kundalik ishi. Bu darsda asoslar emas, ichki strukturani — `/etc/shadow` format, PAM, va xavfsizlik amaliyotlarni chuqur o'rganamiz.[¹](https://manpages.debian.org/bookworm/manpages/passwd.5.en.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- UID diapazonlari va maxsus user'lar.
+- `/etc/shadow` har maydoni.
+- `/etc/login.defs` global siyosat.
+- PAM (Pluggable Authentication Modules) asoslari.
+- Audit va xavfsizlik.
+</Callout>
+
+## 1. UID diapazonlari
+
+```
+0           — root
+1-99        — system static (root group, daemon, bin)
+100-999     — system dynamic (paket o'rnatish chog'ida)
+1000+       — oddiy foydalanuvchilar
+65534       — nobody
+```
+
+Ko'rish:
+
+```bash
+# Oddiy foydalanuvchilar
+awk -F: '$3 >= 1000 && $3 < 65000 {print $1}' /etc/passwd
+
+# System users
+awk -F: '$3 < 1000 {print $1, $3}' /etc/passwd
+```
+
+## 2. `/etc/passwd` har maydoni
+
+```
+ali:x:1000:1000:Ali Valiyev,,Office,+99891111111:/home/ali:/bin/bash
+```
+
+7 ta `:` bilan ajratilgan:
+
+| # | Maydon | Ma'no |
+|---|---|---|
+| 1 | username | `ali` |
+| 2 | password | `x` (haqiqiy hash `/etc/shadow`'da) |
+| 3 | UID | `1000` |
+| 4 | GID | `1000` (primary group) |
+| 5 | GECOS | `Ali Valiyev,,Office,+99891111111` (full name, room, work phone, home phone — `,` bilan) |
+| 6 | home directory | `/home/ali` |
+| 7 | login shell | `/bin/bash` |
+
+## 3. `/etc/shadow` har maydoni
+
+```
+ali:$y$j9T$abc...xyz:19500:0:99999:7::18000:
+```
+
+9 ta `:` bilan:[²](https://manpages.debian.org/bookworm/passwd/shadow.5.en.html)
+
+| # | Maydon | Ma'no |
+|---|---|---|
+| 1 | username | `ali` |
+| 2 | parol xeshi | `$y$j9T$...` (`$y$` = yescrypt) |
+| 3 | oxirgi parol o'zgartirilgan kun | `19500` (1970'dan beri kun) |
+| 4 | minimum kun | `0` (qancha kun keyin yangi parol o'zgartirish mumkin) |
+| 5 | maximum kun | `99999` (qancha kundan keyin parol almashtirish kerak) |
+| 6 | ogohlantirish kuni | `7` (max'dan qancha kun oldin warning) |
+| 7 | inaktiv kun | `` (max'dan keyin qancha kun lock'gacha) |
+| 8 | account expire | `18000` (umrli tugash, 1970'dan kun) |
+| 9 | reserved | (kelajak uchun) |
+
+Parol xeshi prefiks'lari:
+
+| Prefiks | Algoritm |
+|---|---|
+| `$1$` | MD5 (zaif) |
+| `$2y$` | bcrypt |
+| `$5$` | SHA-256 |
+| `$6$` | SHA-512 |
+| `$y$` | yescrypt (modern default) |
+| `*` | Login disabled |
+| `!` | Account locked |
+
+## 4. `/etc/group` va `/etc/gshadow`
+
+```
+sudo:x:27:ali,bob
+```
+
+- 1: group name
+- 2: password (odatda `x`)
+- 3: GID
+- 4: members (vergul bilan)
+
+`/etc/gshadow` — group parollarini xeshlaydi (kam ishlatiladi).
+
+## 5. `/etc/login.defs` — global siyosat
+
+```bash
+sudo nano /etc/login.defs
+```
+
+```
+# Mail
+MAIL_DIR        /var/mail
+
+# Parol siyosati
+PASS_MAX_DAYS   90        # maksimal yosh
+PASS_MIN_DAYS   1         # minimal (qayta almashtirish'gacha)
+PASS_MIN_LEN    12        # minimal uzunlik
+PASS_WARN_AGE   7         # warning kunlari
+
+# UID
+UID_MIN         1000
+UID_MAX         60000
+SYS_UID_MIN     100
+SYS_UID_MAX     999
+
+# GID
+GID_MIN         1000
+GID_MAX         60000
+
+# Home katalog default ruxsat
+UMASK           022
+HOME_MODE       0750      # 750 — boshqa user'lar kira olmaydi
+
+# Encryption
+ENCRYPT_METHOD  YESCRYPT
+YESCRYPT_COST_FACTOR 5
+
+# Login retries
+LOGIN_RETRIES   3
+LOGIN_TIMEOUT   60
+```
+
+Yangi user yaratilganda — bu sozlamalar ishlatiladi.
+
+## 6. PAM — Pluggable Authentication Modules
+
+PAM — autentifikatsiya, ruxsat va session boshqaruvi uchun modulli framework.[³](https://www.kernel.org/pub/linux/libs/pam/)
+
+```bash
+ls /etc/pam.d/
+# common-auth, common-account, common-password, common-session
+# login, sshd, sudo, su, passwd, ...
+```
+
+### PAM stack
+
+```
+/etc/pam.d/sshd:
+    auth        — kim?
+    account     — qaerga ruxsat?
+    password    — parol siyosati
+    session     — login/logout amaliyoti
+```
+
+Misol `/etc/pam.d/sshd`:
+
+```
+@include common-auth
+@include common-account
+@include common-session
+@include common-password
+session optional pam_motd.so
+```
+
+`common-auth` `/etc/pam.d/common-auth`'dan o'qiladi.
+
+### PAM modul'lari
+
+| Modul | Maqsad |
+|---|---|
+| `pam_unix.so` | /etc/shadow autentifikatsiya |
+| `pam_ldap.so` | LDAP |
+| `pam_krb5.so` | Kerberos |
+| `pam_google_authenticator.so` | TOTP 2FA |
+| `pam_u2f.so` | U2F hardware key |
+| `pam_pwquality.so` | Parol murakkabligi |
+| `pam_faillock.so` | Failed login lock |
+| `pam_tally2.so` | Login counter (eski) |
+| `pam_motd.so` | Message of the day |
+| `pam_limits.so` | Resource limits |
+
+### Stack flow
+
+```
+auth       sufficient    pam_unix.so      # parol OK — yetarli, davom etish
+auth       required      pam_deny.so      # baribir rad qilish
+```
+
+Control flag'lar:
+
+- `required` — fail bo'lsa, jarayon tugaydi, lekin keyingi modul'lar ham bajarish (xato yashirish uchun).
+- `requisite` — fail darrov return.
+- `sufficient` — pass bo'lsa, darrov return success.
+- `optional` — natija e'tibor bermaslik.
+
+## 7. Misol — kuchli parol siyosati
+
+`/etc/security/pwquality.conf`:
+
+```
+minlen = 12
+minclass = 3
+maxrepeat = 3
+maxclassrepeat = 4
+lcredit = -1
+ucredit = -1
+dcredit = -1
+ocredit = -1
+difok = 5
+gecoscheck = 1
+dictcheck = 1
+```
+
+`/etc/pam.d/common-password`:
+
+```
+password   requisite       pam_pwquality.so retry=3
+password   [success=1 default=ignore]  pam_unix.so obscure use_authtok try_first_pass yescrypt
+```
+
+So'ng yangi parol kuchli bo'lishi shart.
+
+## 8. Misol — 2FA SSH uchun
+
+Google Authenticator:
+
+```bash
+sudo apt install libpam-google-authenticator
+
+# Har user uchun
+google-authenticator
+# Yes/No savollar, QR kod ko'rinadi (telefonda scan)
+```
+
+`/etc/pam.d/sshd`:
+
+```
+auth required pam_google_authenticator.so nullok
+```
+
+`/etc/ssh/sshd_config`:
+
+```
+ChallengeResponseAuthentication yes
+UsePAM yes
+AuthenticationMethods publickey,keyboard-interactive
+```
+
+```bash
+sudo systemctl restart ssh
+```
+
+Endi SSH login: SSH key + 6-digit OTP.
+
+## 9. Failed login lock — `faillock`
+
+`/etc/pam.d/common-auth`:
+
+```
+auth required pam_faillock.so preauth silent deny=5 unlock_time=900
+auth [success=1 default=bad] pam_unix.so
+auth [default=die] pam_faillock.so authfail deny=5 unlock_time=900
+auth sufficient pam_faillock.so authsucc
+```
+
+5 ta noto'g'ri urinishdan keyin 15 daqiqa lock.
+
+```bash
+# Joriy lock holatlar
+faillock --user ali
+
+# Unlock
+faillock --user ali --reset
+```
+
+## 10. `chage` — parol va account yosh
+
+```bash
+# Joriy holat
+sudo chage -l ali
+
+# Maxsus parametrlar
+sudo chage -M 90 ali              # max 90 kun
+sudo chage -m 1 ali                # min 1 kun
+sudo chage -W 7 ali                # warning 7 kun
+sudo chage -d 0 ali                # keyingi loginda parol majburiy o'zgartirish
+sudo chage -E 2026-12-31 ali       # account expire date
+sudo chage -E -1 ali               # never expire
+```
+
+## 11. SSO va LDAP
+
+Enterprise — LDAP/Active Directory orqali markazlashtirilgan login.
+
+```bash
+sudo apt install libpam-ldap libnss-ldap nscd
+sudo dpkg-reconfigure ldap-auth-config
+```
+
+Yoki modern: **SSSD**:
+
+```bash
+sudo apt install sssd sssd-ldap
+```
+
+`/etc/sssd/sssd.conf` sozlash. Hamma user'lar markaziy LDAP'dan login qiladi.
+
+## 12. `sudo` chuqurroq
+
+`/etc/sudoers` (har doim `sudo visudo`):
+
+```
+# Defaults
+Defaults	env_reset
+Defaults	mail_badpass
+Defaults	secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults	use_pty
+Defaults	log_input,log_output
+Defaults	iolog_dir="/var/log/sudo-io"
+
+# Tipik
+root    ALL=(ALL:ALL) ALL
+%sudo   ALL=(ALL:ALL) ALL
+%wheel  ALL=(ALL:ALL) ALL
+ali     ALL=(ALL:ALL) ALL
+
+# Cheklangan
+deploy  ALL=(www-data) NOPASSWD: /usr/bin/systemctl restart nginx
+backup  ALL=(root) NOPASSWD: /usr/local/bin/backup.sh
+
+# Group
+%developers  ALL=(ALL) NOPASSWD: /usr/bin/docker
+```
+
+`log_input,log_output` — har sudo session'i `/var/log/sudo-io/`'da yoziladi (audit).
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `id [user]` | UID, GID, guruhlar |
+| `getent passwd [user]` | NSS orqali user info |
+| `getent group [group]` | Group info |
+| `chage -l <user>` | Parol holati |
+| `chage -M 90 <user>` | Maks kun |
+| `passwd -l <user>` | Lock |
+| `passwd -u <user>` | Unlock |
+| `passwd -d <user>` | Parolni o'chirish (no password) |
+| `usermod -aG <group> <user>` | Group qo'shish |
+| `usermod -L <user>` | Lock (passwd -l kabi) |
+| `faillock --user <user>` | Failed login holati |
+| `visudo` | Sudoers tahrirlash |
+| `sudo -l` | Joriy user'ning sudo huquqlari |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`/etc/sudoers`'ni `nano`'da** — sintaksis xato. Hech qachon. `visudo` ishlatilsin.
+- **`useradd` `-m` siz** — home directory yo'q.
+- **`usermod -G` (`-a` siz)** — eski guruhlar olib tashlaniadi.
+- **`/etc/shadow` parolni `*` qilsangiz** — account login mumkin emas. `passwd -l` afzal.
+- **PAM stack xato** — login mumkin emas. Recovery mode.
+
+## 15. Eng yaxshi amaliyot
+
+- **Parol siyosati** — `login.defs` va `pwquality.conf`.
+- **2FA** muhim user'lar uchun.
+- **Faillock** — brute force'dan.
+- **`sudo` log audit** — har production server.
+- **`/etc/sudoers.d/`** — `visudo -f /etc/sudoers.d/myapp`.
+- **Markazlashtirish LDAP/AD** — ko'p server'da.
+- **`chage -E`** — vaqtinchalik account'larga expire.
+- **Default home `0750`** — boshqalar kirmasligi.
+
+## 16. Mashqlar
+
+1. **Joriy holat:** `cat /etc/passwd | wc -l` — qancha user mavjud? `awk -F: '$3 >= 1000' /etc/passwd | head` — oddiy user'lar.
+2. **Shadow:** `sudo head -3 /etc/shadow` — ko'ring. Maydonlarni ajrating.
+3. **Parol holati:** `sudo chage -l $USER` — sizning paroli qachon almashtirish kerak?
+4. **Kuchli parol:** `pwquality.conf`'ni o'zgartiring. `passwd` orqali zaif parol urinib ko'ring — rad qilinadimi?
+5. **2FA test** (lab muhitda): `google-authenticator` o'rnatib SSH'ga 2FA qo'shing.
+
+## 17. Bilim sinovi
+
+**Savol 1.** `/etc/shadow` da `$y$` prefiks:
+
+- a) MD5
+- b) bcrypt
+- c) SHA-512
+- d) yescrypt (modern default)
+
+<Callout type="success" title="Javob">
+**(d)** yescrypt — modern parol hash.[²](https://manpages.debian.org/bookworm/passwd/shadow.5.en.html)
+</Callout>
+
+**Savol 2.** `/etc/login.defs` — bu nima?
+
+- a) Login tarixi
+- b) Global user/group/parol siyosatlari
+- c) User ro'yxat
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** `useradd`, `passwd` va boshqalar uchun default.
+</Callout>
+
+**Savol 3.** PAM nima qiladi?
+
+- a) Faqat parol tekshirish
+- b) Modulli autentifikatsiya — har modul (pam_unix, pam_ldap, pam_google_authenticator) o'z vazifasi
+- c) Tarmoq
+- d) Backup
+
+<Callout type="success" title="Javob">
+**(b)** Pluggable — stack ichida bir nechta modul.[³](https://www.kernel.org/pub/linux/libs/pam/)
+</Callout>
+
+**Savol 4.** Production'da `sudo` audit uchun:
+
+- a) Hech narsa
+- b) `Defaults log_input,log_output` `/etc/sudoers`'da
+- c) Faqat `journalctl`
+- d) `auditd` faqat
+
+<Callout type="success" title="Javob">
+**(b)** Har sudo session'i to'liq yoziladi.
+</Callout>
+
+**Savol 5.** `/etc/sudoers`'ni tahrirlash:
+
+- a) `nano /etc/sudoers`
+- b) `sudo visudo` — sintaksis tekshirish bilan
+- c) `vi /etc/sudoers`
+- d) Hech qaysisi
+
+<Callout type="success" title="Javob">
+**(b)** visudo — xato bo'lsa saqlamaydi. Lock-out'dan saqlash.
+</Callout>
+
+## Manbalar
+
+1. passwd(5). [https://manpages.debian.org/bookworm/manpages/passwd.5.en.html](https://manpages.debian.org/bookworm/manpages/passwd.5.en.html)
+2. shadow(5). [https://manpages.debian.org/bookworm/passwd/shadow.5.en.html](https://manpages.debian.org/bookworm/passwd/shadow.5.en.html)
+3. Linux PAM. [https://www.kernel.org/pub/linux/libs/pam/](https://www.kernel.org/pub/linux/libs/pam/)
+
+## Keyingi qadam
+
+👉 [systemd journal export va analyz](/fundamentals/journal-export)

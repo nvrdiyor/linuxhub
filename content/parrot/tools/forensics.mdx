@@ -1,0 +1,278 @@
+---
+title: "Forensics asboblari"
+description: "Digital forensics — disk va xotira tahlili uchun Parrot OS'dagi asosiy vositalar (Autopsy, Sleuth Kit, Volatility)."
+order: 3
+level: "advanced"
+estimated_minutes: 6
+prerequisites:
+  - "/parrot/introduction"
+learning_objectives:
+  - "Digital forensics jarayonini va chain of custody'ni bilish"
+  - "Sleuth Kit + Autopsy bilan disk tahlili"
+  - "Volatility — xotira tahlili"
+  - "Hash bilan dalil yaxlitligini saqlash"
+tags: ["parrot", "forensics", "autopsy", "volatility"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Sleuth Kit + Autopsy"
+    url: "https://www.sleuthkit.org/sleuthkit/docs.php"
+  - title: "Volatility Foundation"
+    url: "https://www.volatilityfoundation.org/"
+  - title: "NIST — Computer Forensics Tool Testing"
+    url: "https://www.nist.gov/itl/ssd/software-quality-group/computer-forensics-tool-testing-program-cftt"
+---
+
+<Callout type="warning">
+**Digital forensics** — qonuniy jarayon. Boshqaning qurilmasini ruxsatsiz tahlil qilish — qonun bo'yicha buzilish. Faqat sizga tegishli yoki ruxsat etilgan dalillar bilan ishlang.
+</Callout>
+
+**Digital forensics** — kompyuter qurilmalaridan dalil olish va tahlil qilish jarayoni. Kiberhujum tahlili, ichki tergov, qonuniy xizmat — barchasida ishlatiladi.[¹](https://www.sleuthkit.org/sleuthkit/docs.php)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Forensics jarayoni va chain of custody.
+- Disk image olish (`dd`, `dcfldd`).
+- Sleuth Kit + Autopsy bilan tahlil.
+- Volatility bilan xotira tahlili.
+</Callout>
+
+## 1. Forensics jarayoni
+
+```
+1. Identifikatsiya  — qurilmani topish
+2. Saqlash         — bit-by-bit image olish (originalga tegmaslik)
+3. Tahlil          — image ustida ishlash
+4. Hujjatlash      — har qadamni yozish (chain of custody)
+5. Hisobot         — sud uchun yetkazib bo'ladigan ko'rinishda
+```
+
+**Chain of custody** — har bir qadam, kim, qachon, qaerda qiluvchi yozma yo'l. Bu sudda dalilning ahamiyatini saqlashda muhim.
+
+## 2. Disk image olish
+
+**Asosiy qoida:** originalga tegmaslik. Doim bit-by-bit nusxa olib, **nusxa ustida** ishlash.
+
+### `dd` (klassik)
+
+```bash
+sudo dd if=/dev/sdb of=/forensics/disk-image.dd bs=4M status=progress conv=noerror,sync
+```
+
+- `if` = input file (asli).
+- `of` = output (nusxa).
+- `noerror,sync` — xato bo'lsa to'xtamasdan davom etish (zarar yetgan diskdan).
+
+### `dcfldd` (forensic-friendly)
+
+```bash
+sudo apt install dcfldd
+
+sudo dcfldd if=/dev/sdb of=/forensics/disk-image.dd hash=sha256 hashlog=/forensics/disk.sha256 conv=noerror,sync bs=4M
+```
+
+`dcfldd` — `dd` ning forensic versiyasi. Avtomatik hash hisoblash, log yozish.
+
+### Hash tekshirish
+
+```bash
+# Asl disk hash
+sudo sha256sum /dev/sdb
+
+# Image hash
+sha256sum /forensics/disk-image.dd
+
+# Ikkalasi mos kelishi shart!
+```
+
+Bu kelajakda "image manipulyatsiya qilingan" deyilishidan saqlaydi.
+
+## 3. Write blocker
+
+Yozish bloklovchi — disk'ga yozishni bloklovchi apparat. Forensic ishda majburiy. Apparat write blocker'siz, dasturiy variant:
+
+```bash
+# Diskni read-only mount qilish
+sudo mount -o ro,noexec,noatime /dev/sdb1 /mnt/evidence
+```
+
+## 4. Sleuth Kit + Autopsy
+
+**Sleuth Kit (TSK)** — disk image tahlili uchun CLI vositalar to'plami.
+**Autopsy** — Sleuth Kit ustida grafik interfeys.[¹](https://www.sleuthkit.org/sleuthkit/docs.php)
+
+```bash
+# Parrot'da
+sudo apt install sleuthkit autopsy
+
+# Autopsy ishga tushirish
+autopsy
+```
+
+Brauzer'da [http://localhost:9999/autopsy](http://localhost:9999/autopsy) ochiladi.
+
+### Sleuth Kit CLI buyruqlari
+
+```bash
+# Disk image ichidagi bo'limlar
+mmls /forensics/disk-image.dd
+
+# Fayl tizimi ma'lumotlari
+fsstat -o 2048 /forensics/disk-image.dd
+
+# Fayllarni sanab chiqish (jumladan o'chirilganlar)
+fls -o 2048 -r /forensics/disk-image.dd
+
+# Aniq inode'ni o'qish
+icat -o 2048 /forensics/disk-image.dd 12345 > recovered.bin
+
+# Vaqt chizig'ini yaratish
+mac-time -b body.txt > timeline.txt
+```
+
+### O'chirilgan fayllarni qayta tiklash
+
+```bash
+# foremost — fayl turi bo'yicha qayta tiklash
+sudo apt install foremost
+sudo foremost -i /forensics/disk-image.dd -o /forensics/recovered/
+
+# Yoki photorec
+sudo apt install testdisk
+sudo photorec /forensics/disk-image.dd
+```
+
+## 5. Volatility — xotira tahlili
+
+[Volatility](https://www.volatilityfoundation.org/) — RAM dump tahlili uchun standart.[²](https://www.volatilityfoundation.org/) Misol: hujum vaqtida RAM olingan bo'lsa, ishlamoqda bo'lgan jarayonlar, ochiq portlar, malware'ni topish mumkin.
+
+```bash
+# Parrot'da
+sudo apt install volatility3
+
+# Yordam
+vol -h
+
+# Image ma'lumotlari (avval — qaysi profil?)
+vol -f /forensics/memory.dmp windows.info
+
+# Ishlayotgan jarayonlar
+vol -f /forensics/memory.dmp windows.pslist
+
+# Aktiv tarmoq ulanishlari
+vol -f /forensics/memory.dmp windows.netscan
+
+# Process'lar daraxti
+vol -f /forensics/memory.dmp windows.pstree
+
+# Tarmoq qatlamida
+vol -f /forensics/memory.dmp windows.netstat
+
+# Malware tahlili
+vol -f /forensics/memory.dmp windows.malfind
+```
+
+Linux uchun ham profil mavjud (`linux.pslist`, `linux.bash` — bash history) — lekin Linux kernel versiyasiga mos profilni topish kerak.
+
+## 6. Boshqa foydali vositalar
+
+| Vosita | Maqsad |
+|---|---|
+| **bulk_extractor** | Email, URL, kredit karta raqamlarini avtomatik topish |
+| **strings** | Binar fayldan o'qiladigan matnni olish |
+| **exiftool** | Rasm metadata'si (joy, kamera, vaqt) |
+| **binwalk** | Firmware tahlili — embedded fayllar |
+| **steghide** | Steganografiya (rasmda yashirin xabar) |
+| **chkrootkit / rkhunter** | Tizimda rootkit qidiruv |
+
+## 7. Live tahlil (system on)
+
+Ba'zan tizim hali ishlamoqda — RAM olish va asosiy ma'lumot yig'ish:
+
+```bash
+# RAM dump (Linux)
+sudo apt install lime-forensics-dkms
+
+# Kernel module yuklash
+sudo insmod /lib/modules/$(uname -r)/extra/lime.ko \
+    "path=/tmp/memory.dmp format=lime"
+
+# RAM yozildi — /tmp/memory.dmp
+```
+
+Volatility bilan tahlil qilish mumkin.
+
+## 8. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `sudo dd if=<disk> of=<image>` | Bit-by-bit nusxa |
+| `dcfldd hash=sha256` | Hash bilan nusxa |
+| `sha256sum` | Yaxlitlik tekshirish |
+| `mmls <image>` | Bo'limlar ro'yxati |
+| `fls -r <image>` | Fayllar (o'chirilganlar bilan) |
+| `foremost -i <image>` | Fayl qayta tiklash |
+| `vol -f <mem> windows.pslist` | Volatility jarayonlar |
+| `autopsy` | GUI tahlil |
+
+## 9. Eng tez-tez uchraydigan xatolar
+
+- **Originalga to'g'ridan-to'g'ri ishlash** — chain of custody buziladi, dalil yaroqsiz bo'ladi.
+- **Hash olmaslik** — image manipulyatsiya bo'lganligini isbotlash mumkin emas.
+- **Write blocker'siz mount** — disk'ga avtomatik yozish (modification time o'zgaradi).
+- **Live tahlilda RAM yo'qotish** — kompyuterni o'chirsangiz, RAM tozalanadi.
+- **Volatility profil noto'g'ri** — yadro versiyasiga mos kelmaydigan profil — natija yo'q.
+
+## 10. Eng yaxshi amaliyot
+
+- **Doim ikki nusxa** — bittasi ish uchun, bittasi backup.
+- **Hash boshida va oxirida** — manipulyatsiya yo'qligini isbotlash.
+- **Chain of custody log** — yozma, har qadam.
+- **Write blocker** — fizik yoki dasturiy.
+- **Tahlil read-only** mount yoki image'da.
+- **Hujjatlar** — sudga yetkazib bo'ladigan formatda.
+- **Sertifikat** — bu sohada professional ish uchun (GCFA, EnCase, AccessData).
+
+## 11. Bilim sinovi
+
+**Savol 1.** Forensics'ning asosiy qoidasi:
+
+- a) Tez tahlil qilish
+- b) Originalga tegmaslik (read-only ishlash)
+- c) Hammasini avtomatik vositalar bilan
+- d) Tezda hisobot tayyorlash
+
+<Callout type="success" title="Javob">
+**(b)** Original dalil — bu eng muhim narsa. Bit-by-bit nusxa olib, nusxa ustida ishlash.[¹](https://www.sleuthkit.org/sleuthkit/docs.php)
+</Callout>
+
+**Savol 2.** Volatility nima uchun ishlatiladi?
+
+- a) Disk tahlili
+- b) RAM (xotira) dump tahlili
+- c) Tarmoq trafigi
+- d) Email shifrlash
+
+<Callout type="success" title="Javob">
+**(b)** RAM tahlili — Volatility'ning asosiy maqsadi.[²](https://www.volatilityfoundation.org/)
+</Callout>
+
+## 12. Mashq
+
+1. (O'z labda — eski USB bilan) `sudo dd if=/dev/sdX of=/tmp/test-image.dd bs=4M status=progress` — kichik USB'ni nusxa qiling.
+2. `sha256sum /tmp/test-image.dd` — hash hisoblang.
+3. `mmls /tmp/test-image.dd` — qaysi bo'limlar bor?
+4. `fls -r -o <offset> /tmp/test-image.dd | head -20` — qaysi fayllar?
+5. (Tahlil) Autopsy'ni `autopsy` orqali ochib, image'ni import qiling.
+
+## Manbalar
+
+1. Sleuth Kit + Autopsy. [https://www.sleuthkit.org/sleuthkit/docs.php](https://www.sleuthkit.org/sleuthkit/docs.php)
+2. Volatility Foundation. [https://www.volatilityfoundation.org/](https://www.volatilityfoundation.org/)
+3. NIST — Computer Forensics Tool Testing. [https://www.nist.gov/itl/ssd/software-quality-group/computer-forensics-tool-testing-program-cftt](https://www.nist.gov/itl/ssd/software-quality-group/computer-forensics-tool-testing-program-cftt)
+
+## Keyingi qadam
+
+Tabriklaymiz! Parrot OS bo'limini tugatdingiz. Endi boshqa distributivlarni ko'ring:
+
+- 👉 [Manjaro](/manjaro/introduction)
+- 👉 [NixOS](/nixos/introduction)

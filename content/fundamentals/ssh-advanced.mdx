@@ -1,0 +1,583 @@
+---
+title: "SSH advanced — tunneling, jump hosts, config"
+description: "SSH'ning kuchli xususiyatlari — port forwarding, SOCKS proxy, jump hosts, ProxyCommand, sshfs."
+order: 108
+level: "advanced"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/ssh"
+learning_objectives:
+  - "Local va remote port forwarding"
+  - "SOCKS proxy yaratish"
+  - "Jump host (ProxyJump) bilan ishlash"
+  - "~/.ssh/config kuchli sozlamalari"
+  - "sshfs bilan remote filesystem mount"
+tags: ["advanced", "ssh", "tunneling", "port-forwarding", "sshfs"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "OpenSSH — ssh(1)"
+    url: "https://man.openbsd.org/ssh.1"
+  - title: "OpenSSH — ssh_config(5)"
+    url: "https://man.openbsd.org/ssh_config.5"
+  - title: "ArchWiki — SSH"
+    url: "https://wiki.archlinux.org/title/OpenSSH"
+---
+
+SSH faqat shell ulanish emas — bu **butun bir tarmoq infratuzilmasi**. Tunneling orqali firewall'ni aylanib o'tish, jump host orqali ichki tarmoqqa kirish, SOCKS proxy bilan brauzer trafigi — bu darsda bularning hammasini o'rganamiz.[¹](https://man.openbsd.org/ssh.1)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Local va remote port forwarding (`-L`, `-R`).
+- Dynamic forwarding (SOCKS proxy, `-D`).
+- Jump hosts (`-J`, ProxyJump).
+- `~/.ssh/config` ilg'or sozlamalari.
+- `sshfs` orqali remote filesystem.
+- ControlMaster — ulanishni qayta ishlatish.
+</Callout>
+
+## 1. Local port forwarding — `-L`
+
+**Local PORT remote'ga uzatadi.**
+
+```bash
+ssh -L LOCAL_PORT:TARGET_HOST:TARGET_PORT user@gateway
+```
+
+Misol — remote MySQL'ga kirish (firewall orqasida):
+
+```bash
+ssh -L 3306:localhost:3306 user@server.com
+```
+
+Endi sizning `localhost:3306` — bu server.com'dagi `localhost:3306` (server tarmog'ida `localhost`).
+
+```bash
+# Mahalliy MySQL klient
+mysql -h 127.0.0.1 -P 3306 -u root -p
+# server'dagi MySQL'ga ulanasiz
+```
+
+### Boshqa xost orqali
+
+```bash
+# `gateway` orqali `database.internal`'ga
+ssh -L 5432:database.internal:5432 user@gateway
+
+# Mahalliy PostgreSQL klient
+psql -h 127.0.0.1 -p 5432 -U postgres
+```
+
+### Boshqa tarmoq interfeysidan ham qabul qilish
+
+Default'da `-L` faqat localhost'da tinglaydi. Hamma interfeyslar uchun:
+
+```bash
+ssh -L 0.0.0.0:3306:localhost:3306 user@server.com
+# Yoki sshd_config'da GatewayPorts yes
+```
+
+## 2. Remote port forwarding — `-R`
+
+**Remote PORT mahalliyga uzatadi.**
+
+```bash
+ssh -R REMOTE_PORT:LOCAL_HOST:LOCAL_PORT user@server
+```
+
+Misol — local'dagi web-server'ni public'ga ko'rsatish:
+
+```bash
+# Local'da web-server 3000-portda
+python3 -m http.server 3000
+
+# Server'da 8080-portni mahalliy 3000'ga
+ssh -R 8080:localhost:3000 user@public.server.com
+```
+
+Endi `public.server.com:8080` — sizning lokal `3000` portga yuboradi.
+
+**Foydali:**
+
+- Lokal dev server'ni demo uchun ko'rsatish.
+- Firewall orqasidagi xizmatga remote tomondan kirish.
+- Webhook'ni lokal'da sinab ko'rish.
+
+## 3. Dynamic forwarding — SOCKS proxy (`-D`)
+
+`-D` — barcha trafikni SOCKS proxy orqali server'dan o'tkazish.
+
+```bash
+ssh -D 1080 user@server.com
+```
+
+Endi local:1080 — SOCKS5 proxy.
+
+Brauzer sozlash:
+
+- Manual proxy → SOCKS5 → 127.0.0.1:1080.
+
+Yoki Firefox: SOCKS Proxy → `127.0.0.1`, `1080`.
+
+Endi barcha brauzer trafigi server orqali. Foydali:
+
+- Geo-bloklangan saytlarga kirish.
+- Public Wi-Fi'da xavfsizroq.
+- Korporativ tarmoqdan tashqaridagi xizmatlarga kirish.
+
+`curl` bilan:
+
+```bash
+curl --socks5 127.0.0.1:1080 https://example.com
+```
+
+## 4. Background va `-N` flag
+
+```bash
+# Background, shell ochmaslik
+ssh -fN -L 3306:localhost:3306 user@server.com
+
+# -f — background
+# -N — buyruq bajarmaslik (faqat tunnel)
+```
+
+Yopish:
+
+```bash
+# PID topish
+pgrep -f "ssh.*server.com"
+
+# Kill
+kill <PID>
+```
+
+## 5. Jump host — `-J` / ProxyJump
+
+Ko'pincha ichki server'ga **bastion** orqali kirish kerak:
+
+```
+[Sizning PC] → [Bastion (jump)] → [Internal Server]
+```
+
+### Klassik (eski) yo'l
+
+```bash
+ssh -J user@bastion.example.com user@internal.example.com
+```
+
+### Yoki `ProxyCommand` (yana ham klassik)
+
+```bash
+ssh -o ProxyCommand="ssh -W %h:%p user@bastion" user@internal
+```
+
+### `~/.ssh/config` orqali
+
+```
+Host bastion
+    Hostname bastion.example.com
+    User myname
+
+Host internal
+    Hostname 10.0.1.50
+    User myname
+    ProxyJump bastion
+```
+
+Endi:
+
+```bash
+ssh internal
+# Avtomatik bastion orqali
+```
+
+Ko'p sakrash:
+
+```
+Host server3
+    ProxyJump bastion1,bastion2
+```
+
+## 6. `~/.ssh/config` — kuchli sozlamalar
+
+`~/.ssh/config` — SSH'ning eng kuchli xususiyati.[²](https://man.openbsd.org/ssh_config.5)
+
+```
+# Global default
+Host *
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    Compression yes
+    HashKnownHosts yes
+    AddKeysToAgent yes
+
+# Production server
+Host prod
+    Hostname production.example.com
+    User admin
+    Port 2222
+    IdentityFile ~/.ssh/keys/prod_ed25519
+    ForwardAgent yes
+
+# Bastion
+Host bastion
+    Hostname bastion.example.com
+    User myname
+    IdentityFile ~/.ssh/keys/bastion_ed25519
+
+# Internal cluster
+Host db-*
+    User postgres
+    ProxyJump bastion
+    IdentityFile ~/.ssh/keys/db_ed25519
+
+# Github
+Host github.com
+    User git
+    IdentityFile ~/.ssh/keys/github_ed25519
+    IdentitiesOnly yes
+
+# Eski server (zaif algoritm)
+Host legacy
+    Hostname legacy.example.com
+    KexAlgorithms +diffie-hellman-group1-sha1
+    HostKeyAlgorithms +ssh-rsa
+```
+
+### Foydali parametrlar
+
+| Parametr | Maqsad |
+|---|---|
+| `Hostname` | Haqiqiy DNS yoki IP |
+| `User` | Login |
+| `Port` | SSH port (default 22) |
+| `IdentityFile` | Private key |
+| `ProxyJump` | Jump host |
+| `ForwardAgent` | SSH agent forwarding |
+| `LocalForward` | -L analog |
+| `RemoteForward` | -R analog |
+| `DynamicForward` | -D analog |
+| `ServerAliveInterval` | Har N soniyada keep-alive |
+| `Compression yes` | Gzip siqish (sekin tarmoqda foydali) |
+| `IdentitiesOnly yes` | Faqat ko'rsatilgan key (boshqalarni sinamaslik) |
+
+## 7. `LocalForward` config orqali
+
+```
+Host db-tunnel
+    Hostname server.example.com
+    User admin
+    LocalForward 3306 localhost:3306
+    LocalForward 5432 db.internal:5432
+```
+
+```bash
+ssh db-tunnel
+# Endi:
+# 127.0.0.1:3306 → server'dagi localhost:3306
+# 127.0.0.1:5432 → server'dan db.internal:5432
+```
+
+## 8. SSH Agent — kalit boshqaruvi
+
+SSH key passphrase bilan bo'lsa, har ulanishda parol so'raydi. `ssh-agent` — uni eslab qoladi.
+
+```bash
+# Agent ishga tushgan
+eval $(ssh-agent)
+
+# Kalitni qo'shish
+ssh-add ~/.ssh/id_ed25519
+
+# Yoki barcha standart kalitlar
+ssh-add
+
+# Ro'yxat
+ssh-add -l
+
+# Hammasini o'chirish
+ssh-add -D
+```
+
+Modern dasktop muhitlar (GNOME, KDE) ssh-agent'ni avtomatik boshqaradi.
+
+### Agent forwarding (`-A` yoki `ForwardAgent yes`)
+
+```bash
+# Local'dan bastion'ga, bastion'dan internal'ga — bir agent bilan
+ssh -A bastion
+# Bastion ichidan
+ssh internal    # local kalitlar mavjud bo'ladi
+```
+
+**Xavfsizlik:** Agent forwarding faqat ishonchli bastion'larga. Aks holda — bastion sizning kalitlaringizdan foydalanishi mumkin.
+
+## 9. ControlMaster — ulanishni qayta ishlatish
+
+SSH ulanish o'rnatish sekin. ControlMaster — bir ulanishni qayta ishlatish:
+
+```
+# ~/.ssh/config
+Host *
+    ControlMaster auto
+    ControlPath ~/.ssh/sockets/%r@%h:%p
+    ControlPersist 10m
+```
+
+```bash
+mkdir -p ~/.ssh/sockets
+```
+
+Endi birinchi `ssh server` — ulanish o'rnatadi. Keyingi `ssh server` — bir xil socket orqali (sub-second).
+
+`ControlPersist 10m` — sessiya yopilgandan keyin 10 daqiqa kutadi.
+
+## 10. `sshfs` — remote filesystem mount
+
+`sshfs` — SSH orqali remote katalog'ni mahalliy filesystem kabi ulash.
+
+```bash
+sudo apt install sshfs
+
+# Mount
+mkdir -p ~/mnt/server
+sshfs user@server.com:/home/user ~/mnt/server
+
+# Endi mahalliy filesystem
+ls ~/mnt/server
+nano ~/mnt/server/document.txt
+
+# Unmount
+fusermount -u ~/mnt/server
+```
+
+### `~/.ssh/config` bilan
+
+```
+Host server
+    Hostname server.example.com
+    User myname
+    IdentityFile ~/.ssh/id_ed25519
+```
+
+```bash
+sshfs server:/home/myname ~/mnt/server
+```
+
+## 11. X11 forwarding — remote GUI
+
+```bash
+ssh -X user@server.com
+# Endi server'da `firefox`, `gimp` va boshqa GUI ilovalar mahalliy ekranda
+```
+
+`-X` — X11 forwarding.
+
+`-Y` — "trusted" X11 forwarding (kamroq xavfsiz, lekin tezroq).
+
+`~/.ssh/config`:
+
+```
+Host server
+    ForwardX11 yes
+    ForwardX11Trusted yes
+```
+
+## 12. Misol — to'liq DevOps workflow
+
+```
+# ~/.ssh/config
+Host bastion
+    Hostname bastion.company.com
+    User devops
+    IdentityFile ~/.ssh/keys/bastion_ed25519
+
+Host prod-web-*
+    User deploy
+    ProxyJump bastion
+    IdentityFile ~/.ssh/keys/prod_ed25519
+    ControlMaster auto
+    ControlPath ~/.ssh/sockets/%r@%h:%p
+    ControlPersist 10m
+
+Host prod-db
+    Hostname db.internal
+    User postgres
+    ProxyJump bastion
+    LocalForward 5432 localhost:5432
+```
+
+```bash
+# Web server'ga ulanish
+ssh prod-web-1
+
+# Database'ga port forwarding bilan
+ssh -N prod-db &
+psql -h localhost -p 5432 -U postgres
+```
+
+## 13. Foydali variantlar
+
+### SSH key fingerprint
+
+```bash
+ssh-keygen -lf ~/.ssh/id_ed25519.pub
+# 256 SHA256:abc... me@host (ED25519)
+```
+
+### Server fingerprint (avval ulanmasdan)
+
+```bash
+ssh-keyscan -t ed25519 server.com
+```
+
+### `known_hosts` ni tozalash (xost o'zgarganda)
+
+```bash
+ssh-keygen -R server.example.com
+```
+
+### Verbose debug
+
+```bash
+ssh -v user@server     # ko'p
+ssh -vv user@server    # ko'proq
+ssh -vvv user@server   # eng ko'p
+```
+
+## 14. Xavfsizlik
+
+`/etc/ssh/sshd_config`:
+
+```
+# Asosiy
+Port 2222                          # standart 22 dan boshqa
+PermitRootLogin no
+PasswordAuthentication no          # faqat kalit
+PubkeyAuthentication yes
+PermitEmptyPasswords no
+MaxAuthTries 3
+LoginGraceTime 30
+
+# Ruxsat
+AllowUsers ali bob
+
+# Tarmoq cheklovlari
+AllowGroups sshusers
+DenyUsers root
+```
+
+```bash
+sudo systemctl reload ssh
+```
+
+## 15. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `ssh -L LOCAL:HOST:PORT user@gw` | Local port forward |
+| `ssh -R REMOTE:HOST:PORT user@server` | Remote port forward |
+| `ssh -D PORT user@server` | SOCKS proxy |
+| `ssh -J jump user@target` | Jump host |
+| `ssh -fN ...` | Background tunnel |
+| `ssh -A user@host` | Agent forwarding |
+| `ssh -X user@host` | X11 forwarding |
+| `ssh-add ~/.ssh/key` | Agent'ga kalit qo'shish |
+| `sshfs user@host:dir local-dir` | Remote filesystem mount |
+| `ssh-keygen -lf key.pub` | Kalit fingerprint |
+| `ssh-keygen -R host` | known_hosts'dan o'chirish |
+| `ssh -v` | Verbose debug |
+
+## 16. Eng tez-tez uchraydigan xatolar
+
+- **Port band** — `bind: Address already in use`. Boshqa SSH session yoki dastur shu portni ishlatadi.
+- **`-L 0.0.0.0`** — diqqat, hamma uchun tinglaydi. Faqat ishonchli tarmoqlarda.
+- **Agent forwarding bilan bastion** — bastion'da yomon kod sizning kalitlardan foydalanishi mumkin. Faqat ishonchli serverda.
+- **ControlMaster muammosi** — agar bir sessiya muvaffaqiyatsiz tugasa, socket fayl qoldi. `rm ~/.ssh/sockets/*` orqali tozalash.
+- **`StrictHostKeyChecking` xato** — server kalit o'zgargan (server qayta o'rnatildi yoki MITM). Tekshirib ko'ring.
+- **Tunnel ko'rinmaydi** — `ss -tnlp | grep <port>` orqali tekshiring — tunnel hali aktivmi?
+
+## 17. Eng yaxshi amaliyot
+
+- **`~/.ssh/config`'ni doim ishlating** — har ulanish uchun uzun buyruq emas.
+- **Har xost uchun alohida kalit** (`IdentityFile`) — bir kalit kompromat bo'lsa, faqat bitta server.
+- **`IdentitiesOnly yes`** — agent ko'p kalit bilan to'ldirilgan bo'lsa, MaxAuthTries dan o'tib ketmaslik uchun.
+- **`ControlMaster`** — har ulanishni tezlashtirish.
+- **Agent forwarding faqat ishonchli serverda.**
+- **Server kalitini yodda tutish** — `ssh-keyscan` bilan tasdiqlash.
+- **Logger uchun verbose** — `ssh -vvv` debug paytida.
+
+## 18. Mashqlar
+
+1. **`~/.ssh/config` yaratish:** 1-2 ta server uchun entry yarating. `ssh <alias>` bilan ulaning.
+2. **Local forward:** Local'dagi nginx (port 80) ni `-L 8080:localhost:80` orqali boshqa portga.
+3. **SOCKS:** `ssh -D 1080 server` qiling. Firefox'ni SOCKS5 `127.0.0.1:1080` ga sozlang. [whatismyip.com](https://www.whatismyip.com) — server IP'sini ko'rsatadimi?
+4. **ControlMaster:** `~/.ssh/config`'ga qo'shing. Bitta `ssh server` qiling, so'ng yana — qancha tez?
+5. **sshfs:** `sshfs user@server:/home/user ~/mnt/server` — mahalliy katalogda server fayllari ko'rinadimi?
+6. **Tunnel test:** `ssh -fN -L 5432:localhost:5432 server`. `ss -tnlp | grep 5432` — tunnel aktivmi?
+
+## 19. Bilim sinovi
+
+**Savol 1.** `ssh -L 8080:example.com:80 server` nima qiladi?
+
+- a) Local 8080-port → server orqali example.com:80'ga
+- b) Server 8080-port → mahalliy 80'ga
+- c) example.com 80-port → server'ga
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(a)** Local forward: local port → server orqali target HOST:PORT.[¹](https://man.openbsd.org/ssh.1)
+</Callout>
+
+**Savol 2.** `-D 1080` nima yaratadi?
+
+- a) Local web-server
+- b) SOCKS proxy 1080-portda
+- c) HTTP proxy
+- d) Tunnel
+
+<Callout type="success" title="Javob">
+**(b)** Dynamic forwarding — SOCKS5 proxy.
+</Callout>
+
+**Savol 3.** ProxyJump (`-J`) qachon kerak:
+
+- a) Tezroq ulanish
+- b) Ichki server'ga bastion orqali ulanish (sizdan to'g'ridan-to'g'ri ko'rinmaydi)
+- c) Tunnel uchun
+- d) Faqat root uchun
+
+<Callout type="success" title="Javob">
+**(b)** Bastion / jump host — multi-hop.
+</Callout>
+
+**Savol 4.** ControlMaster nima qiladi?
+
+- a) Server'ni boshqarish
+- b) Bitta SSH ulanishni qayta ishlatish (tezroq subsequent connections)
+- c) Asosiy kalit
+- d) Multi-user SSH
+
+<Callout type="success" title="Javob">
+**(b)** Master ulanish socket orqali sub-second qayta foydalanish.
+</Callout>
+
+**Savol 5.** sshfs ni unmount qilish:
+
+- a) `umount`
+- b) `fusermount -u <katalog>`
+- c) `sshfs -u`
+- d) `eject`
+
+<Callout type="success" title="Javob">
+**(b)** `fusermount -u` — FUSE filesystem'ni unmount.
+</Callout>
+
+## Manbalar
+
+1. OpenSSH — ssh(1). [https://man.openbsd.org/ssh.1](https://man.openbsd.org/ssh.1)
+2. OpenSSH — ssh_config(5). [https://man.openbsd.org/ssh_config.5](https://man.openbsd.org/ssh_config.5)
+3. ArchWiki — SSH. [https://wiki.archlinux.org/title/OpenSSH](https://wiki.archlinux.org/title/OpenSSH)
+
+## Keyingi qadam
+
+👉 [Disk boshqaruvi — fdisk va parted](/fundamentals/disk-management)

@@ -1,0 +1,541 @@
+---
+title: "Python Linux ostida"
+description: "Linux'da Python — versiya boshqaruv, venv, pyenv, pip, poetry va sistem Python."
+order: 143
+level: "intermediate"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/shell"
+learning_objectives:
+  - "System Python vs user Python"
+  - "venv va virtual muhitlar"
+  - "pyenv bilan ko'p versiya"
+  - "pip va poetry — package management"
+tags: ["intermediate", "python", "venv", "pip", "poetry"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Python venv Documentation"
+    url: "https://docs.python.org/3/library/venv.html"
+  - title: "pyenv"
+    url: "https://github.com/pyenv/pyenv"
+  - title: "Poetry"
+    url: "https://python-poetry.org/docs/"
+---
+
+Python — Linux'ning eng keng tarqalgan tili. Lekin "Python o'rnatish" deyilganda — ko'p variantlar bor. Bu darsda har birini tushunamiz va to'g'ri yo'lni tanlaymiz.[¹](https://docs.python.org/3/library/venv.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- System Python — tizim uchun ishlatiladigan.
+- Virtual muhitlar — har loyiha alohida.
+- pyenv — ko'p versiya parallel.
+- pip va modern alternative'lar (poetry, pdm, uv).
+</Callout>
+
+## 1. System Python — tegmang
+
+Linux ko'p tizim utilitalari Python'da yozilgan (`apt`, `yum`, `firewalld`). System Python'ni o'zgartirish — tizimni buzish.
+
+```bash
+# Tizim Python
+which python3
+# /usr/bin/python3
+
+# Versiya
+python3 --version
+```
+
+**Hech qachon:**
+
+- `sudo pip install ...` — system'ga global package o'rnatish.
+- `pip install --user` — odatda OK, lekin chalkashlikka olib kelishi mumkin.
+- System Python'ni `apt remove python3` — tizimni buzish.
+
+## 2. Yangi loyihalar uchun — `venv`
+
+`venv` — har Python loyiha uchun alohida muhit.
+
+```bash
+# Loyiha katalogida
+cd myproject
+
+# Virtual muhit yaratish
+python3 -m venv .venv
+
+# Yoki Python versiyasi bilan
+python3.11 -m venv .venv
+
+# Aktivlash
+source .venv/bin/activate
+
+# Endi `python` va `pip` virtual muhitdan
+which python
+# /home/ali/myproject/.venv/bin/python
+
+# Package o'rnatish
+pip install requests
+
+# Deaktivatsiya
+deactivate
+```
+
+`.venv/` — Git'da gitignore'da. Har loyiha o'z muhitiga ega.
+
+## 3. `requirements.txt`
+
+```bash
+# Hozirgi package'lar ro'yxati
+pip freeze > requirements.txt
+
+# Boshqa joyda
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Tipik `requirements.txt`:
+
+```
+requests==2.31.0
+flask==3.0.0
+pytest==7.4.3
+```
+
+## 4. pyenv — ko'p versiya
+
+Ba'zan loyiha Python 3.9 talab qiladi, tizimda 3.12. **pyenv** — ko'p versiyani parallel.[²](https://github.com/pyenv/pyenv)
+
+```bash
+# Bog'liqliklar
+sudo apt install make build-essential libssl-dev zlib1g-dev \
+    libbz2-dev libreadline-dev libsqlite3-dev libffi-dev liblzma-dev
+
+# pyenv o'rnatish
+curl https://pyenv.run | bash
+
+# Shell sozlash
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+
+source ~/.bashrc
+```
+
+### Versiya boshqaruv
+
+```bash
+# Mavjud versiyalar
+pyenv install --list
+
+# O'rnatish
+pyenv install 3.11.5
+pyenv install 3.12.0
+
+# Hammasi
+pyenv versions
+
+# Global default
+pyenv global 3.12.0
+
+# Per-project
+cd myproject
+pyenv local 3.11.5
+# .python-version fayli yaratiladi
+
+# Test
+python --version
+# Python 3.11.5
+```
+
+`pyenv` `~/.pyenv/versions/3.11.5/bin/python` orqali Python ishga tushiradi (PATH oldindan).
+
+## 5. pyenv + venv
+
+```bash
+cd myproject
+
+# Aniq versiya
+pyenv local 3.11.5
+
+# venv
+python -m venv .venv
+source .venv/bin/activate
+
+# Endi bu loyiha:
+# - Python 3.11.5 ishlatadi
+# - Package'lar .venv ichida izolyatsiya
+```
+
+## 6. Poetry — modern dependency manager
+
+[Poetry](https://python-poetry.org/) — npm/cargo kabi modern Python package manager.[³](https://python-poetry.org/docs/)
+
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+
+# PATH
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Yangi loyiha
+
+```bash
+poetry new myproject
+cd myproject
+ls
+# pyproject.toml
+# myproject/__init__.py
+# tests/
+```
+
+### Mavjud loyiha
+
+```bash
+cd myproject
+poetry init
+# Interaktiv savol-javob
+```
+
+`pyproject.toml`:
+
+```toml
+[tool.poetry]
+name = "myproject"
+version = "0.1.0"
+description = "My project"
+authors = ["Ali <ali@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.31.0"
+flask = "^3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+black = "^23.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+```
+
+### Buyruqlar
+
+```bash
+# Package qo'shish
+poetry add requests
+poetry add --group dev pytest
+
+# O'rnatish (yangi machine'da)
+poetry install
+
+# Shell aktivatsiya
+poetry shell
+
+# Yoki buyruq run
+poetry run python script.py
+poetry run pytest
+
+# Update
+poetry update
+
+# Lock file
+# poetry.lock — exact versions, commit'da
+```
+
+## 7. `uv` — eng modern
+
+[`uv`](https://github.com/astral-sh/uv) — Astral (ruff'ning yaratuvchilari) tomonidan Rust'da. **Eng tez** Python package manager.
+
+```bash
+# O'rnatish
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+```bash
+# venv
+uv venv
+
+# Package o'rnatish (10-100x tezroq pip'dan)
+uv pip install requests
+
+# Aktivatsiya
+source .venv/bin/activate
+```
+
+## 8. Misol — to'liq Python loyiha
+
+```bash
+# pyenv + Python 3.12
+pyenv install 3.12.0
+pyenv local 3.12.0
+
+# Poetry
+poetry init -n
+poetry add requests flask
+poetry add --group dev pytest black
+
+# Source code
+mkdir myapp
+touch myapp/__init__.py myapp/main.py
+
+# main.py
+cat > myapp/main.py <<'EOF'
+import requests
+
+def get_user(user_id):
+    r = requests.get(f"https://api.example.com/users/{user_id}")
+    return r.json()
+
+if __name__ == "__main__":
+    print(get_user(1))
+EOF
+
+# Run
+poetry run python -m myapp.main
+
+# Test
+mkdir tests
+touch tests/__init__.py
+cat > tests/test_main.py <<'EOF'
+from myapp.main import get_user
+
+def test_basic():
+    assert True
+EOF
+
+poetry run pytest
+```
+
+## 9. CLI — `argparse`
+
+```python
+#!/usr/bin/env python3
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser(description="Misol CLI")
+    parser.add_argument("--name", required=True, help="Ismingiz")
+    parser.add_argument("--age", type=int, default=18, help="Yoshingiz")
+    parser.add_argument("-v", "--verbose", action="store_true")
+
+    args = parser.parse_args()
+
+    if args.verbose:
+        print(f"Verbose: ON")
+
+    print(f"Salom, {args.name}! Sizning yoshingiz: {args.age}")
+
+if __name__ == "__main__":
+    main()
+```
+
+```bash
+chmod +x script.py
+./script.py --name Ali --age 25 -v
+```
+
+## 10. `click` — kuchli CLI framework
+
+```bash
+pip install click
+```
+
+```python
+import click
+
+@click.command()
+@click.option("--name", required=True, help="Ism")
+@click.option("--age", default=18, type=int)
+@click.option("-v", "--verbose", is_flag=True)
+def hello(name, age, verbose):
+    """Salomlashish skript."""
+    if verbose:
+        click.echo("Verbose mode")
+    click.echo(f"Salom, {name}! Yosh: {age}")
+
+if __name__ == "__main__":
+    hello()
+```
+
+## 11. systemd service Python uchun
+
+```ini
+# /etc/systemd/system/myapp.service
+[Unit]
+Description=Python App
+After=network.target
+
+[Service]
+Type=simple
+User=myapp
+WorkingDirectory=/opt/myapp
+Environment="PATH=/opt/myapp/.venv/bin"
+ExecStart=/opt/myapp/.venv/bin/python -m myapp
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now myapp
+```
+
+## 12. Python paket bo'lib chiqarish
+
+`setup.py` yoki modern `pyproject.toml`:
+
+```toml
+[project]
+name = "mytool"
+version = "1.0.0"
+dependencies = ["requests", "click"]
+
+[project.scripts]
+mytool = "mytool.cli:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+```
+
+```bash
+pip install build
+python -m build
+
+# Natija: dist/mytool-1.0.0.tar.gz va .whl
+```
+
+PyPI'ga yuborish:
+
+```bash
+pip install twine
+twine upload dist/*
+```
+
+Lokal o'rnatish:
+
+```bash
+pip install -e .          # editable mode (dev uchun)
+# Yoki
+pip install dist/mytool-1.0.0-py3-none-any.whl
+```
+
+## 13. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `python3 -m venv .venv` | Virtual muhit |
+| `source .venv/bin/activate` | Aktivatsiya |
+| `deactivate` | Chiqish |
+| `pip install <pkg>` | Package |
+| `pip freeze > req.txt` | Versiyalar saqlash |
+| `pip install -r req.txt` | Yuklab olish |
+| `pyenv install 3.X.Y` | Python versiya |
+| `pyenv local 3.X.Y` | Per-project |
+| `poetry init` | Yangi loyiha |
+| `poetry add <pkg>` | Package |
+| `poetry install` | Lock'dan o'rnatish |
+| `poetry run python ...` | Aktivatsiyasiz |
+| `uv venv && uv pip install ...` | Modern, tez |
+
+## 14. Eng tez-tez uchraydigan xatolar
+
+- **`sudo pip install`** — system Python'ga global, tizimni buzadi.
+- **Virtual muhit aktivatsiya unutish** — system Python'ga o'rnatadi.
+- **`requirements.txt`'da version yo'q** — `requests` va `requests==2.31.0` farqi katta (reproducibility).
+- **`pyenv install` xato** — build dependencies yo'q (`make`, `openssl-dev`).
+- **`.venv` Git'da** — `.gitignore`'ga qo'shing (faqat `requirements.txt` yoki `poetry.lock` commit).
+- **Python 2 va 3 chalkashlik** — `python` yoki `python3`?
+
+## 15. Eng yaxshi amaliyot
+
+- **System Python'ga tegmang.**
+- **Har loyiha alohida `.venv`.**
+- **`requirements.txt` yoki `poetry.lock`** commit qilinsin.
+- **Aniq versiyalar** — `==X.Y.Z` reproducibility uchun.
+- **pyenv** ko'p loyiha — har xil Python versiyasi.
+- **Poetry yoki uv** modern dependency management.
+- **`pre-commit`** — lint, format avtomatik.
+- **systemd service'da `.venv` Python yo'li to'liq.**
+- **PyPI'ga publish** loyihangizni boshqalar bilan ulashish uchun.
+
+## 16. Mashqlar
+
+1. **venv:** Yangi katalog yarating, `python3 -m venv .venv`, aktivlang, `pip install requests`.
+2. **freeze:** `pip freeze > requirements.txt` — fayl ko'rinishi nima?
+3. **Boshqa joyga:** `requirements.txt`'dan yangi venv'ga `pip install -r`.
+4. **pyenv:** O'rnating va `pyenv install 3.11.0`. `pyenv local 3.11.0` orqali loyihada qo'llang.
+5. **Poetry (ixtiyoriy):** O'rnating va `poetry new myproject` qiling.
+
+## 17. Bilim sinovi
+
+**Savol 1.** `sudo pip install` — yaxshi amaliyot:
+
+- a) Ha
+- b) Yo'q — system Python'ga global, tizimni buzishi mumkin
+- c) Faqat root uchun
+- d) Faqat Ubuntu'da
+
+<Callout type="success" title="Javob">
+**(b)** Hech qachon. `venv` ishlating.[¹](https://docs.python.org/3/library/venv.html)
+</Callout>
+
+**Savol 2.** Bir nechta Python versiya parallel:
+
+- a) `apt install python3.8 python3.9`
+- b) `pyenv` bilan
+- c) Imkonsiz
+- d) Faqat Docker
+
+<Callout type="success" title="Javob">
+**(b)** pyenv eng yaxshi yondashuv.[²](https://github.com/pyenv/pyenv)
+</Callout>
+
+**Savol 3.** Loyiha bog'liqliklarini "lock" qilish (aynan version):
+
+- a) `pip install`
+- b) `pip freeze > requirements.txt` yoki Poetry `poetry.lock`
+- c) `pip lock`
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(b)** Versiyalarni qotirish — reproducibility.
+</Callout>
+
+**Savol 4.** Eng modern va tez Python package manager:
+
+- a) pip
+- b) easy_install
+- c) uv (yoki Poetry)
+- d) conda
+
+<Callout type="success" title="Javob">
+**(c)** `uv` — Rust'da, eng tez. Poetry — keng tarqalgan.
+</Callout>
+
+**Savol 5.** `.venv/` Git'ga commit qilish:
+
+- a) Ha, har vaqt
+- b) Yo'q — `.gitignore`'ga qo'shing, faqat `requirements.txt`/`poetry.lock` commit qiling
+- c) Faqat private repo
+- d) Faqat dev'da
+
+<Callout type="success" title="Javob">
+**(b)** Repository'ni "iflos" qilmaslik.
+</Callout>
+
+## Manbalar
+
+1. Python venv Documentation. [https://docs.python.org/3/library/venv.html](https://docs.python.org/3/library/venv.html)
+2. pyenv. [https://github.com/pyenv/pyenv](https://github.com/pyenv/pyenv)
+3. Poetry. [https://python-poetry.org/docs/](https://python-poetry.org/docs/)
+
+## Keyingi qadam
+
+👉 [Wayland va modern grafik](/fundamentals/wayland-modern)

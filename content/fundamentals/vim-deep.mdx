@@ -1,0 +1,502 @@
+---
+title: "Vim chuqurroq"
+description: "Vim — Unix'ning kuchli matn muharriri — modal editing, registers, plugins va .vimrc."
+order: 127
+level: "intermediate"
+estimated_minutes: 14
+prerequisites:
+  - "/fundamentals/text-editors"
+learning_objectives:
+  - "Vim mode'larini chuqur tushunish"
+  - "Tezkor harakatlar va edits"
+  - "Buffer, window, tab"
+  - ".vimrc va plugin'lar"
+tags: ["intermediate", "vim", "editor", "productivity"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Vim Documentation"
+    url: "https://vimhelp.org/"
+  - title: "vimtutor (built-in)"
+    url: "https://vimhelp.org/usr_01.txt.html"
+  - title: "Practical Vim — Drew Neil"
+    url: "https://pragprog.com/titles/dnvim2/practical-vim-second-edition/"
+---
+
+**Vim** (Vi IMproved) — 1991-yildan beri rivojlanayotgan modal matn muharriri. Boshlanishida qiyin, lekin o'rgangandan keyin **eng tezkor** matn muharriri. SSH terminalda — boshqa alternative yo'q. Bu darsda Vim'ni jiddiy o'rganamiz.[¹](https://vimhelp.org/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Vim mode'lari va falsafasi.
+- Tezkor harakatlar (h/j/k/l, w, b, e, gg, G).
+- Edit komandalar (d, c, y, p).
+- Buffer, window, tab.
+- `.vimrc` va plagin'lar.
+</Callout>
+
+## 1. Vim mode'lari
+
+| Mode | Tugma | Tavsif |
+|---|---|---|
+| **Normal** | (default) | Harakat va komanda |
+| **Insert** | `i`, `a`, `o`, `I`, `A`, `O` | Matn kiritish |
+| **Visual** | `v`, `V`, `Ctrl+v` | Tanlash |
+| **Command-line** | `:` | Ex komandalar |
+| **Replace** | `R` | Almashtirish |
+
+**Asosiy qoida:** Normal mode'da ishlang. Insert mode — faqat kerakli matn yozish vaqti.
+
+```
+[Normal] ─── i, a, o ───▶ [Insert] ─── Esc ───▶ [Normal]
+         ─── v ─────────▶ [Visual] ─── Esc ───▶
+         ─── : ─────────▶ [Command]
+```
+
+## 2. Birinchi qadamlar — `vimtutor`
+
+Eng yaxshi boshlash usuli:
+
+```bash
+vimtutor
+```
+
+30 daqiqalik interaktiv darslik — Vim'da yozilgan.
+
+## 3. Harakat (Normal mode)
+
+```
+        k
+        ↑
+  h ←       → l
+        ↓
+        j
+```
+
+| Tugma | Harakat |
+|---|---|
+| `h j k l` | chap pastga yuqoriga o'ngga |
+| `w` | keyingi so'z boshi |
+| `W` | keyingi WORD (bo'sh joy bilan) |
+| `b` | oldingi so'z boshi |
+| `e` | so'z oxiri |
+| `0` | qator boshi |
+| `^` | birinchi belgi (bo'sh joysiz) |
+| `$` | qator oxiri |
+| `gg` | birinchi qator |
+| `G` | oxirgi qator |
+| `<N>G` | aniq qator (`5G`) |
+| `Ctrl+u` | yarim ekran yuqoriga |
+| `Ctrl+d` | yarim ekran pastga |
+| `Ctrl+f` | to'liq ekran pastga |
+| `Ctrl+b` | yuqoriga |
+| `H` | ekran yuqorisida |
+| `M` | o'rtasi |
+| `L` | ostida |
+| `%` | mos qavs |
+
+## 4. Kiritish — Insert mode
+
+| Tugma | Vazifa |
+|---|---|
+| `i` | Joriy belgidan oldin |
+| `I` | Qator boshida |
+| `a` | Belgidan keyin |
+| `A` | Qator oxirida |
+| `o` | Yangi qator pastda |
+| `O` | Yangi qator yuqorida |
+| `s` | Belgini o'chirib insert |
+| `S` | Qatorni o'chirib insert |
+| `cc` | Qatorni o'chirib insert |
+| `cw` | So'zni o'chirib insert |
+
+## 5. O'chirish va kesib olish
+
+| Tugma | Vazifa |
+|---|---|
+| `x` | Belgini o'chirish |
+| `dd` | Qatorni o'chirish |
+| `dw` | So'zni o'chirish |
+| `d$` yoki `D` | Qator oxirigacha |
+| `d0` | Qator boshigacha |
+| `dG` | Faylning oxirigacha |
+| `dgg` | Faylning boshigacha |
+| `d<harakat>` | Har qanday harakat bilan |
+
+`d` aslida **delete + yank** (kesib olish). `p` bilan paste.
+
+## 6. Yank (nusxa) va paste
+
+| Tugma | Vazifa |
+|---|---|
+| `yy` yoki `Y` | Qatorni nusxa |
+| `yw` | So'z |
+| `y$` | Qator oxirigacha |
+| `p` | Keyingi qatordan paste |
+| `P` | Joriy qator oldin |
+
+## 7. Undo va redo
+
+| Tugma | Vazifa |
+|---|---|
+| `u` | Undo |
+| `Ctrl+r` | Redo |
+| `U` | Qatorni boshlang'ich holatga |
+
+Vim **branch history** — `:undolist` orqali ko'rish.
+
+## 8. Qidirish va almashtirish
+
+```
+/pattern    # pastga qidirish
+?pattern    # yuqoriga
+n           # keyingi
+N           # oldingi
+*           # joriy so'zni pastga
+#           # joriy so'zni yuqoriga
+```
+
+### Substitute
+
+```
+:s/old/new/        # joriy qatorda birinchi
+:s/old/new/g       # joriy qatorda hammasi
+:%s/old/new/g      # butun faylda
+:%s/old/new/gc     # confirm bilan
+
+# Visual'da tanlangan
+:'<,'>s/old/new/g
+```
+
+Regex flag'lar:
+
+```
+:%s/foo\(.\)bar/X\1Y/g    # capture groups
+:%s/^/  /                  # qator boshiga 2 bo'sh joy
+:%s/\s\+$//                # trailing whitespace
+```
+
+## 9. Visual mode
+
+```
+v        # character-wise
+V        # line-wise
+Ctrl+v   # block (column) selection
+```
+
+Tanlangan holatda:
+
+- `d` — o'chirish
+- `y` — yank
+- `c` — change
+- `>` / `<` — indent
+- `u` / `U` — lowercase / UPPERCASE
+- `~` — case toggle
+
+### Block mode misol
+
+```
+Ctrl+v       # block mode
+j j j        # 3 qator pastga
+I            # qator boshida insert (yoki A — oxirda)
+#            # belgi
+Esc          # ⌛ — kutib turing 1-2s
+# Hamma 3 qatorga `#` qo'shildi
+```
+
+## 10. Counters
+
+Ko'p komandalar `<number>` prefiks qabul qiladi:
+
+```
+5dd          # 5 qator o'chirish
+3yy          # 3 qator yank
+10j          # 10 qator pastga
+2w           # 2 so'z keyingi
+.            # oxirgi o'zgarishni qaytarish
+```
+
+## 11. Macro
+
+Murakkab takrorlanuvchi vazifalar uchun:
+
+```
+qa           # 'a' registriga yozish boshlash
+... amal qiling ...
+q            # tugatish
+
+@a           # macro'ni bajarish
+@@           # oxirgi macro
+5@a          # 5 marta
+```
+
+Misol — har qatorga `#` qo'shish:
+
+```
+qa I# Esc j q     # macro 'a' yozildi
+100@a              # 100 qatorga qo'llash
+```
+
+## 12. Buffer, window, tab
+
+### Buffer
+
+Ochilgan har bir fayl — buffer.
+
+```
+:e fayl.txt      # ochish
+:ls              # bufferlar ro'yxati
+:b 2             # buffer 2'ga o'tish
+:bn              # keyingi
+:bp              # oldingi
+:bd              # buffer'ni o'chirish
+```
+
+### Window (split)
+
+```
+:sp              # horizontal split
+:vsp             # vertical split
+Ctrl+w h/j/k/l   # window'lar orasida
+Ctrl+w c         # window yopish
+Ctrl+w o         # boshqalarni yopish
+```
+
+### Tab
+
+```
+:tabnew          # yangi tab
+:tabn            # keyingi tab
+:tabp            # oldingi
+:tabc            # yopish
+gt               # keyingi (normal mode)
+gT               # oldingi
+```
+
+## 13. `:` command-line
+
+```
+:w           # save
+:q           # quit
+:wq yoki :x  # save and quit
+:q!          # majburiy chiqish (saqlamasdan)
+:e!          # diskdagi versiyaga qaytish
+
+:set number  # qator raqamlari
+:set nu      # qisqacha
+:set nonu    # o'chirish
+:set hlsearch    # qidiruv natijasini hilight
+:set ignorecase  # qidirishda case ignore
+:set autoindent  # avtomatik indent
+:set tabstop=4   # tab = 4 spaces
+:set expandtab   # tab → space
+```
+
+## 14. `.vimrc` — sozlash
+
+`~/.vimrc`:
+
+```vim
+" Visual
+set number              " qator raqamlari
+set relativenumber      " nisbiy raqamlar
+set cursorline          " joriy qatorni hilight
+set scrolloff=8         " 8 qator margin
+syntax on               " syntax highlighting
+colorscheme desert      " color scheme
+
+" Indent
+set tabstop=4
+set shiftwidth=4
+set expandtab           " tab → space
+set autoindent
+set smartindent
+
+" Search
+set hlsearch
+set incsearch           " inkremental search
+set ignorecase
+set smartcase           " case sensitive agar uppercase bo'lsa
+
+" Performance
+set lazyredraw
+set ttyfast
+
+" Backup
+set nobackup
+set noswapfile
+
+" Encoding
+set encoding=utf-8
+
+" Key mappings
+let mapleader = ","
+nnoremap <leader>w :w<CR>
+nnoremap <leader>q :q<CR>
+inoremap jj <Esc>       " jj → Esc (Insert mode'dan chiqish)
+
+" Plugins (vim-plug)
+call plug#begin('~/.vim/plugged')
+Plug 'preservim/nerdtree'
+Plug 'tpope/vim-fugitive'
+Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
+Plug 'junegunn/fzf.vim'
+Plug 'sheerun/vim-polyglot'
+Plug 'morhetz/gruvbox'
+call plug#end()
+
+" Theme
+colorscheme gruvbox
+set background=dark
+```
+
+## 15. vim-plug — plagin menejer
+
+```bash
+# O'rnatish
+curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+```
+
+So'ng `.vimrc`'da `Plug` ishlatish va Vim ichida:
+
+```
+:PlugInstall
+:PlugUpdate
+```
+
+### Foydali plagin'lar
+
+| Plagin | Maqsad |
+|---|---|
+| `nerdtree` | File explorer |
+| `fzf` + `fzf.vim` | Tez qidirish |
+| `vim-fugitive` | Git integratsiya |
+| `vim-surround` | Surround edit (`cs"'`) |
+| `vim-commentary` | Comment toggle (`gcc`) |
+| `vim-polyglot` | Syntax highlighting (ko'p til) |
+| `coc.nvim` | LSP, completion |
+
+## 16. Misol — kuchli komanda zanjiri
+
+`functionName(arg1, arg2)` — `arg1` ni `newArg`'ga almashtirish:
+
+```
+f(           " ( ga sakrash
+l            " 1 belgi o'ngga
+ci(          " ( ichidagi narsani change
+newArg, arg2 " yangi yozish
+Esc
+```
+
+## 17. Asosiy buyruqlar va izoh
+
+| Tugma | Vazifa |
+|---|---|
+| `i` / `Esc` | Insert / Normal |
+| `:w` / `:q` / `:wq` | Save / Quit / Save+Quit |
+| `dd` / `yy` / `p` | Delete / Yank / Paste qator |
+| `dw` / `cw` | Delete / Change so'z |
+| `u` / `Ctrl+r` | Undo / Redo |
+| `/pattern` / `n` / `N` | Qidirish |
+| `:%s/old/new/g` | Almashtirish |
+| `gg` / `G` | Birinchi / Oxirgi qator |
+| `v` / `V` / `Ctrl+v` | Visual modes |
+| `>>` / `<<` | Indent |
+| `.` | Oxirgi amalni qaytarish |
+| `:e file` | Fayl ochish |
+| `:sp` / `:vsp` | Split |
+
+## 18. Eng tez-tez uchraydigan xatolar
+
+- **Insert mode'da arrow keys orqali harakat** — sekin va Vim falsafasiga zid. Normal mode'ga chiqib `hjkl` ishlating.
+- **Vim'dan chiqib bo'lmaslik** — `:q!` (majburiy) yoki `:wq` (save + quit). Esc → `:` → `q`.
+- **`Esc` o'rniga `Ctrl+[`** ham ishlaydi (klaviatura layout'iga qulay).
+- **`d` yakkam o'chirish emas** — kesib olish (registr'da saqlanadi). `p`'siz unutmang.
+- **Macro o'rnida `.`** — bitta amal uchun `.` yetarli; macro takrorlanuvchi uchun.
+
+## 19. Eng yaxshi amaliyot
+
+- **`vimtutor`** birinchi marotaba — 30 daqiqalik tajriba.
+- **`.vimrc`** boshida sozlang — productive bo'lish uchun.
+- **`hjkl`** orqali harakat — Insert mode'da arrow keys'ni unuting.
+- **`:w` tez-tez** — fayl yo'qotmaslik.
+- **`u` cheksiz undo** — xato bo'lsa Ctrl+r bilan tiklash.
+- **vim-plug + 5-10 plagin** — kerakli minimum.
+- **`leader` key** (`,` yoki `space`) — qisqartmalar.
+- **Practical Vim kitobi** — keyingi daraja uchun.[³](https://pragprog.com/titles/dnvim2/practical-vim-second-edition/)
+
+## 20. Mashqlar
+
+1. **vimtutor:** `vimtutor` ni boshlang. 30 daqiqada tugating.
+2. **Harakat:** Vim ichida `hjkl`, `w`, `b`, `gg`, `G` ni 5 daqiqa mashq qiling.
+3. **Edit:** Test fayl yarating. `dd`, `dw`, `cw`, `o`, `O`, `p` ni sinab ko'ring.
+4. **Substitute:** Fayl ichida `:%s/foo/bar/g` orqali almashtirish.
+5. **`.vimrc`:** Minimal `.vimrc` yarating. `set number`, `syntax on` qo'shing.
+6. **Macro:** Har qatorga `;` qo'shish uchun macro yozing va 10 qatorga qo'llang.
+7. **vim-plug:** O'rnating va `nerdtree` qo'shing.
+
+## 21. Bilim sinovi
+
+**Savol 1.** Vim'dan chiqish:
+
+- a) `Ctrl+C`
+- b) `:q` yoki `:q!` (majburiy)
+- c) `exit`
+- d) Alt+F4
+
+<Callout type="success" title="Javob">
+**(b)** `:q` (sof) yoki `:q!` (save'siz).
+</Callout>
+
+**Savol 2.** Joriy qatorni o'chirish:
+
+- a) `x`
+- b) `dw`
+- c) `dd`
+- d) `Delete`
+
+<Callout type="success" title="Javob">
+**(c)** `dd` — qator. `x` — bitta belgi.
+</Callout>
+
+**Savol 3.** Vim'da fayl barchasida `foo`ni `bar`ga almashtirish:
+
+- a) `:s/foo/bar/`
+- b) `:%s/foo/bar/g`
+- c) `/foo/bar/g`
+- d) `replace foo bar`
+
+<Callout type="success" title="Javob">
+**(b)** `%` — barcha qatorlar; `g` — har qatorda barchasini.
+</Callout>
+
+**Savol 4.** Normal mode'ga chiqish:
+
+- a) `Ctrl+C`
+- b) `Esc` (yoki `Ctrl+[`)
+- c) `Tab`
+- d) `Enter`
+
+<Callout type="success" title="Javob">
+**(b)** `Esc` — standart.
+</Callout>
+
+**Savol 5.** Undo va redo:
+
+- a) `u` va `Ctrl+r`
+- b) `Ctrl+Z` va `Ctrl+Y`
+- c) `:undo` va `:redo`
+- d) `back` va `forward`
+
+<Callout type="success" title="Javob">
+**(a)** `u` undo, `Ctrl+r` redo.[¹](https://vimhelp.org/)
+</Callout>
+
+## Manbalar
+
+1. Vim Documentation. [https://vimhelp.org/](https://vimhelp.org/)
+2. vimtutor. [https://vimhelp.org/usr_01.txt.html](https://vimhelp.org/usr_01.txt.html)
+3. Practical Vim. [https://pragprog.com/titles/dnvim2/practical-vim-second-edition/](https://pragprog.com/titles/dnvim2/practical-vim-second-edition/)
+
+## Keyingi qadam
+
+👉 [Kron va systemd timer chuqurroq](/fundamentals/cron-vs-systemd-timers)

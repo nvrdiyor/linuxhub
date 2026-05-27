@@ -1,0 +1,53 @@
+---
+title: "Nix qo'llanmasi"
+description: "Nix paket menejerining rasmiy reference manualiga yo'l-yo'riq."
+order: 1
+level: "intermediate"
+estimated_minutes: 3
+prerequisites:
+  - "/nixos/introduction"
+tags: ["nixos", "reference"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Nix Reference Manual"
+    url: "https://nixos.org/manual/nix/stable/"
+---
+
+Nix paket menejerining to'liq texnik reference — [Nix Reference Manual](https://nixos.org/manual/nix/stable/).[¹](https://nixos.org/manual/nix/stable/)
+
+## Asosiy bo'limlar
+
+- **Installation** — Nix'ni o'rnatish.
+- **Package Management** — `nix-env`, `nix-shell`, `nix-build`.
+- **Writing Nix Expressions** — Nix tili.
+- **Advanced Topics** — distributed builds, remote stores.
+- **Command Reference** — `nix`, `nix-store`, `nix-instantiate`.
+- **Builtins** — barcha `builtins.*` funksiyalari.
+
+## Tez topshiriqlar
+
+| Vazifa | Bo'lim |
+|---|---|
+| `nix-env` ishlatish | [Package Management](https://nixos.org/manual/nix/stable/package-management/package-management.html) |
+| Nix tilini o'rganish | [Nix Language](https://nixos.org/manual/nix/stable/language/index.html) |
+| `builtins.fetchurl` | [Built-in Functions](https://nixos.org/manual/nix/stable/language/builtins.html) |
+
+## Yangi `nix` CLI
+
+```bash
+nix run nixpkgs#hello
+nix shell nixpkgs#cowsay
+nix search nixpkgs firefox
+nix flake check
+```
+
+Flake bilan birgalikda ishlatish — yangi standart.
+
+## Manbalar
+
+1. Nix Reference Manual. [https://nixos.org/manual/nix/stable/](https://nixos.org/manual/nix/stable/)
+
+## Keyingi qadam
+
+👉 [Nixpkgs qo'llanmasi](/nixos/reference/nixpkgs-manual)

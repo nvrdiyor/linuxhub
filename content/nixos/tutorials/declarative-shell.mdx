@@ -1,0 +1,188 @@
+---
+title: "Deklarativ shell muhitlari"
+description: "shell.nix fayli bilan loyiha uchun doimiy, takrorlanadigan dasturlash muhiti."
+order: 4
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/nixos/tutorials/reproducible-scripts"
+learning_objectives:
+  - "shell.nix fayli yozish"
+  - "direnv bilan avtomatik yoqish"
+  - "Loyiha bog'liqliklarini yaqqol ko'rsatish"
+tags: ["nixos", "shell", "direnv", "declarative"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "nix.dev — Declarative shell environments"
+    url: "https://nix.dev/tutorials/first-steps/declarative-shell.html"
+  - title: "direnv documentation"
+    url: "https://direnv.net/"
+---
+
+`shell.nix` fayli — loyiha bog'liqliklarini hujjatlovchi va kim loyihada ishlasa, bir xil muhitda ishlashini ta'minlovchi mexanizm.[¹](https://nix.dev/tutorials/first-steps/declarative-shell.html)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `shell.nix` strukturasi.
+- `nix-shell` bilan kirish.
+- `direnv` orqali avtomatik faollashtirish.
+</Callout>
+
+## 1. Asosiy `shell.nix`
+
+Loyiha katalogida `shell.nix` yarating:
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.mkShell {
+  packages = with pkgs; [
+    nodejs_20
+    yarn
+    git
+  ];
+
+  shellHook = ''
+    echo "Loyiha muhitiga xush kelibsiz"
+    echo "Node.js versiyasi: $(node --version)"
+  '';
+}
+```
+
+So'ng:
+
+```bash
+nix-shell
+```
+
+Bu shell ichida `nodejs_20`, `yarn`, `git` mavjud. Chiqgandan keyin — yo'q.
+
+## 2. `pkgs.mkShell` parametrlari
+
+| Parametr | Maqsad |
+|---|---|
+| `packages` | Kerakli dasturlar ro'yxati |
+| `shellHook` | Shell yoqilganda bajariladigan kod |
+| `buildInputs` | C kutubxonalari va compile-time deps |
+| `nativeBuildInputs` | Build vositalar |
+
+## 3. Aniq Nixpkgs versiyasini pin qilish
+
+```nix
+let
+  pkgs = import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-24.05.tar.gz") {};
+in
+pkgs.mkShell {
+  packages = with pkgs; [ python311 poetry ];
+}
+```
+
+Endi har kim aynan nixos-24.05 da Python 3.11'ni oladi.
+
+## 4. Environment variables
+
+```nix
+pkgs.mkShell {
+  packages = with pkgs; [ postgresql ];
+
+  DATABASE_URL = "postgres://localhost/myapp";
+
+  shellHook = ''
+    export EDITOR=vim
+  '';
+}
+```
+
+## 5. `direnv` — avtomatik faollashtirish
+
+Har safar `nix-shell` yozish noqulay. `direnv` muammoni hal qiladi:
+
+```bash
+# O'rnatish
+nix-env -iA nixpkgs.direnv nixpkgs.nix-direnv
+
+# yoki NixOS configuration.nix
+# programs.direnv = { enable = true; nix-direnv.enable = true; };
+
+# Shell integratsiyasi (~/.bashrc yoki ~/.zshrc)
+eval "$(direnv hook bash)"
+```
+
+Loyihada `.envrc` fayli:
+
+```bash
+use nix
+```
+
+Yoki flake bilan:
+
+```bash
+use flake
+```
+
+Endi katalogga kirganda muhit avtomatik faollashadi, chiqganda — avtomatik chiqadi.[²](https://direnv.net/)
+
+```bash
+cd myproject/
+# direnv: loading .envrc
+# direnv: using nix
+node --version    # 20.x
+
+cd ..
+# direnv: unloading
+```
+
+## 6. Misol: Python loyihasi uchun shell.nix
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+let
+  python = pkgs.python311;
+  pythonPackages = python.pkgs;
+in
+pkgs.mkShell {
+  packages = [
+    python
+    pythonPackages.virtualenv
+    pythonPackages.pip
+    pkgs.poetry
+  ];
+
+  shellHook = ''
+    if [ ! -d .venv ]; then
+      virtualenv .venv
+    fi
+    source .venv/bin/activate
+    echo "Python: $(python --version)"
+  '';
+}
+```
+
+## 7. Mashq
+
+1. Bo'sh katalogda `shell.nix` yarating — `cowsay` va `lolcat` bilan.
+2. `nix-shell` bilan kiring, `cowsay hello | lolcat` ni sinab ko'ring.
+3. (Ixtiyoriy) `direnv` o'rnating va `.envrc` da `use nix` bilan avtomatik faollashtiring.
+
+## 8. Bilim sinovi
+
+**Savol 1.** `shell.nix` qaerda joylashadi?
+
+- a) `/etc/nixos/`
+- b) Loyiha katalogida
+- c) `~/.nix-shell/`
+- d) `/nix/store/`
+
+<Callout type="success" title="Javob">
+**(b)** Loyiha katalogida. `nix-shell` shu fayldan o'qiydi.
+</Callout>
+
+## Manbalar
+
+1. nix.dev — Declarative shell environments. [https://nix.dev/tutorials/first-steps/declarative-shell.html](https://nix.dev/tutorials/first-steps/declarative-shell.html)
+2. direnv documentation. [https://direnv.net/](https://direnv.net/)
+
+## Keyingi qadam
+
+👉 [Nixpkgs ni mahkamlash](/nixos/tutorials/pinning-nixpkgs)

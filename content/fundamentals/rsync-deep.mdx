@@ -1,0 +1,511 @@
+---
+title: "rsync chuqur — sinxronizatsiya va backup"
+description: "rsync — fayllarni samarali sinxronlash; flag'lar, exclude, daemon mode va SSH bilan."
+order: 128
+level: "advanced"
+estimated_minutes: 12
+prerequisites:
+  - "/fundamentals/file-operations"
+  - "/fundamentals/ssh"
+learning_objectives:
+  - "rsync ishlash printsipi (delta-transfer)"
+  - "Asosiy va ilg'or flag'lar"
+  - "SSH orqali remote sync"
+  - "Daemon mode va modul"
+tags: ["advanced", "rsync", "backup", "sync"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "rsync(1) manpage"
+    url: "https://download.samba.org/pub/rsync/rsync.1"
+  - title: "rsync — official"
+    url: "https://rsync.samba.org/"
+  - title: "ArchWiki — rsync"
+    url: "https://wiki.archlinux.org/title/Rsync"
+---
+
+**rsync** — fayllarni samarali ko'chirish va sinxronlash uchun klassik vosita. **Delta-transfer** algoritmi — faqat o'zgargan qismlarni ko'chiradi. Backup, mirror, deploy — barcha sohada ishlatiladi.[¹](https://download.samba.org/pub/rsync/rsync.1)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Delta-transfer algoritmi.
+- Asosiy flag'lar va kombinatsiyalar.
+- SSH orqali remote sync.
+- Exclude pattern'lar.
+- Daemon mode va modul tizimi.
+</Callout>
+
+## 1. rsync — qanday ishlaydi
+
+```
+[Source] ─── algoritm: faqat farq ───▶ [Destination]
+
+1. Receiver fayl checksum'larini hisoblaydi
+2. Sender o'z fayllar bilan solishtiradi
+3. Faqat o'zgargan bloklarni yuboradi
+```
+
+Bu rsync'ni **`cp`/`scp` dan ancha tezroq qiladi** — ayniqsa katta fayllar ozgina o'zgarganda.
+
+## 2. O'rnatish
+
+```bash
+sudo apt install rsync       # Debian/Ubuntu
+sudo dnf install rsync       # Fedora
+sudo pacman -S rsync         # Arch
+```
+
+## 3. Asosiy ishlatish
+
+```bash
+# Lokal
+rsync <source> <destination>
+
+# Misol
+rsync file.txt /backup/
+
+# Katalog
+rsync -r /home/ali /backup/
+```
+
+### Trailing slash muhim!
+
+```bash
+rsync -av /source/ /dest/    # /source ICHIDAGI fayllar /dest/'ga
+rsync -av /source  /dest/    # /source KATALOGI /dest/source/'ga ko'chiriladi
+```
+
+## 4. Asosiy flag'lar
+
+| Flag | Ma'no |
+|---|---|
+| `-a` | Archive mode (=`-rlptgoD`) — katalog, symlinks, ruxsat, vaqt, owner |
+| `-v` | Verbose |
+| `-z` | Tarmoq orqali siqish |
+| `-h` | Human-readable hajm |
+| `-P` | Progress + part fayllarni saqlash |
+| `--delete` | Destination'da bo'lmagan fayllarni o'chirish |
+| `-n` yoki `--dry-run` | Test (haqiqatda ish qilmaydi) |
+| `--exclude=<pattern>` | Pattern bo'yicha o'tkazib yuborish |
+| `--include=<pattern>` | Aniq qo'shish |
+| `--link-dest=<dir>` | Inkremental — o'zgarmagan fayllarga hard link |
+| `-x` | Bir fayl tizimida qolish |
+| `--checksum` (`-c`) | Vaqt o'rniga checksum bilan solishtirish |
+| `--bwlimit=1000` | Bandwidth limit (KB/s) |
+| `--progress` | Har fayl progress |
+| `--stats` | Yakuniy statistika |
+
+## 5. Tipik kombinatsiyalar
+
+```bash
+# Backup — to'liq, verbose, progress
+rsync -avh --progress /source /backup/
+
+# Backup, destination'da bo'lmagan fayllarni o'chirish
+rsync -avh --delete /source/ /backup/
+
+# Test (haqiqatda bajarmaslik)
+rsync -avhn --delete /source/ /backup/
+
+# SSH orqali remote
+rsync -avhz /local/ user@server:/remote/
+
+# Faqat boshqalardan kichik
+rsync -avh /source/ /backup/ --max-size=100M
+```
+
+## 6. SSH orqali
+
+```bash
+# Push (lokal → remote)
+rsync -avz /home/ali/ user@server:/backup/ali/
+
+# Pull (remote → lokal)
+rsync -avz user@server:/backup/ali/ /home/ali/
+
+# SSH port boshqacha bo'lsa
+rsync -avz -e "ssh -p 2222" /local/ user@server:/remote/
+
+# Key bilan
+rsync -avz -e "ssh -i ~/.ssh/key" /local/ user@server:/remote/
+
+# `.ssh/config` ishlatish — eng oson
+rsync -avz /local/ myserver:/remote/
+```
+
+## 7. Exclude patternlar
+
+```bash
+# Bitta
+rsync -avh --exclude='*.log' /source/ /dest/
+
+# Bir nechta
+rsync -avh \
+    --exclude='*.log' \
+    --exclude='.git' \
+    --exclude='node_modules' \
+    /source/ /dest/
+
+# Fayldan
+rsync -avh --exclude-from=/etc/rsync-exclude.txt /source/ /dest/
+```
+
+`/etc/rsync-exclude.txt`:
+
+```
+*.log
+*.tmp
+.git/
+node_modules/
+__pycache__/
+.cache/
+```
+
+### `.rsync-filter` — gitignore kabi
+
+```bash
+# Source katalogida .rsync-filter
+echo "*.log" > /source/.rsync-filter
+
+# F flag bilan rsync'da
+rsync -avhF /source/ /dest/
+```
+
+## 8. Inkremental backup — `--link-dest`
+
+```bash
+TODAY=$(date +%F)
+YESTERDAY=$(date -d "yesterday" +%F)
+
+rsync -avh \
+    --link-dest=/backup/$YESTERDAY/ \
+    --exclude='.cache' \
+    /home/ali/ /backup/$TODAY/
+```
+
+Natija: har kun "to'liq backup" ko'rinadi, lekin o'zgarmagan fayllar hard link orqali bir xil inode'ga ishora qiladi. Disk hajmi minimal.
+
+```bash
+# 30 kundan eski backuplarni o'chirish
+find /backup -maxdepth 1 -type d -mtime +30 -exec rm -rf {} +
+```
+
+## 9. Progress va statistika
+
+```bash
+rsync -avh --progress --stats /source/ /dest/
+```
+
+Misol natija:
+
+```
+sending incremental file list
+file1.txt
+     1,024,000 100%   45.23MB/s    0:00:00 (xfr#1, to-chk=49/50)
+file2.txt
+       512,000 100%   22.61MB/s    0:00:00 (xfr#2, to-chk=48/50)
+...
+
+Number of files: 50 (reg: 50)
+Number of created files: 50
+Total file size: 51,200,000 bytes
+Total transferred file size: 51,200,000 bytes
+Literal data: 51,200,000 bytes
+Total bytes sent: 51,210,000
+Total bytes received: 1,000
+
+sent 51.21M bytes  received 1K bytes  10.24M bytes/sec
+total size is 51.20M  speedup is 1.00
+```
+
+## 10. Bandwidth cheklash
+
+```bash
+# 1000 KB/s
+rsync -avh --bwlimit=1000 /source/ /dest/
+
+# Yoki sayohat tarmog'ida
+rsync -avh --bwlimit=100K user@server:/big/ /local/
+```
+
+## 11. Symbolic link va hard link
+
+```bash
+# Symlink'ni link sifatida saqlash (default)
+rsync -av /source/ /dest/
+
+# Symlink target'ini ham nusxalash (-L)
+rsync -avL /source/ /dest/
+
+# Hard link'larni saqlash (-H)
+rsync -avH /source/ /dest/
+```
+
+## 12. Daemon mode
+
+rsync server sifatida (SSH'siz):
+
+```bash
+# /etc/rsyncd.conf
+[backup]
+    path = /backup
+    comment = Backup share
+    read only = no
+    list = yes
+    auth users = backupuser
+    secrets file = /etc/rsyncd.secrets
+    hosts allow = 192.168.1.0/24
+```
+
+```bash
+# /etc/rsyncd.secrets
+backupuser:secretpass
+```
+
+```bash
+sudo chmod 600 /etc/rsyncd.secrets
+
+# Yoqish
+sudo systemctl enable --now rsync       # ba'zi distributivlarda
+sudo systemctl enable --now rsyncd      # Fedora
+```
+
+Klient:
+
+```bash
+# Modul ro'yxati
+rsync rsync://server/
+
+# Sync
+rsync -avh /local/ rsync://backupuser@server/backup/
+# Parol so'raydi
+```
+
+## 13. Misol — uy server backup skripti
+
+```bash
+#!/bin/bash
+# backup.sh
+
+set -euo pipefail
+
+SOURCE="/home/ali"
+DEST="/backup/home"
+TODAY=$(date +%Y-%m-%d)
+YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+LOG="/var/log/backup-${TODAY}.log"
+
+# Inkremental
+rsync -avh \
+    --delete \
+    --link-dest="${DEST}/${YESTERDAY}/" \
+    --exclude='.cache' \
+    --exclude='.local/share/Trash' \
+    --exclude='Downloads' \
+    --exclude='*.tmp' \
+    "${SOURCE}/" \
+    "${DEST}/${TODAY}/" \
+    > "${LOG}" 2>&1
+
+# Latest symlink
+ln -sfn "${DEST}/${TODAY}" "${DEST}/latest"
+
+# 30 kundan eski backuplarni o'chirish
+find "${DEST}" -maxdepth 1 -type d -name "20*" -mtime +30 -exec rm -rf {} +
+
+echo "Backup tugadi: ${DEST}/${TODAY}"
+```
+
+```bash
+chmod +x /usr/local/bin/backup.sh
+
+# systemd timer
+sudo nano /etc/systemd/system/backup.service
+```
+
+```ini
+[Unit]
+Description=Daily home backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup.sh
+User=root
+```
+
+```ini
+# backup.timer
+[Unit]
+Description=Daily backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl enable --now backup.timer
+```
+
+## 14. SSH key bilan automated backup
+
+```bash
+# Restricted SSH key (backup user)
+ssh-keygen -t ed25519 -f ~/.ssh/backup_key
+
+# Server'da
+cat ~/.ssh/backup_key.pub >> ~/.ssh/authorized_keys
+
+# Yoki cheklangan
+nano ~/.ssh/authorized_keys
+```
+
+```
+# Faqat rsync ruxsat
+command="rsync --server -vlogDtprze.iLsfxC --delete . /backup/",no-port-forwarding,no-pty,no-agent-forwarding,no-X11-forwarding ssh-ed25519 AAAA...
+```
+
+`rrsync` (restricted rsync) — yana xavfsizroq:
+
+```bash
+sudo apt install rsync
+
+# rrsync joylashuvi
+which rrsync
+# /usr/share/rsync/scripts/rrsync
+```
+
+## 15. Misol — sayt deploy
+
+```bash
+# Lokal'da build
+npm run build
+
+# Server'ga
+rsync -avhz --delete \
+    --exclude='.env' \
+    --exclude='node_modules' \
+    ./dist/ \
+    user@webserver:/var/www/site/
+```
+
+## 16. Misol — Mirror website
+
+```bash
+# Public site'ni lokal'ga olish
+rsync -avzh --delete \
+    --exclude='/tmp' \
+    rsync://mirror.example.com/site/ \
+    /var/mirror/site/
+```
+
+## 17. Asosiy buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `rsync -avh src/ dst/` | Asosiy backup |
+| `rsync -avhn ...` | Test (dry-run) |
+| `rsync -avhz user@host:src/ dst/` | SSH'dan pull |
+| `rsync -avh --delete src/ dst/` | Sinxron (mirror) |
+| `rsync -avh --link-dest=prev src/ dst/` | Inkremental |
+| `rsync -avh --exclude='*.log' src/ dst/` | Exclude pattern |
+| `rsync -avh --bwlimit=1000 src/ dst/` | Bandwidth cheklash |
+| `rsync --version` | Versiya |
+
+## 18. Eng tez-tez uchraydigan xatolar
+
+- **Trailing slash chalkashlik** — `/src/` (ichi) vs `/src` (katalog o'zi).
+- **`--delete`** sinab ko'rmaslik — `--dry-run` bilan avval test.
+- **`-a` (archive) yo'q** — ruxsat, sana, owner yo'qoladi.
+- **SSH password har safar** — SSH key bilan ishlash.
+- **Katta fayllar uzilib qoldi** — `-P` (`--partial`) bilan part fayllarni saqlash.
+- **Bandwidth tarmog'ni to'sib qo'yadi** — `--bwlimit`.
+
+## 19. Eng yaxshi amaliyot
+
+- **`-avh` standart** — har vaqt boshlash.
+- **`--dry-run` avval `--delete` bilan.**
+- **`--link-dest`** inkremental backup uchun.
+- **SSH key + restricted command** — production backup uchun.
+- **Cron / systemd-timer** — avtomatlashtirish.
+- **Log faylga yo'naltirish** — debug.
+- **Monitoring** — backup ishlamasa email.
+- **Restore sinov** — backup tirik bo'lganini muntazam tekshirish.
+
+## 20. Mashqlar
+
+1. **Asosiy:** `mkdir /tmp/src && echo "test" > /tmp/src/file.txt && rsync -avh /tmp/src/ /tmp/dst/`. Natija?
+2. **Dry-run:** `rsync -avhn --delete /tmp/src/ /tmp/dst/`. Nima qilinmasdan ko'rsatildi?
+3. **SSH:** `rsync -avh ~/Documents/ user@server:/backup/docs/` — ishlatilsa, server'da paydo bo'ladimi?
+4. **Inkremental:** Backup skript yarating va `--link-dest` bilan ishlating.
+5. **Exclude:** Ko'p `--exclude` flag bilan `node_modules`, `.git`, `*.log` chiqarib tashlash.
+6. **Bandwidth:** `--bwlimit=500` bilan sekin sync.
+
+## 21. Bilim sinovi
+
+**Savol 1.** rsync `cp`'dan tezroq, chunki:
+
+- a) C tilida yozilgan
+- b) Delta-transfer — faqat o'zgargan qismlarni ko'chiradi
+- c) Multi-threaded
+- d) Kompressiya bilan
+
+<Callout type="success" title="Javob">
+**(b)** Inkremental ko'chirish — buyuk afzallik.[¹](https://download.samba.org/pub/rsync/rsync.1)
+</Callout>
+
+**Savol 2.** `--delete` flag nima qiladi?
+
+- a) Source'dan o'chirish
+- b) Destination'da bor, lekin source'da yo'q fayllarni o'chirish (mirror)
+- c) Backup yaratish
+- d) Hech narsa
+
+<Callout type="success" title="Javob">
+**(b)** Destination'ni source'ga aynan moslashtiradi.
+</Callout>
+
+**Savol 3.** Trailing slash farqi:
+
+- a) Hech qanday
+- b) `src/` — ichidagi fayllar; `src` — katalogning o'zi
+- c) Faqat eski versiya
+- d) Faqat SSH bilan
+
+<Callout type="success" title="Javob">
+**(b)** Klassik trap — har doim diqqat qiling.
+</Callout>
+
+**Savol 4.** Inkremental backup uchun:
+
+- a) `--incremental`
+- b) `--link-dest=<oldingi>`
+- c) `--backup`
+- d) `--diff`
+
+<Callout type="success" title="Javob">
+**(b)** Hard link asosida — disk hajmi tejaladi.
+</Callout>
+
+**Savol 5.** SSH portni 2222'ga sozlash:
+
+- a) `rsync --port 2222`
+- b) `rsync -e "ssh -p 2222"`
+- c) `rsync -p 2222`
+- d) Imkonsiz
+
+<Callout type="success" title="Javob">
+**(b)** `-e` — alternative remote shell command.
+</Callout>
+
+## Manbalar
+
+1. rsync(1). [https://download.samba.org/pub/rsync/rsync.1](https://download.samba.org/pub/rsync/rsync.1)
+2. rsync — official. [https://rsync.samba.org/](https://rsync.samba.org/)
+3. ArchWiki — rsync. [https://wiki.archlinux.org/title/Rsync](https://wiki.archlinux.org/title/Rsync)
+
+## Keyingi qadam
+
+👉 [Tar va arxivlash chuqurroq](/fundamentals/tar-archives)

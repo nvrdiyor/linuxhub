@@ -1,0 +1,169 @@
+---
+title: "WSL ostida Ubuntu"
+description: "Windows 10/11 ostida Windows Subsystem for Linux orqali Ubuntu o'rnatish va sozlash."
+order: 3
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/ubuntu/introduction"
+learning_objectives:
+  - "WSL nima va Ubuntu uni qanday qo'llab-quvvatlashini bilish"
+  - "Bir buyruq bilan Windows ostiga Ubuntu o'rnatish"
+  - "WSL va to'liq o'rnatish o'rtasidagi farqni tushunish"
+tags: ["ubuntu", "wsl", "windows", "installation"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu — WSL documentation"
+    url: "https://documentation.ubuntu.com/wsl/"
+  - title: "Ubuntu Tutorial — Install Ubuntu on WSL2"
+    url: "https://documentation.ubuntu.com/wsl/en/latest/howto/install-ubuntu-wsl2/"
+  - title: "Microsoft Learn — Install WSL"
+    url: "https://learn.microsoft.com/en-us/windows/wsl/install"
+---
+
+**WSL** (Windows Subsystem for Linux) — bu Microsoft tomonidan tayyorlangan, Windows ichida Linuxni ishga tushiruvchi sistema. Ubuntu rasmiy ravishda WSL'da qo'llab-quvvatlanadi va ko'pgina dasturchilar uchun bu Linuxga kirishning eng tez yo'li.[¹](https://documentation.ubuntu.com/wsl/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- WSL nima va WSL2 ning afzalliklari.
+- Bir buyruq bilan Ubuntu o'rnatish.
+- WSL Ubuntu va to'liq o'rnatilgan Ubuntu farqi.
+- Asosiy WSL buyruqlari.
+</Callout>
+
+## 1. WSL nima?
+
+WSL Windows yadrosining ichida engil virtualizatsiya orqali Linux yadrosini ishlatadi. Natijada Ubuntu fayl tizimi, terminali, paket menejeri Windows ish stoli yonida ishlaydi — alohida bootlanish yoki virtual mashinaga ehtiyoj yo'q.
+
+**WSL2** — ikkinchi versiya, 2020-yildan beri standart. Haqiqiy Linux yadrosini ishlatadi, fayl tizimi tezligi yaxshiroq va to'liq tizim chaqiruvlari (system call) ko'magi mavjud.[³](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+## 2. Talablar
+
+- Windows 10 22H2 yoki yangiroq, **yoki** Windows 11.
+- Virtualization Windows xususiyatlari yoqilgan (BIOSda ham — VT-x yoki AMD-V).
+- Internet ulanishi.
+
+## 3. O'rnatish
+
+PowerShell'ni **administrator sifatida** oching va quyidagini bajaring:[³](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Bu buyruq:
+- WSL komponentini yoqadi.
+- Linux yadrosini yuklab oladi.
+- Ubuntu LTS distributivini Microsoft Store'dan o'rnatadi.
+- Kompyuterni qayta yuklashni so'rashi mumkin.
+
+Qayta yuklangandan keyin Ubuntu birinchi marta ishga tushganda u sizdan UNIX foydalanuvchi nomi va parolini so'raydi. **Bu Windows parolingiz emas — bu Ubuntu ichidagi alohida akkaunt.**
+
+```
+Installing, this may take a few minutes...
+Please create a default UNIX user account.
+Enter new UNIX username: ali
+New password:
+Retype new password:
+```
+
+## 4. Birinchi qadamlar WSL Ubuntu'da
+
+Boshqa Linux tizimlardagi kabi:
+
+```bash
+# Joriy versiyani tekshirish
+lsb_release -a
+
+# Paket bazasini yangilash va dasturlarni yangilash
+sudo apt update
+sudo apt upgrade
+```
+
+## 5. Asosiy WSL buyruqlari (PowerShell'da)
+
+```powershell
+# O'rnatilgan distributivlar
+wsl --list --verbose
+
+# Ubuntuga kirish
+wsl -d Ubuntu
+
+# WSL'ni to'xtatish
+wsl --shutdown
+
+# Ubuntuga to'liq qayta o'rnatish (ma'lumot yo'qoladi!)
+wsl --unregister Ubuntu
+
+# Boshqa distributiv o'rnatish
+wsl --install -d Debian
+```
+
+## 6. Fayllar bilan ishlash
+
+WSL fayl tizimi Windows ichida:
+
+- Ubuntu ichidan Windows disklariga `/mnt/c/`, `/mnt/d/` orqali kirish:
+
+  ```bash
+  cd /mnt/c/Users/Administrator/Documents
+  ```
+
+- Windows Explorer ichida Ubuntu fayllarini ko'rish: manzil satrida `\\wsl$\Ubuntu\home\<foydalanuvchi>` yozing.
+
+<Callout type="tip">
+**Tezlik maslahatasi:** WSL2'da loyiha fayllarini Ubuntu fayl tizimida (`/home/...`) saqlash, `/mnt/c/...` da emas — fayl operatsiyalari sezilarli darajada tezroq bo'ladi.
+</Callout>
+
+## 7. WSL Ubuntu va to'liq o'rnatish
+
+| Xususiyat | WSL Ubuntu | To'liq Ubuntu |
+|---|---|---|
+| Windows yonida ishlash | ✅ | ❌ (dual boot kerak) |
+| Grafik ish stoli (GNOME) | Cheklangan (GUI app'lar ishlaydi, lekin GNOME yo'q) | ✅ |
+| Linux yadrosi to'liq | Microsoft yadrosi | Standart Linux yadrosi |
+| Apparatga to'g'ridan-to'g'ri kirish | ❌ (USB, GPU cheklangan) | ✅ |
+| Dasturlash, devops, server | ✅ Yetarli | ✅ |
+| O'yinlar va to'liq desktop | ❌ | ✅ |
+
+**Qaysini tanlash?** Dasturchi yoki o'rganuvchi sifatida — WSL juda yaxshi boshlang'ich. Ish stoli operatsion tizim sifatida foydalanish uchun esa to'liq o'rnatish kerak.
+
+## 8. Mashqlar
+
+1. WSL Ubuntuda `uname -r` bajaring. Yadro versiyasini yozing. Endi [kernel.org](https://www.kernel.org) dagi joriy stable versiya bilan solishtiring.
+2. `cd /mnt/c/Users` ga o'tib `ls` ni bajaring. Windows foydalanuvchi papkalari ko'rinishini tekshiring.
+3. `wsl --list --verbose` PowerShell'da nima qaytaradi?
+
+## 9. Bilim sinovi
+
+**Savol 1.** WSL'da Ubuntu o'rnatish uchun qaysi buyruq?
+
+- a) `apt install ubuntu`
+- b) `wsl --install -d Ubuntu`
+- c) `winget install Ubuntu`
+- d) `choco install ubuntu`
+
+<Callout type="success" title="Javob">
+**(b)** `wsl --install -d Ubuntu` rasmiy Microsoft buyrug'i.[³](https://learn.microsoft.com/en-us/windows/wsl/install)
+</Callout>
+
+**Savol 2.** WSL Ubuntu ichidan Windows `C:` diskiga qanday kirish kerak?
+
+- a) `cd /c/`
+- b) `cd C:\`
+- c) `cd /mnt/c/`
+- d) `cd /windows/c/`
+
+<Callout type="success" title="Javob">
+**(c)** WSL Windows disklarini `/mnt/<harf>` ostiga o'rnatadi.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu — WSL documentation. [https://documentation.ubuntu.com/wsl/](https://documentation.ubuntu.com/wsl/)
+2. Ubuntu Tutorial — Install Ubuntu on WSL2. [https://documentation.ubuntu.com/wsl/en/latest/howto/install-ubuntu-wsl2/](https://documentation.ubuntu.com/wsl/en/latest/howto/install-ubuntu-wsl2/)
+3. Microsoft Learn — Install WSL. [https://learn.microsoft.com/en-us/windows/wsl/install](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+## Keyingi qadam
+
+👉 [Ubuntu Server o'rnatish](/ubuntu/installation/server)

@@ -1,0 +1,298 @@
+---
+title: "Monitoring"
+description: "Linux tizimini kuzatish: CPU, RAM, disk va tarmoq holatini real vaqtda ko'rish vositalari (top, htop, iotop, vmstat, iostat)."
+order: 3
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/fundamentals/processes"
+learning_objectives:
+  - "Tizim resurslarini kuzatish vositalarini bilish"
+  - "`top` va `htop` interfeysini o'qish"
+  - "Disk va tarmoq monitoringini boshlash"
+tags: ["intermediate", "monitoring", "top", "htop", "iostat"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "procps — top(1) manpage"
+    url: "https://manpages.debian.org/bookworm/procps/top.1.en.html"
+  - title: "htop documentation"
+    url: "https://htop.dev/"
+  - title: "ArchWiki — System monitoring"
+    url: "https://wiki.archlinux.org/title/System_monitoring"
+  - title: "sysstat — iostat, vmstat"
+    url: "https://manpages.debian.org/bookworm/sysstat/iostat.1.en.html"
+---
+
+Tizimning ishlash ko'rsatkichlarini real vaqtda kuzatish — administratorning kundalik vazifasi. Bu darsda klassik vositalar (`top`, `htop`, `iotop`, `vmstat`, `iostat`) va ularning chiqishini qanday o'qish kerakligini o'rganamiz.[³](https://wiki.archlinux.org/title/System_monitoring)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- `top` va `htop` orqali jarayonlar va CPU.
+- `free` orqali xotira.
+- `df`, `du`, `iotop`, `iostat` orqali disk.
+- `ss`, `iftop`, `vnstat` orqali tarmoq.
+</Callout>
+
+## 1. CPU va jarayonlar — `top`
+
+```bash
+top
+```
+
+`top` chiqishi:
+
+```
+top - 14:23:45 up 2 days,  3:12,  1 user,  load average: 0.42, 0.36, 0.31
+Tasks: 195 total,   1 running, 194 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  3.5 us,  1.2 sy,  0.0 ni, 94.8 id,  0.5 wa,  0.0 hi,  0.0 si,  0.0 st
+MiB Mem :  16000.0 total,   2543.2 free,   8721.5 used,   4735.3 buff/cache
+MiB Swap:   2048.0 total,   2048.0 free,      0.0 used.   6789.4 avail Mem
+
+  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 1234 ali       20   0 2500000 350000  80000 S   8.3   2.1   0:32.15 firefox
+```
+
+**Asosiy bo'limlar:**
+
+- `load average: 0.42, 0.36, 0.31` — 1, 5, 15 daqiqalik o'rtacha yuk. Yadrolar soniga teng bo'lsa — 100% yuk.
+- `Tasks` — jami jarayonlar soni va holatlari.
+- `%Cpu(s)` — `us` foydalanuvchi, `sy` sistem, `id` bo'sh, `wa` wait (disk kutmoqda).
+- `MiB Mem` — total / free / used / buff/cache.
+
+**Asosiy tugmalar `top` ichida:**
+
+| Tugma | Vazifa |
+|---|---|
+| `q` | Chiqish |
+| `M` | RAM bo'yicha saralash |
+| `P` | CPU bo'yicha saralash (default) |
+| `k` | Jarayonni o'ldirish |
+| `r` | Jarayon prioritetini o'zgartirish (renice) |
+| `1` | Har bir CPU yadrosini alohida ko'rsatish |
+| `h` | Yordam |
+
+## 2. `htop` — qulayroq `top`
+
+```bash
+sudo apt install htop
+htop
+```
+
+`htop` — `top` ning rangli, sichqoncha bilan navigatsiya qilinadigan versiyasi.[²](https://htop.dev/) Asosiy ustunliklari:
+
+- Rangli interfeys (CPU, RAM bar'lari).
+- F1-F10 funksiya tugmalari bilan oson navigatsiya.
+- Jarayonlarni daraxt ko'rinishida (F5).
+- Tezroq, yumshoqroq yangilanish.
+
+## 3. Xotira — `free`
+
+```bash
+# Inson o'qiy oladigan formatda
+free -h
+
+# 1 soniyada bir yangilanish
+free -h -s 1
+```
+
+Misol natija:
+
+```
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       8.5Gi       2.4Gi       512Mi       4.6Gi       6.6Gi
+Swap:          2.0Gi          0B       2.0Gi
+```
+
+**`available`** muhim — bu `free + buff/cache` — Linux dasturlar uchun darhol ajrata oladigan xotira. `used` deyarli har doim katta ko'rinadi, chunki Linux disk kesh uchun bo'sh xotirani ishlatadi.
+
+## 4. Disk — `df` va `du`
+
+```bash
+# Disk hajmi (filesystem darajasida)
+df -h
+
+# Faqat haqiqiy fayl tizimlari (tmpfs ni o'tkazib yuborish)
+df -h -x tmpfs -x devtmpfs
+
+# Inode'lar (kichik fayllar uchun)
+df -i
+```
+
+```bash
+# Katalog hajmi (rekursiv)
+du -sh /home/ali
+du -sh /var/*
+
+# Joriy katalogdagi top 10 ta katta narsa
+du -ah . | sort -rh | head -10
+
+# Faqat 1-daraja
+du -d 1 -h /var
+```
+
+## 5. Disk I/O — `iotop`, `iostat`
+
+```bash
+# Disk faolligini ko'rsatuvchi jarayonlar
+sudo apt install iotop
+sudo iotop
+```
+
+```bash
+# Statistika (sysstat paketidan)
+sudo apt install sysstat
+
+# CPU + Disk I/O (har 2 soniyada)
+iostat 2
+
+# Faqat disk
+iostat -dx 2
+```
+
+[⁴](https://manpages.debian.org/bookworm/sysstat/iostat.1.en.html)
+
+## 6. Tarmoq monitoring
+
+```bash
+# Faol ulanishlar va tinglovchi portlar
+ss -tunlp
+
+# `ss` flag'lari:
+#   -t : TCP
+#   -u : UDP
+#   -n : portni raqamlarda
+#   -l : faqat tinglovchi
+#   -p : qaysi jarayon
+```
+
+```bash
+# Real-time tarmoq trafigi
+sudo apt install iftop
+sudo iftop -i eth0
+
+# Yoki `nload`
+sudo apt install nload
+nload eth0
+
+# Kunlik/oylik statistika
+sudo apt install vnstat
+vnstat
+vnstat -l    # real-time
+```
+
+## 7. Tizim yuki — `vmstat`
+
+```bash
+# Har 2 soniyada
+vmstat 2
+```
+
+```
+procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 0  0      0 2400000 80000 4500000   0    0    23    32   95  189  3  1 95  1  0
+```
+
+| Ustun | Ma'no |
+|---|---|
+| `r` | Run qatoridagi jarayonlar (ko'p bo'lsa — CPU yetishmayapti) |
+| `b` | Block holatdagilar (I/O kutmoqda) |
+| `swpd` | Swap ishlatilgan KB |
+| `si` / `so` | Swap in/out — 0 dan katta bo'lsa, RAM yetishmayapti |
+| `bi` / `bo` | Blok in/out — disk faolligi |
+| `wa` | I/O wait — disk sekinligini ko'rsatadi |
+
+## 8. Logical view — `glances`
+
+```bash
+sudo apt install glances
+glances
+```
+
+`glances` — bir ekrandan CPU, RAM, disk, tarmoq, jarayonlarni ko'rsatadi.
+
+## 9. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `top` / `htop` | Jarayonlar va CPU |
+| `free -h` | RAM holati |
+| `df -h` | Disk hajmi |
+| `du -sh <kat>` | Katalog hajmi |
+| `iostat -dx 2` | Disk I/O statistikasi |
+| `iotop` | Disk yeyuvchi jarayonlar |
+| `ss -tunlp` | Tarmoq portlari |
+| `iftop` | Tarmoq trafigi real-time |
+| `vmstat 2` | Tizim umumiy holati |
+| `glances` | Hammasi bir oynada |
+| `uptime` | Tizimning ishlash vaqti va load |
+
+## 10. Eng tez-tez uchraydigan xatolar
+
+- **`free` da `used` katta — havotir olmang.** Linux disk kesh uchun bo'sh RAM ishlatadi. **`available`** ni ko'ring.
+- **Yuqori `load average` — har doim yomon emas.** Agar yadrolar soniga teng bo'lsa, normal.
+- **`top` cliqa — sichqoncha bilan navigatsiya kutilmoqda emas.** Klaviatura tugmalari ishlatilsin.
+- **`iotop`/`iftop` root talab qiladi** — `sudo` orqali.
+- **Disk to'lganini bilmaslik** — har hafta `df -h` ni tekshirib turing. Disk 100% bo'lsa, ko'p xizmatlar ishlamay qoladi.
+
+## 11. Eng yaxshi amaliyot
+
+- **Avtomatik monitoring:** Production server uchun `prometheus`, `grafana`, `netdata` kabi vositalar — chiqish va alarm tizimi bilan.
+- **Logrotate:** Loglar disk to'ldirmasligi uchun — `/etc/logrotate.d/` da sozlash.
+- **Resource limits:** systemd unitida `MemoryLimit=` orqali alohida xizmatlarga RAM cheklash.
+- **`vmstat` ni doim 2-3 soniya intervalda** — birinchi qator yuklanishdan beri o'rtacha, undan keyinglari real-time.
+- **Yangi muammoda boshlash:** `top` → `iotop` → `journalctl -p err` — ushbu uch buyruq 90% muammoni aniqlaydi.
+
+## 12. Bilim sinovi
+
+**Savol 1.** `htop` `top`'dan nima bilan farq qiladi?
+
+- a) Faqat root ishlata oladi
+- b) Rangli, interaktiv, F1-F10 navigatsiya
+- c) Faqat Ubuntu uchun
+- d) Disk ma'lumotini ko'rsatadi
+
+<Callout type="success" title="Javob">
+**(b)** `htop` — `top`'ning rangli va qulayroq versiyasi.[²](https://htop.dev/)
+</Callout>
+
+**Savol 2.** `free -h` chiqishida qaysi raqam haqiqiy bo'sh xotirani ko'rsatadi?
+
+- a) `free`
+- b) `available`
+- c) `total - used`
+- d) `buff/cache`
+
+<Callout type="success" title="Javob">
+**(b)** `available` — bu free + tezda bo'shatish mumkin bo'lgan cache. Linux'da bu bosh raqam.
+</Callout>
+
+**Savol 3.** Disk 100% to'lganini topish uchun:
+
+- a) `df -h`
+- b) `du -sh /`
+- c) `free -h`
+- d) `top`
+
+<Callout type="success" title="Javob">
+**(a)** `df -h` har fayl tizimi uchun foiz va bo'sh joyni ko'rsatadi.
+</Callout>
+
+## 13. Mashq
+
+1. `top` ni oching. `M` tugmasini bosing. Eng ko'p RAM yeyuvchi jarayon qaysi?
+2. `df -h` natijasini ko'ring. Sizning asosiy fayl tizimingiz nechta foiz to'lgan?
+3. `du -sh /home/* 2>/dev/null | sort -rh | head -3` — uy katalogidagi eng katta 3 ta foydalanuvchi katalogi qaysilar?
+4. `ss -tunlp | wc -l` — tizimingizda nechta tarmoq porti tinglanmoqda?
+5. (Ixtiyoriy) `glances` ni o'rnating va ekran tasvirini olib, izoh yozing.
+
+## Manbalar
+
+1. procps — top(1) manpage. [https://manpages.debian.org/bookworm/procps/top.1.en.html](https://manpages.debian.org/bookworm/procps/top.1.en.html)
+2. htop documentation. [https://htop.dev/](https://htop.dev/)
+3. ArchWiki — System monitoring. [https://wiki.archlinux.org/title/System_monitoring](https://wiki.archlinux.org/title/System_monitoring)
+4. sysstat — iostat. [https://manpages.debian.org/bookworm/sysstat/iostat.1.en.html](https://manpages.debian.org/bookworm/sysstat/iostat.1.en.html)
+
+## Keyingi qadam
+
+👉 [Cron va rejalashtirilgan ishlar](/fundamentals/cron)

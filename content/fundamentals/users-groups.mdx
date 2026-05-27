@@ -1,0 +1,342 @@
+---
+title: "Foydalanuvchilar va guruhlar"
+description: "Linux'da foydalanuvchi va guruh tushunchasi, /etc/passwd, /etc/shadow va asosiy boshqaruv buyruqlari."
+order: 1
+level: "intermediate"
+estimated_minutes: 6
+prerequisites:
+  - "/fundamentals/permissions"
+learning_objectives:
+  - "Foydalanuvchi va guruh tuzilishini izohlash"
+  - "/etc/passwd, /etc/shadow va /etc/group fayllarini o'qish"
+  - "Foydalanuvchi va guruh yaratish/o'chirish"
+tags: ["intermediate", "users", "groups", "passwd"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "ArchWiki — Users and groups"
+    url: "https://wiki.archlinux.org/title/Users_and_groups"
+  - title: "Debian — passwd(5) manpage"
+    url: "https://manpages.debian.org/bookworm/manpages/passwd.5.en.html"
+  - title: "Debian — useradd(8), usermod(8)"
+    url: "https://manpages.debian.org/bookworm/passwd/useradd.8.en.html"
+---
+
+Linux — ko'p foydalanuvchili tizim. Hatto bitta foydalanuvchi kompyuter ham ko'p **foydalanuvchi akkauntini** ishlatadi: siz, root, va xizmat akkauntlari (`www-data`, `systemd-network` va h.k.). Bu darsda foydalanuvchi va guruhlarni o'rganamiz.[¹](https://wiki.archlinux.org/title/Users_and_groups)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Foydalanuvchi va guruh tushunchasi.
+- `/etc/passwd`, `/etc/shadow`, `/etc/group` strukturasi.
+- `useradd`, `usermod`, `userdel` va `groupadd`.
+- UID va GID — tizim, root va oddiy foydalanuvchilar diapazoni.
+</Callout>
+
+## 1. Foydalanuvchi — kim?
+
+Linux'da har bir akkauntning unikal **UID** (User ID) va **username**'i bor.
+
+| UID diapazoni | Tur |
+|---|---|
+| `0` | `root` — superuser |
+| `1-999` | Tizim foydalanuvchilari (xizmatlar uchun) |
+| `1000-60000` | Oddiy foydalanuvchilar |
+| `65534` | `nobody` — hech kim |
+
+## 2. `/etc/passwd` — foydalanuvchilar bazasi
+
+```bash
+cat /etc/passwd
+```
+
+Misol qatorlar:
+
+```
+root:x:0:0:root:/root:/bin/bash
+www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin
+ali:x:1000:1000:Ali,,,:/home/ali:/bin/bash
+```
+
+Har qator 7 ta maydondan iborat, `:` bilan ajratilgan:[²](https://manpages.debian.org/bookworm/manpages/passwd.5.en.html)
+
+| # | Maydon | Misol | Ma'no |
+|---|---|---|---|
+| 1 | Username | `ali` | Foydalanuvchi nomi |
+| 2 | Parol | `x` | `x` — parol `/etc/shadow` da |
+| 3 | UID | `1000` | Foydalanuvchi raqami |
+| 4 | GID | `1000` | Asosiy guruh raqami |
+| 5 | GECOS | `Ali,,,` | To'liq nom, telefon va h.k. |
+| 6 | Uy katalogi | `/home/ali` | Login paytida boshlash katalogi |
+| 7 | Shell | `/bin/bash` | Default shell |
+
+`/usr/sbin/nologin` — bu akkaunt login uchun emas (xizmat akkaunti).
+
+## 3. `/etc/shadow` — parol xeshlari
+
+```bash
+sudo cat /etc/shadow
+```
+
+Faqat root o'qiy oladi.
+
+```
+ali:$6$xyz$abc123...:19500:0:99999:7:::
+```
+
+Asosiy maydonlar:
+
+- 1 — username
+- 2 — parol xeshi (`$6$...` — SHA-512)
+- 3 — oxirgi parol o'zgartirilgan sana (1970-yilning 1-yanvardan keyingi kunlar soni)
+- 5 — maksimal kun (parolni o'zgartirish kerak bo'lguncha)
+
+## 4. `/etc/group` — guruhlar
+
+```bash
+cat /etc/group
+```
+
+Misol:
+
+```
+root:x:0:
+sudo:x:27:ali,bob
+docker:x:999:ali
+```
+
+Maydonlar:
+
+| # | Maydon | Misol |
+|---|---|---|
+| 1 | Guruh nomi | `sudo` |
+| 2 | Parol | `x` |
+| 3 | GID | `27` |
+| 4 | A'zolar | `ali,bob` |
+
+## 5. Foydalanuvchi yaratish
+
+```bash
+# Oddiy yaratish (uy katalogi yo'q)
+sudo useradd ali
+
+# Uy katalogi va default shell bilan (`-m`)
+sudo useradd -m -s /bin/bash ali
+
+# Parolni o'rnatish
+sudo passwd ali
+
+# Debian/Ubuntu — interaktiv (tavsiya etiladi)
+sudo adduser ali
+```
+
+`adduser` Debian/Ubuntu uchun qulay wrapper bo'lib, uy katalogini avtomatik yaratadi, parolni so'raydi va asosiy guruhni sozlaydi.[³](https://manpages.debian.org/bookworm/passwd/useradd.8.en.html)
+
+## 6. Foydalanuvchi o'zgartirish
+
+```bash
+# To'liq nomni o'zgartirish (GECOS)
+sudo usermod -c "Ali Valiyev" ali
+
+# Default shell'ni o'zgartirish
+sudo chsh -s /usr/bin/zsh ali
+# yoki
+sudo usermod -s /usr/bin/zsh ali
+
+# Uy katalogini o'zgartirish (va eski tarkibini ko'chirish)
+sudo usermod -d /home/yangi -m ali
+
+# Foydalanuvchini guruhga qo'shish (`-a` MUHIM — appended, qo'shimcha)
+sudo usermod -aG sudo ali
+sudo usermod -aG docker,wheel ali
+
+# Parolni o'zgartirish
+sudo passwd ali
+```
+
+<Callout type="warning">
+`usermod -G` (siz `-a` siz) **eski guruhlarni almashtiradi**, qo'shmaydi. Doim `-aG` ishlatilsin.
+</Callout>
+
+## 7. Foydalanuvchini o'chirish
+
+```bash
+# Faqat akkaunt (uy katalogi qoladi)
+sudo userdel ali
+sudo deluser ali       # Debian wrapper
+
+# Uy katalogi bilan birga
+sudo userdel -r ali
+sudo deluser --remove-home ali
+```
+
+## 8. Guruh boshqaruvi
+
+```bash
+# Yangi guruh
+sudo groupadd developers
+sudo addgroup developers      # Debian wrapper
+
+# Guruhga foydalanuvchi qo'shish
+sudo usermod -aG developers ali
+sudo adduser ali developers   # Debian
+
+# Guruhdan foydalanuvchini o'chirish
+sudo gpasswd -d ali developers
+sudo deluser ali developers   # Debian
+
+# Guruhni o'chirish
+sudo groupdel developers
+```
+
+## 9. Foydalanuvchi ma'lumotini ko'rish
+
+```bash
+# Joriy foydalanuvchi
+whoami
+
+# UID, GID va guruhlar
+id
+id ali
+
+# Foydalanuvchining qaysi guruhlarda ekanligi
+groups ali
+
+# Login holatini ko'rish
+who
+w
+
+# Tizimga oxirgi marta kirgan kim
+last
+```
+
+## 10. Parol siyosati (chage)
+
+```bash
+# Foydalanuvchining parol holati
+sudo chage -l ali
+
+# Maksimal parol kunlarini o'rnatish (90 kun)
+sudo chage -M 90 ali
+
+# Foydalanuvchi keyingi loginida parolni o'zgartirishga majbur
+sudo chage -d 0 ali
+
+# Akkauntni qulflash (parolni o'chirmaydi, faqat blokirovka)
+sudo usermod -L ali
+
+# Qulfdan ochish
+sudo usermod -U ali
+```
+
+## 11. Amaliy misol
+
+Yangi developer akkauntini sozlash:
+
+```bash
+# 1. Foydalanuvchi yaratish
+sudo adduser bob
+
+# 2. sudo guruhiga qo'shish (administrator huquqlari)
+sudo usermod -aG sudo bob
+
+# 3. docker guruhiga qo'shish
+sudo usermod -aG docker bob
+
+# 4. SSH kalitini sozlash (kalitlar darsiga qarang)
+sudo -u bob mkdir -p /home/bob/.ssh
+sudo cp authorized_keys /home/bob/.ssh/
+sudo chown -R bob:bob /home/bob/.ssh
+sudo chmod 700 /home/bob/.ssh
+sudo chmod 600 /home/bob/.ssh/authorized_keys
+
+# 5. Parol siyosati — 90 kunda yangilash
+sudo chage -M 90 bob
+
+# 6. Tekshirish
+id bob
+groups bob
+sudo chage -l bob
+```
+
+## 12. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `id` | Joriy yoki belgilangan foydalanuvchi haqida |
+| `whoami` | Joriy foydalanuvchi nomi |
+| `who` | Hozir kim tizimda |
+| `useradd -m -s /bin/bash <nom>` | Foydalanuvchi yaratish |
+| `adduser <nom>` | Debian'ga qulay wrapper |
+| `usermod -aG <guruh> <nom>` | Guruhga qo'shish |
+| `userdel -r <nom>` | Uy katalogi bilan o'chirish |
+| `passwd <nom>` | Parol o'zgartirish |
+| `groupadd <nom>` | Guruh yaratish |
+| `groups <nom>` | Foydalanuvchi guruhlari |
+| `chage -l <nom>` | Parol holati |
+
+## 13. Eng tez-tez uchraydigan xatolar
+
+- **`usermod -G` `-a` siz** — eski guruhlarni almashtiradi. Doim `-aG`.
+- **`useradd` `-m` siz** — uy katalogi yaratilmaydi.
+- **`userdel` `-r` siz** — uy katalogi qoladi, lekin akkaunt yo'q. Disk joyi behuda.
+- **Yangi guruh effekti kechikadi** — foydalanuvchi `logout && login` yoki `newgrp <guruh>` ni bajarguncha guruh faollashmaydi.
+- **`/etc/sudoers` ni nano bilan tahrirlash** — sintaksis xatosi tizimga kira olmaslikka olib keladi. Doim `sudo visudo` ishlatilsin.
+
+## 14. Eng yaxshi amaliyot
+
+- **Server uchun `sudo`** — root parolini umuman ishlatmaslik. `root` login'ini o'chirish (`/etc/ssh/sshd_config: PermitRootLogin no`).
+- **Har bir xizmat alohida foydalanuvchi** — `nginx` uchun `www-data`, ma'lumotlar bazasi uchun `mysql` — xavfsizlik uchun.
+- **Parol siyosati** — kamida `-M 90` (har 90 kunda almashtirish).
+- **Login shell `nologin`** — xizmat akkauntlari uchun `/usr/sbin/nologin` ishlatish (login imkonsiz).
+- **`adduser` Debian/Ubuntu uchun** — interaktiv, oson, xato kamroq.
+
+## 15. Bilim sinovi
+
+**Savol 1.** root UID raqami nima?
+
+- a) 1
+- b) 100
+- c) 0
+- d) 1000
+
+<Callout type="success" title="Javob">
+**(c)** root har doim UID 0. Bu Linux'ning fundamental qoidasi.
+</Callout>
+
+**Savol 2.** Foydalanuvchini `docker` guruhiga **qo'shimcha** qo'shish uchun:
+
+- a) `usermod -G docker ali`
+- b) `usermod -aG docker ali`
+- c) `groupadd ali docker`
+- d) `passwd ali docker`
+
+<Callout type="success" title="Javob">
+**(b)** `-a` (append) — boshqa guruhlarni saqlaydi. `-G` siz `-a` — barchasini almashtiradi.[³](https://manpages.debian.org/bookworm/passwd/useradd.8.en.html)
+</Callout>
+
+**Savol 3.** `/etc/passwd` da parolning o'rnida `x` nima anglatadi?
+
+- a) Akkaunt qulflangan
+- b) Haqiqiy parol xeshi `/etc/shadow` da
+- c) Parol yo'q
+- d) Parol "x" so'zi
+
+<Callout type="success" title="Javob">
+**(b)** Tarixiy jihatdan `/etc/passwd` da parol xeshi bo'lar edi, lekin u hammaga o'qiladigan. Endi xeshlar `/etc/shadow` da (faqat root o'qiy oladi).[²](https://manpages.debian.org/bookworm/manpages/passwd.5.en.html)
+</Callout>
+
+## 16. Mashq
+
+1. `id` bajaring. Sizning UID va GID raqamlaringiz nima? Qaysi guruhlarda?
+2. `cat /etc/passwd | wc -l` — tizimingizda jami nechta foydalanuvchi mavjud?
+3. `awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' /etc/passwd` — oddiy foydalanuvchilarni ko'ring. Sizdagi nomingiz roʻyxatda bormi?
+4. `getent group sudo` natijasi nima? Bu guruhda kim bor?
+
+## Manbalar
+
+1. ArchWiki — Users and groups. [https://wiki.archlinux.org/title/Users_and_groups](https://wiki.archlinux.org/title/Users_and_groups)
+2. Debian — passwd(5) manpage. [https://manpages.debian.org/bookworm/manpages/passwd.5.en.html](https://manpages.debian.org/bookworm/manpages/passwd.5.en.html)
+3. Debian — useradd(8), usermod(8). [https://manpages.debian.org/bookworm/passwd/useradd.8.en.html](https://manpages.debian.org/bookworm/passwd/useradd.8.en.html)
+
+## Keyingi qadam
+
+👉 [Ruxsatlar (chmod, chown, sudo)](/fundamentals/permissions)

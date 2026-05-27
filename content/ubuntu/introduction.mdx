@@ -1,40 +1,173 @@
 ---
 title: "Ubuntu ga kirish"
-description: "Ubuntu Linux haqida umumiy ma'lumot - dunyodagi eng mashhur Linux distributivi"
+description: "Ubuntu Linux haqida umumiy ma'lumot — Canonical kompaniyasi tomonidan yaratilgan, Debian asosidagi mashhur distributiv."
 order: 1
-category: "getting-started"
-lastUpdated: "2024-01-24"
-author: "LinuxHub jamoasi"
-tags: ["ubuntu", "debian", "desktop", "server"]
+level: "beginner"
+estimated_minutes: 6
+prerequisites:
+  - "/fundamentals/intro"
+learning_objectives:
+  - "Ubuntuning Debian bilan aloqasini va Canonical rolini izohlash"
+  - "Ubuntu nashr turlari (Desktop, Server, Core) va flavor'larini farqlash"
+  - "Ubuntu reliz tsikli (LTS va 6 oylik) qanday ishlashini bilish"
+tags: ["ubuntu", "beginner", "debian", "canonical"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "Ubuntu — About"
+    url: "https://ubuntu.com/about"
+  - title: "Ubuntu — Release cycle"
+    url: "https://ubuntu.com/about/release-cycle"
+  - title: "Ubuntu wiki — Ubuntu flavors"
+    url: "https://wiki.ubuntu.com/UbuntuFlavors"
 ---
 
-# Ubuntu bo'limi tez orada qo'shiladi! 🚀
+**Ubuntu** — bu Canonical Ltd. kompaniyasi tomonidan tayyorlanadigan, Debian GNU/Linux asosidagi ochiq kodli operatsion tizim. Birinchi versiyasi 2004-yilda chiqarilgan va shu paytdan boshlab ish stoli, server va bulut sohalarida eng keng tarqalgan Linux distributivlaridan biri bo'lib kelmoqda.[¹](https://ubuntu.com/about)
 
-<Callout type="info">
-  Biz hozirda Ubuntu bo'limini tayyorlamoqdamiz. Tez orada to'liq hujjatlar bilan qaytib keling!
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- Ubuntu nima va u kim tomonidan tayyorlanadi.
+- Debian va Ubuntu o'rtasidagi munosabat.
+- Nashr turlari: Desktop / Server / Core, va rasmiy "flavor"lar.
+- Reliz tsikli: 6 oyda bir, LTS — 2 yilda bir.
 </Callout>
 
-## Ubuntu haqida qisqacha
+## 1. Ubuntu va Canonical
 
-**Ubuntu** — bu Debian asosida qurilgan, dunyodagi eng mashhur Linux distributivlaridan biri. U ish stoli foydalanuvchilari, serverlar va IoT qurilmalari uchun mo'ljallangan.
+Ubuntu loyihasini **Canonical Ltd.** — Buyuk Britaniyada ro'yxatdan o'tgan kompaniya — moliyalashtiradi va boshqaradi. Loyiha rivojlanishida butun dunyo bo'ylab minglab ko'ngillilar ishtirok etadi, lekin asosiy yo'nalishni Canonical belgilaydi.[¹](https://ubuntu.com/about)
 
-## Nima uchun Ubuntu?
+So'zning ma'nosi: "ubuntu" — Janubiy Afrika tillaridagi (Nguni-Zulu, Xhosa) falsafiy tushuncha bo'lib, "insoniylik" yoki "men borman, chunki biz birgamiz" deb tarjima qilinadi.
 
-- 🎯 **Oson o'rnatish** — grafik interfeys orqali o'rnatish
-- 📦 **Keng paket ombori** — minglab dasturlar
-- 🔄 **Muntazam yangilanishlar** — har 6 oyda yangi versiya
-- 🛡️ **LTS versiyalar** — 5 yillik qo'llab-quvvatlash
-- 👥 **Katta hamjamiyat** — yordam topish oson
+## 2. Ubuntu va Debian
 
-## Tez kunda qo'shiladigan mavzular
+Ubuntu **Debian asosida** quriladi: u Debian'ning `unstable` (Sid) paket bazasidan startovaya nuqta sifatida foydalanadi, so'ngra qo'shimcha sinov, integratsiya va o'zining paketlari bilan to'ldiradi.
 
-- Ubuntu o'rnatish qo'llanmasi
-- APT paket menejeri bilan ishlash
-- Snap paketlari
-- Ubuntu Server sozlash
-- Desktop muhitlari (GNOME, KDE, XFCE)
+```
+┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
+│   Debian (Sid)   │ ──▶ │  Ubuntu jamoasi   │ ──▶ │  Ubuntu nashri   │
+│  rivojlanish     │      │  sinov, paketlash │      │  (har 6 oyda)    │
+└──────────────────┘      └──────────────────┘      └──────────────────┘
+```
 
----
+Bu shuni anglatadi: Ubuntu va Debian APT, dpkg, ko'pgina kutubxonalar va asosiy buyruqlarni baham ko'radi. Lekin Ubuntu yangiroq paketlarni tezroq taklif qiladi va o'zining qo'shimcha texnologiyalariga ega (masalan, Snap, Livepatch, Ubuntu Pro).
 
-Yangiliklar uchun saytimizga qaytib turing! 🐧
+## 3. Nashr turlari
+
+Ubuntuning bir nechta rasmiy nashri bor:[¹](https://ubuntu.com/about)
+
+- **Ubuntu Desktop** — uy va ofis foydalanuvchilari uchun, GNOME ish stoli bilan.
+- **Ubuntu Server** — server uchun, grafik interfeyssiz.
+- **Ubuntu Core** — IoT (Internet of Things) qurilmalari uchun, butunlay Snap asosida.
+
+Bundan tashqari, jamoa qo'llab-quvvatlovchi **flavor**lar mavjud — bir xil paket bazasi, ammo turli ish stoli muhitlari:[²](https://wiki.ubuntu.com/UbuntuFlavors)
+
+- **Kubuntu** — KDE Plasma bilan.
+- **Xubuntu** — XFCE, eski kompyuterlar uchun yengil.
+- **Lubuntu** — LXQt, eng yengil.
+- **Ubuntu MATE**, **Ubuntu Budgie**, **Ubuntu Cinnamon** va boshqalar.
+
+## 4. Reliz tsikli
+
+Ubuntuning reliz raqami **YY.MM** formatida — chiqarilgan yil va oy:[³](https://ubuntu.com/about/release-cycle)
+
+- Har **6 oyda** yangi reliz chiqadi (aprel va oktyabr).
+- Har **2 yilda bir** (juft yilning aprelida) **LTS (Long Term Support)** relizi chiqadi.
+- Oddiy reliz: 9 oy qo'llab-quvvatlanadi.
+- LTS reliz: **5 yil** standart qo'llab-quvvatlash; Ubuntu Pro orqali yana 5 yilgacha kengaytirish mumkin.
+
+```
+2020 (LTS)  ──┬── 2020.04 LTS (Focal Fossa)     ← 5 yil yordam
+2022 (LTS)  ──┼── 2022.04 LTS (Jammy Jellyfish) ← 5 yil yordam
+2024 (LTS)  ──┴── 2024.04 LTS (Noble Numbat)    ← 5 yil yordam
+```
+
+LTSlar orasidagi relizlar — masalan 22.10, 23.04, 23.10 — "interim" deb ataladi va asosan yangi texnologiyalarni sinash uchun mo'ljallangan.
+
+<Callout type="tip">
+**Boshlovchilar uchun maslahat:** doimo **LTS** versiyasini tanlang. Yangi xususiyatlar uchun interim relizdan foydalanish — bu tajribali foydalanuvchilar yo'li. Ushbu kursdagi Ubuntu darslari LTS relizlariga moslangan.
 </Callout>
+
+## 5. Nima uchun Ubuntu?
+
+- **Katta hamjamiyat** — savol-javoblar, qo'llanmalar, yordam: hammasi ko'p. Rasmiy hujjatlar [help.ubuntu.com](https://help.ubuntu.com) va [documentation.ubuntu.com](https://documentation.ubuntu.com) saytlarida.
+- **Keng dasturlar to'plami** — Debian paket bazasi + Ubuntu'ning o'z arxivi + Snap do'koni + Flatpak.
+- **Servar va bulut** — AWS, Azure, Google Cloud — uchchovida Ubuntu eng keng tarqalgan operatsion tizimlardan biri.
+- **WSL** — Windows ostida ham birinchi rasmiy distributiv.
+- **LTS kafolati** — 5 yil davomida tinch yangilanishlar olasiz.
+
+## 6. Amaliy misol
+
+Ubuntu o'rnatilgan tizimda quyidagi buyruqlarni bajaring:
+
+```bash
+# Ubuntu versiyasini ko'rish
+lsb_release -a
+```
+
+Misol natija:
+
+```
+Distributor ID: Ubuntu
+Description:    Ubuntu 24.04.1 LTS
+Release:        24.04
+Codename:       noble
+```
+
+```bash
+# /etc/os-release fayli — yana bir manba
+cat /etc/os-release
+```
+
+Bu yerda `UBUNTU_CODENAME=noble` qatorini ham ko'rasiz — Noble Numbat (24.04 LTS) kodli nomi.
+
+## 7. Mashqlar
+
+1. [Ubuntu — Release cycle](https://ubuntu.com/about/release-cycle) sahifasini oching. Hozirgi LTS versiyasi qaysi va u qachongacha yordam oladi?
+2. [Wiki — Ubuntu flavors](https://wiki.ubuntu.com/UbuntuFlavors) sahifasidan o'zingizning eski kompyuteringizga (2 GB RAM, 32-bit) mos flavor'ni tanlang. Nima uchun aynan u?
+3. (Ubuntu o'rnatilgan tizimda) `lsb_release -cs` buyrug'i nimani qaytaradi va u qayerda foydali bo'ladi?
+
+## 8. Bilim sinovi
+
+**Savol 1.** Ubuntu qaysi distributiv asosida quriladi?
+
+- a) Red Hat
+- b) Arch Linux
+- c) Debian
+- d) Slackware
+
+<Callout type="success" title="Javob">
+**(c)** Ubuntu — Debian (xususan, uning Sid/unstable shoxchasi) asosida quriladi.[¹](https://ubuntu.com/about)
+</Callout>
+
+**Savol 2.** LTS so'zining ma'nosi nima?
+
+- a) Latest Technology Stack
+- b) Long Term Support
+- c) Linux Trusted Server
+- d) Large Tools Suite
+
+<Callout type="success" title="Javob">
+**(b)** Long Term Support — uzoq muddatli qo'llab-quvvatlash. LTS relizlari 5 yil yordam oladi.[³](https://ubuntu.com/about/release-cycle)
+</Callout>
+
+**Savol 3.** Ubuntu reliz raqami `24.04` nimani anglatadi?
+
+- a) 24-versiya, 4-tahrir
+- b) 2024-yil aprel
+- c) 24 oylik LTS, 4 yil yordam
+- d) 24 GB ISO, 4 GB RAM kerak
+
+<Callout type="success" title="Javob">
+**(b)** Format `YY.MM` — yil va oy. `24.04` = 2024-yil aprel relizi.
+</Callout>
+
+## Manbalar
+
+1. Ubuntu — About. [https://ubuntu.com/about](https://ubuntu.com/about)
+2. Ubuntu wiki — Ubuntu flavors. [https://wiki.ubuntu.com/UbuntuFlavors](https://wiki.ubuntu.com/UbuntuFlavors)
+3. Ubuntu — Release cycle. [https://ubuntu.com/about/release-cycle](https://ubuntu.com/about/release-cycle)
+
+## Keyingi qadam
+
+Endi Ubuntuni o'rnatishga tayyorgarlik ko'ramiz — tizim talablarini ko'rib chiqamiz.
+
+👉 [Tizim talablari](/ubuntu/installation/requirements)

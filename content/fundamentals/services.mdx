@@ -1,0 +1,354 @@
+---
+title: "systemd xizmatlari"
+description: "Linux'ning zamonaviy init tizimi — systemd — bilan xizmatlarni boshqarish, holatlarini ko'rish va o'z xizmatingizni yaratish."
+order: 2
+level: "intermediate"
+estimated_minutes: 8
+prerequisites:
+  - "/fundamentals/processes"
+learning_objectives:
+  - "systemd nima va init tizim sifatida uning roli"
+  - "`systemctl` orqali xizmatlarni boshqarish"
+  - "O'z unit faylini yozish va sinab ko'rish"
+tags: ["intermediate", "systemd", "services", "systemctl"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "systemd documentation"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/"
+  - title: "systemctl(1) manpage"
+    url: "https://www.freedesktop.org/software/systemd/man/latest/systemctl.html"
+  - title: "ArchWiki — systemd"
+    url: "https://wiki.archlinux.org/title/Systemd"
+---
+
+**systemd** — zamonaviy Linux distributivlarining standart **init tizimi** va xizmat menejeri. U tizim yuklanganda birinchi ishlaydigan PID 1 jarayoni va barcha xizmatlarni boshqaradi.[¹](https://www.freedesktop.org/software/systemd/man/latest/)
+
+<Callout type="info" title="Bu darsda nimani o'rganasiz">
+- systemd nima va `init` tizimi roli.
+- `systemctl` bilan xizmat boshqaruvi.
+- Unit fayllari va ularning turlari.
+- O'z xizmatingizni yozish.
+</Callout>
+
+## 1. systemd nima?
+
+Init tizimi — Linux yuklanganda birinchi ishlaydigan jarayon (PID 1). U boshqa barcha jarayonlarni boshlaydi va kuzatadi. Tarixiy variantlar: SysV init, Upstart. Hozir esa **systemd** Ubuntu (15.04+), Debian (8+), Fedora, RHEL, Arch, openSUSE va boshqa ko'pgina distributivlarda standart.
+
+systemd ning vazifalari:
+
+- Tizim yuklanganda xizmatlarni boshlash (parallel va tezkor).
+- Xizmatlarning holatini kuzatish; ishdan to'xtaganda qayta boshlash.
+- Loglar yig'ish (`systemd-journald`).
+- Vaqt rejasi (`systemd-timer`) — `cron` o'rniga.
+- Tarmoq sozlamalari (`systemd-networkd`) — ixtiyoriy.
+
+## 2. Asosiy `systemctl` buyruqlari[²](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html)
+
+```bash
+# Xizmat holatini ko'rish
+systemctl status ssh
+
+# Boshlash
+sudo systemctl start ssh
+
+# To'xtatish
+sudo systemctl stop ssh
+
+# Qayta boshlash
+sudo systemctl restart ssh
+
+# Konfiguratsiyani qayta o'qish (xizmatni to'xtatmasdan)
+sudo systemctl reload ssh
+
+# Tizim yuklanganida avtomatik boshlanish
+sudo systemctl enable ssh
+
+# Avtomatik boshlanishni o'chirish
+sudo systemctl disable ssh
+
+# Boshlash va avtomatik yoqish bir vaqtda
+sudo systemctl enable --now ssh
+
+# Xizmat yoqilganmi?
+systemctl is-enabled ssh
+
+# Hozir ishlayaptimi?
+systemctl is-active ssh
+```
+
+## 3. Xizmatlarni topish va ro'yxat
+
+```bash
+# Hozir ishlayotgan xizmatlar
+systemctl list-units --type=service --state=running
+
+# Hammasi (jumladan, to'xtagan va xato bilan)
+systemctl list-units --type=service --all
+
+# Avtomatik yoqilgan xizmatlar
+systemctl list-unit-files --state=enabled
+
+# Faqat xato bilan to'xtaganlar
+systemctl --failed
+```
+
+## 4. Unit fayllar
+
+systemd uchun har bir xizmat **unit fayl** orqali ta'riflanadi. Unit turlari:
+
+| Tur | Maqsad | Misol |
+|---|---|---|
+| `.service` | Xizmat (eng tez-tez) | `ssh.service` |
+| `.socket` | Socket-faollashtirish | `cups.socket` |
+| `.target` | Run-level analogi | `multi-user.target` |
+| `.mount` | Disk ulash | `home.mount` |
+| `.timer` | Vaqt-asoslangan trigger | `apt-daily.timer` |
+| `.path` | Fayl tizimi o'zgarishini kuzatish | `cups.path` |
+
+Unit fayllar joylashgan:
+
+- `/etc/systemd/system/` — administrator yaratgan/o'zgartirgan (eng yuqori ustuvorlik).
+- `/run/systemd/system/` — vaqtinchalik (boot vaqtida).
+- `/usr/lib/systemd/system/` — paketdan o'rnatilgan (eng past ustuvorlik).
+
+## 5. Xizmatning ichiga qarash
+
+```bash
+# Unit fayl tarkibini ko'rish
+systemctl cat ssh
+
+# Yoki to'g'ridan-to'g'ri
+cat /usr/lib/systemd/system/ssh.service
+
+# Unit fayl xususiyatlari va qaramliklari
+systemctl show ssh
+
+# Xizmat qaysi unitlarga bog'liq
+systemctl list-dependencies ssh
+```
+
+## 6. Tizim holati va bootlash
+
+```bash
+# Tizim umumiy holati
+systemctl status
+
+# Yuklanish vaqti analizi
+systemd-analyze
+
+# Eng sekin xizmatlar
+systemd-analyze blame
+
+# Joriy target (run-level analogi)
+systemctl get-default
+
+# Default target'ni o'zgartirish
+sudo systemctl set-default multi-user.target   # GUI siz
+sudo systemctl set-default graphical.target    # GUI bilan
+```
+
+## 7. O'z xizmatingizni yaratish
+
+Misol: Python skriptini xizmat sifatida ishga tushirish.
+
+**1-qadam: Skript**
+
+`/usr/local/bin/myapp.py`:
+
+```python
+#!/usr/bin/env python3
+import time, datetime
+while True:
+    print(f"[{datetime.datetime.now()}] running")
+    time.sleep(10)
+```
+
+```bash
+sudo chmod +x /usr/local/bin/myapp.py
+```
+
+**2-qadam: Unit fayl**
+
+`/etc/systemd/system/myapp.service`:
+
+```ini
+[Unit]
+Description=My Python app
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/myapp.py
+Restart=on-failure
+RestartSec=5
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**3-qadam: Yuklash va yoqish**
+
+```bash
+# Yangi/o'zgartirilgan unitlarni qayta yuklash
+sudo systemctl daemon-reload
+
+# Boshlash
+sudo systemctl start myapp
+
+# Avtomatik boshlash
+sudo systemctl enable myapp
+
+# Holatni tekshirish
+systemctl status myapp
+
+# Loglarni ko'rish
+sudo journalctl -u myapp -f
+```
+
+## 8. Unit fayl asosiy bo'limlari
+
+| Bo'lim | Mazmuni |
+|---|---|
+| `[Unit]` | Tavsif, qaramliklar (`Before=`, `After=`, `Requires=`) |
+| `[Service]` | Xizmat turi, qanday boshlanadi, qachon to'xtaydi |
+| `[Install]` | Qachon avtomatik yoqiladi |
+
+Asosiy `[Service]` parametrlari:
+
+| Parametr | Ma'no |
+|---|---|
+| `Type=simple` | ExecStart asosiy jarayon (default) |
+| `Type=forking` | Eski-uslubdagi daemons |
+| `Type=oneshot` | Bir marta ishlab tugaydi |
+| `ExecStart=` | Boshlash buyrug'i |
+| `ExecStop=` | To'xtatish buyrug'i (ixtiyoriy) |
+| `ExecReload=` | Reload buyrug'i (ixtiyoriy) |
+| `Restart=on-failure` | Xato bo'lsa qayta boshlash |
+| `RestartSec=5` | Qayta boshlashdan oldin 5 soniya |
+| `User=`, `Group=` | Qaysi foydalanuvchi sifatida |
+
+## 9. Loglar
+
+systemd loglarni `journalctl` orqali boshqaradi:
+
+```bash
+# Aniq xizmat loglari
+sudo journalctl -u ssh
+
+# Real-time
+sudo journalctl -u ssh -f
+
+# Oxirgi 50 qator
+sudo journalctl -u ssh -n 50
+
+# Bugungi loglar
+sudo journalctl -u ssh --since today
+
+# Faqat xatolar
+sudo journalctl -u ssh -p err
+```
+
+## 10. Amaliy misol — nginx xizmati
+
+```bash
+# O'rnatish
+sudo apt install nginx
+
+# Avtomatik ishga tushadimi?
+systemctl is-enabled nginx
+systemctl is-active nginx
+
+# Konfiguratsiya o'zgartirgandan keyin tekshirish
+sudo nginx -t
+
+# Reload
+sudo systemctl reload nginx
+
+# Loglarni real-time kuzatish
+sudo journalctl -u nginx -f
+```
+
+## 11. Buyruqlar va izoh
+
+| Buyruq | Vazifa |
+|---|---|
+| `systemctl status <xizmat>` | Holat va oxirgi loglar |
+| `systemctl start/stop/restart` | Xizmat boshqaruvi |
+| `systemctl enable/disable` | Avtomatik yoqish |
+| `systemctl enable --now` | Yoqish va boshlash |
+| `systemctl list-units` | Faol unitlar |
+| `systemctl --failed` | Xato bilan to'xtagan unitlar |
+| `systemctl daemon-reload` | Yangi/o'zgartirilgan unitlarni o'qish |
+| `journalctl -u <xizmat>` | Xizmat loglari |
+| `systemd-analyze` | Bootlash vaqti |
+
+## 12. Eng tez-tez uchraydigan xatolar
+
+- **Unit fayl o'zgartirib `daemon-reload` qilmaslik** — systemd eski versiyani ishlatadi.
+- **`start` va `enable` aralashtirish** — `start` hozir boshlaydi, `enable` keyingi bootda.
+- **`ExecStart` ga relativ yo'l** — har doim to'liq yo'l (`/usr/local/bin/...`).
+- **`Type=simple` da fork qilingan jarayon** — systemd uni "tugagan" deb hisoblaydi.
+- **Xato unit fayl tahlili** — `systemd-analyze verify /etc/systemd/system/myapp.service` orqali tekshiring.
+
+## 13. Eng yaxshi amaliyot
+
+- **Sinash:** Birinchi marotaba `start` qilishdan oldin `daemon-reload` va `systemd-analyze verify`.
+- **Xavfsizlik:** Xizmat uchun alohida foydalanuvchi (`User=myapp`). Root sifatida ishlatmang.
+- **Resurs cheklash:** `[Service]` ichida `MemoryLimit=`, `CPUQuota=` ishlatilsin.
+- **Qayta boshlash:** `Restart=on-failure` + `RestartSec=5` — vaqtincha tarmoq xatolaridan saqlaydi.
+- **Yangi xizmat uchun:** `/etc/systemd/system/` ga qo'ying — `/usr/lib/` paket yangilanishida qayta yozilishi mumkin.
+
+## 14. Bilim sinovi
+
+**Savol 1.** Xizmatni hozir boshlash + avtomatik yoqish bir buyruqda:
+
+- a) `systemctl start --enable <xizmat>`
+- b) `systemctl enable --now <xizmat>`
+- c) `systemctl restart --auto <xizmat>`
+- d) `systemctl start && systemctl enable <xizmat>`
+
+<Callout type="success" title="Javob">
+**(b)** `systemctl enable --now` ham yoqadi, ham hozir boshlaydi.[²](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html)
+</Callout>
+
+**Savol 2.** Unit faylni o'zgartirgandan keyin qaysi buyruq kerak?
+
+- a) `systemctl restart all`
+- b) `systemctl daemon-reload`
+- c) `systemctl reload-config`
+- d) `service apply`
+
+<Callout type="success" title="Javob">
+**(b)** `daemon-reload` — yangi/o'zgartirilgan unit fayllarni qayta yuklash.
+</Callout>
+
+**Savol 3.** Qaysi katalogda administrator unitlarini joylashtirish kerak?
+
+- a) `/usr/lib/systemd/system/`
+- b) `/etc/systemd/system/`
+- c) `/var/systemd/`
+- d) `/opt/systemd/`
+
+<Callout type="success" title="Javob">
+**(b)** `/etc/systemd/system/` — paket yangilanishida o'chmaydi.[³](https://wiki.archlinux.org/title/Systemd)
+</Callout>
+
+## 15. Mashq
+
+1. `systemctl --failed` — tizimingizda xato bilan to'xtagan xizmatlar bormi?
+2. `systemd-analyze blame | head -10` — eng sekin yuklanadigan 10 ta xizmat qaysilar?
+3. `systemctl list-units --type=service --state=running | wc -l` — nechta xizmat ishlayapti?
+4. O'z xizmatingizni (`/etc/systemd/system/test.service`) yarating. U `echo "hello"` ni har 30 soniyada chiqarsin. Boshlang va `journalctl -u test -f` orqali kuzating.
+
+## Manbalar
+
+1. systemd documentation. [https://www.freedesktop.org/software/systemd/man/latest/](https://www.freedesktop.org/software/systemd/man/latest/)
+2. systemctl(1) manpage. [https://www.freedesktop.org/software/systemd/man/latest/systemctl.html](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html)
+3. ArchWiki — systemd. [https://wiki.archlinux.org/title/Systemd](https://wiki.archlinux.org/title/Systemd)
+
+## Keyingi qadam
+
+👉 [Monitoring](/fundamentals/monitoring)

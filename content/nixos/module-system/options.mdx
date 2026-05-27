@@ -1,0 +1,112 @@
+---
+title: "Modul opsiyalari"
+description: "lib.mkOption va lib.types — turli xil option turlarini e'lon qilish."
+order: 3
+level: "advanced"
+estimated_minutes: 4
+prerequisites:
+  - "/nixos/module-system/writing-modules"
+learning_objectives:
+  - "Standart option turlari"
+  - "Composite turlar (list, attrs, submodule)"
+tags: ["nixos", "modules", "options"]
+lastUpdated: "2026-05-26"
+author: "LinuxHubuz jamoasi"
+references:
+  - title: "NixOS Manual — Options"
+    url: "https://nixos.org/manual/nixos/stable/#sec-option-declarations"
+  - title: "Nixpkgs Manual — Types"
+    url: "https://nixos.org/manual/nixos/stable/#sec-option-types"
+---
+
+`lib.types` — option qaysi qiymatlarga ruxsat berishini tasvirlaydi.[¹](https://nixos.org/manual/nixos/stable/#sec-option-declarations)[²](https://nixos.org/manual/nixos/stable/#sec-option-types)
+
+## 1. Asosiy turlar
+
+| Tur | Misol qiymat |
+|---|---|
+| `types.bool` | `true`, `false` |
+| `types.int` | `42` |
+| `types.float` | `3.14` |
+| `types.str` | `"hello"` |
+| `types.path` | `./fayl` |
+| `types.port` | `8080` (1-65535) |
+| `types.package` | `pkgs.foo` |
+| `types.nullOr <T>` | `<T>` yoki `null` |
+| `types.enum [ "a" "b" "c" ]` | `"a"`, `"b"`, `"c"` |
+
+## 2. Composite turlar
+
+```nix
+options.servers = mkOption {
+  type = types.listOf types.str;
+  default = [];
+  example = [ "host1.example.com" "host2.example.com" ];
+};
+
+options.aliases = mkOption {
+  type = types.attrsOf types.str;
+  default = {};
+  example = { ls = "ls --color"; };
+};
+```
+
+## 3. Submodule — ichki modul
+
+Murakkab tuzilma:
+
+```nix
+options.users = mkOption {
+  type = types.attrsOf (types.submodule {
+    options = {
+      name = mkOption { type = types.str; };
+      age = mkOption { type = types.int; };
+    };
+  });
+};
+```
+
+Foydalanish:
+
+```nix
+users.ali = { name = "Ali"; age = 25; };
+users.vali = { name = "Vali"; age = 30; };
+```
+
+## 4. `mkIf`, `mkDefault`, `mkForce`, `mkMerge`
+
+| Funksiya | Maqsad |
+|---|---|
+| `mkIf cond val` | Agar `cond` true bo'lsa, `val` |
+| `mkDefault val` | Past ustuvorlikli qiymat (boshqalar bostiradi) |
+| `mkForce val` | Yuqori ustuvorlikli (boshqalarni bostiradi) |
+| `mkMerge [ ... ]` | Bir nechta config'ni birlashtirish |
+
+```nix
+config = mkMerge [
+  (mkIf cfg.enable { ... })
+  (mkIf cfg.enableExtra { ... })
+];
+```
+
+## 5. Bilim sinovi
+
+**Savol 1.** `types.attrsOf types.str` qaysi qiymatni qabul qiladi?
+
+- a) Bitta string
+- b) String'lar ro'yxati
+- c) Attribute set — qiymatlari string
+- d) Hech qanday
+
+<Callout type="success" title="Javob">
+**(c)** Attribute set — har qiymat string.
+</Callout>
+
+## Manbalar
+
+1. NixOS Manual — Options. [https://nixos.org/manual/nixos/stable/#sec-option-declarations](https://nixos.org/manual/nixos/stable/#sec-option-declarations)
+2. NixOS Manual — Types. [https://nixos.org/manual/nixos/stable/#sec-option-types](https://nixos.org/manual/nixos/stable/#sec-option-types)
+
+## Keyingi qadam
+
+👉 [NixOS — Virtual mashinada ishga tushirish](/nixos/nixos/virtual-machine)
